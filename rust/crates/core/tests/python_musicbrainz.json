@@ -1,0 +1,1719 @@
+{
+ "server": "https://musicbrainz.org",
+ "responses": {
+  "https://musicbrainz.org/ws/2/release/rel-night-2001?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   200,
+   "{\"id\": \"rel-night-2001\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2001-03-07\", \"country\": \"JP\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": [], \"first-release-date\": \"1999-05-28\", \"genres\": [{\"name\": \"synth-pop\", \"count\": 3}, {\"name\": \"electronic\", \"count\": 5}]}, \"genres\": [], \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4, \"tracks\": [{\"id\": \"t-r-neon\", \"position\": 1, \"number\": \"1\", \"title\": \"Neon Streets\", \"length\": 201000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-neon\", \"title\": \"Neon Streets\", \"length\": 201000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-neon-streets\", \"title\": \"Neon Streets\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}]}}]}}, {\"id\": \"t-r-signal\", \"position\": 2, \"number\": \"2\", \"title\": \"Midnight Signal\", \"length\": 245500, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-signal\", \"title\": \"Midnight Signal\", \"length\": 245500, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-midnight-signal\", \"title\": \"Midnight Signal\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}, {\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-mio example\", \"name\": \"Mio Example\"}}]}}]}}, {\"id\": \"t-r-harbour\", \"position\": 3, \"number\": \"3\", \"title\": \"Harbour Lights\", \"length\": 187000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-harbour\", \"title\": \"Harbour Lights\", \"length\": 187000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}, {\"id\": \"t-r-train\", \"position\": 4, \"number\": \"4\", \"title\": \"Last Train Home\", \"length\": 263000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-train\", \"title\": \"Last Train Home\", \"length\": 263000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-last-train-home\", \"title\": \"Last Train Home\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}]}}]}}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release/rel-night-deluxe?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   200,
+   "{\"id\": \"rel-night-deluxe\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2015-10-01\", \"country\": \"XW\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": [], \"first-release-date\": \"1999-05-28\", \"genres\": [{\"name\": \"synth-pop\", \"count\": 3}, {\"name\": \"electronic\", \"count\": 5}]}, \"genres\": [], \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4, \"tracks\": [{\"id\": \"t-r-neon\", \"position\": 1, \"number\": \"1\", \"title\": \"Neon Streets\", \"length\": 201000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-neon\", \"title\": \"Neon Streets\", \"length\": 201000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-neon-streets\", \"title\": \"Neon Streets\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}]}}]}}, {\"id\": \"t-r-signal\", \"position\": 2, \"number\": \"2\", \"title\": \"Midnight Signal\", \"length\": 245500, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-signal\", \"title\": \"Midnight Signal\", \"length\": 245500, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-midnight-signal\", \"title\": \"Midnight Signal\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}, {\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-mio example\", \"name\": \"Mio Example\"}}]}}]}}, {\"id\": \"t-r-harbour\", \"position\": 3, \"number\": \"3\", \"title\": \"Harbour Lights\", \"length\": 187000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-harbour\", \"title\": \"Harbour Lights\", \"length\": 187000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}, {\"id\": \"t-r-train\", \"position\": 4, \"number\": \"4\", \"title\": \"Last Train Home\", \"length\": 263000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-train\", \"title\": \"Last Train Home\", \"length\": 263000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-last-train-home\", \"title\": \"Last Train Home\", \"relations\": [{\"type\": \"composer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-kai example\", \"name\": \"Kai Example\"}}]}}]}}]}, {\"position\": 2, \"format\": \"CD\", \"track-count\": 2, \"tracks\": [{\"id\": \"t-r-neon-demo\", \"position\": 1, \"number\": \"1\", \"title\": \"Neon Streets (Demo)\", \"length\": 199000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-neon-demo\", \"title\": \"Neon Streets (Demo)\", \"length\": 199000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}, {\"id\": \"t-r-signal-remix\", \"position\": 2, \"number\": \"2\", \"title\": \"Signal Remix\", \"length\": 301000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-signal-remix\", \"title\": \"Signal Remix\", \"length\": 301000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release/rel-road-album?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   200,
+   "{\"id\": \"rel-road-album\", \"title\": \"Open Country\", \"status\": \"Official\", \"date\": \"2010-06-01\", \"country\": \"GB\", \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"release-group\": {\"id\": \"rg-open\", \"primary-type\": \"Album\", \"secondary-types\": [], \"first-release-date\": \"2010-06-01\", \"genres\": [{\"name\": \"folk\", \"count\": 4}, {\"name\": \"country\", \"count\": 4}]}, \"genres\": [], \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 3, \"tracks\": [{\"id\": \"t-r-open\", \"position\": 1, \"number\": \"1\", \"title\": \"Open Country\", \"length\": 180000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"recording\": {\"id\": \"r-open\", \"title\": \"Open Country\", \"length\": 180000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"relations\": []}}, {\"id\": \"t-r-road\", \"position\": 2, \"number\": \"2\", \"title\": \"Lonely Road\", \"length\": 222000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"recording\": {\"id\": \"r-road\", \"title\": \"Lonely Road\", \"length\": 222000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-lonely-road\", \"title\": \"Lonely Road\", \"relations\": [{\"type\": \"writer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-ann writer\", \"name\": \"Ann Writer\"}}]}}]}}, {\"id\": \"t-r-river\", \"position\": 3, \"number\": \"3\", \"title\": \"River \\\"Song\\\"\", \"length\": 150000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \" feat. \", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}, {\"name\": \"Guest Singer\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-guest-singer\", \"name\": \"Guest Singer\"}}], \"recording\": {\"id\": \"r-river\", \"title\": \"River \\\"Song\\\"\", \"length\": 150000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \" feat. \", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}, {\"name\": \"Guest Singer\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-guest-singer\", \"name\": \"Guest Singer\"}}], \"relations\": []}}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release/rel-road-single?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   200,
+   "{\"id\": \"rel-road-single\", \"title\": \"Lonely Road\", \"status\": \"Official\", \"date\": \"2010-01-20\", \"country\": \"GB\", \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"release-group\": {\"id\": \"rg-road-single\", \"primary-type\": \"Single\", \"secondary-types\": [], \"first-release-date\": \"2010-01-20\", \"genres\": [{\"name\": \"folk\", \"count\": 2}]}, \"genres\": [], \"media\": [{\"position\": 1, \"format\": \"Digital Media\", \"track-count\": 2, \"tracks\": [{\"id\": \"t-r-road\", \"position\": 1, \"number\": \"1\", \"title\": \"Lonely Road\", \"length\": 222000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"recording\": {\"id\": \"r-road\", \"title\": \"Lonely Road\", \"length\": 222000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"relations\": [{\"type\": \"performance\", \"target-type\": \"work\", \"work\": {\"id\": \"w-lonely-road\", \"title\": \"Lonely Road\", \"relations\": [{\"type\": \"writer\", \"target-type\": \"artist\", \"artist\": {\"id\": \"a-ann writer\", \"name\": \"Ann Writer\"}}]}}]}}, {\"id\": \"t-r-road-ac\", \"position\": 2, \"number\": \"2\", \"title\": \"Lonely Road (Acoustic)\", \"length\": 230000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"recording\": {\"id\": \"r-road-ac\", \"title\": \"Lonely Road (Acoustic)\", \"length\": 230000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"relations\": []}}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release/rel-night-boot?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   200,
+   "{\"id\": \"rel-night-boot\", \"title\": \"Night Drive\", \"status\": \"Bootleg\", \"date\": \"2003\", \"country\": \"\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night-boot\", \"primary-type\": \"Album\", \"secondary-types\": [\"Live\"], \"first-release-date\": \"2003\", \"genres\": []}, \"genres\": [], \"media\": [{\"position\": 1, \"format\": \"Cassette\", \"track-count\": 2, \"tracks\": [{\"id\": \"t-r-neon-live\", \"position\": 1, \"number\": \"1\", \"title\": \"Neon Streets\", \"length\": 230000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-neon-live\", \"title\": \"Neon Streets\", \"length\": 230000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}, {\"id\": \"t-r-harbour-live\", \"position\": 2, \"number\": \"2\", \"title\": \"Harbour Lights\", \"length\": 200000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"recording\": {\"id\": \"r-harbour-live\", \"title\": \"Harbour Lights\", \"length\": 200000, \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"relations\": []}}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release/missing?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json": [
+   404,
+   "{\"error\": \"Not Found\"}"
+  ],
+  "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json": [
+   200,
+   "{\"created\": \"2026-11-24T00:00:00Z\", \"count\": 3, \"offset\": 0, \"releases\": [{\"id\": \"rel-night-2001\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2001-03-07\", \"country\": \"JP\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": []}, \"score\": 100, \"track-count\": 4, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4}]}, {\"id\": \"rel-night-deluxe\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2015-10-01\", \"country\": \"XW\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": []}, \"score\": 100, \"track-count\": 6, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4}, {\"position\": 2, \"format\": \"CD\", \"track-count\": 2}]}, {\"id\": \"rel-night-boot\", \"title\": \"Night Drive\", \"status\": \"Bootleg\", \"date\": \"2003\", \"country\": \"\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night-boot\", \"primary-type\": \"Album\", \"secondary-types\": [\"Live\"]}, \"score\": 100, \"track-count\": 2, \"media\": [{\"position\": 1, \"format\": \"Cassette\", \"track-count\": 2}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release?query=release%3A%22Night%22&limit=10&fmt=json": [
+   200,
+   "{\"created\": \"2026-11-24T00:00:00Z\", \"count\": 3, \"offset\": 0, \"releases\": [{\"id\": \"rel-night-2001\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2001-03-07\", \"country\": \"JP\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": []}, \"score\": 80, \"track-count\": 4, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4}]}, {\"id\": \"rel-night-deluxe\", \"title\": \"Night Drive\", \"status\": \"Official\", \"date\": \"2015-10-01\", \"country\": \"XW\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night\", \"primary-type\": \"Album\", \"secondary-types\": []}, \"score\": 80, \"track-count\": 6, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 4}, {\"position\": 2, \"format\": \"CD\", \"track-count\": 2}]}, {\"id\": \"rel-night-boot\", \"title\": \"Night Drive\", \"status\": \"Bootleg\", \"date\": \"2003\", \"country\": \"\", \"artist-credit\": [{\"name\": \"The Example Band\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-the-example-band\", \"name\": \"The Example Band\"}}], \"release-group\": {\"id\": \"rg-night-boot\", \"primary-type\": \"Album\", \"secondary-types\": [\"Live\"]}, \"score\": 80, \"track-count\": 2, \"media\": [{\"position\": 1, \"format\": \"Cassette\", \"track-count\": 2}]}]}"
+  ],
+  "https://musicbrainz.org/ws/2/release?query=release%3A%22Nothing%22+AND+artist%3A%22Nobody%22&limit=10&fmt=json": [
+   200,
+   "{\"created\": \"2026-11-24T00:00:00Z\", \"count\": 0, \"offset\": 0, \"releases\": []}"
+  ],
+  "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json": [
+   200,
+   "{\"created\": \"2026-11-24T00:00:00Z\", \"count\": 2, \"offset\": 0, \"recordings\": [{\"id\": \"r-road\", \"title\": \"Lonely Road\", \"length\": 222000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"score\": 100, \"releases\": [{\"id\": \"rel-road-single\", \"title\": \"Lonely Road\", \"status\": \"Official\", \"date\": \"2010-01-20\", \"country\": \"GB\", \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"release-group\": {\"id\": \"rg-road-single\", \"primary-type\": \"Single\", \"secondary-types\": []}, \"track-count\": 2, \"media\": [{\"position\": 1, \"format\": \"Digital Media\", \"track-count\": 2, \"track-offset\": 0, \"track\": [{\"id\": \"t-r-road\", \"number\": \"1\", \"title\": \"Lonely Road\", \"length\": 222000}]}]}, {\"id\": \"rel-road-album\", \"title\": \"Open Country\", \"status\": \"Official\", \"date\": \"2010-06-01\", \"country\": \"GB\", \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"release-group\": {\"id\": \"rg-open\", \"primary-type\": \"Album\", \"secondary-types\": []}, \"track-count\": 3, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 3, \"track-offset\": 1, \"track\": [{\"id\": \"t-r-road\", \"number\": \"2\", \"title\": \"Lonely Road\", \"length\": 222000}]}]}, {\"id\": \"rel-road-best\", \"title\": \"Best Roads\", \"status\": \"Official\", \"date\": \"2005\", \"country\": \"US\", \"artist-credit\": [{\"name\": \"Various Artists\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-various-artists\", \"name\": \"Various Artists\"}}], \"release-group\": {\"id\": \"rg-best\", \"primary-type\": \"Album\", \"secondary-types\": [\"Compilation\"]}, \"track-count\": 10, \"media\": [{\"position\": 1, \"format\": \"CD\", \"track-count\": 10, \"track-offset\": 6, \"track\": [{\"id\": \"t-r-road\", \"number\": \"7\", \"title\": \"Lonely Road\", \"length\": 222000}]}]}]}, {\"id\": \"r-road-ac\", \"title\": \"Lonely Road (Acoustic)\", \"length\": 230000, \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"score\": 70, \"releases\": [{\"id\": \"rel-road-single\", \"title\": \"Lonely Road\", \"status\": \"Official\", \"date\": \"2010-01-20\", \"country\": \"GB\", \"artist-credit\": [{\"name\": \"Solo Artist\", \"joinphrase\": \"\", \"artist\": {\"id\": \"a-solo-artist\", \"name\": \"Solo Artist\"}}], \"release-group\": {\"id\": \"rg-road-single\", \"primary-type\": \"Single\", \"secondary-types\": []}, \"track-count\": 2, \"media\": [{\"position\": 1, \"format\": \"Digital Media\", \"track-count\": 2, \"track-offset\": 1, \"track\": [{\"id\": \"t-r-road-ac\", \"number\": \"2\", \"title\": \"Lonely Road (Acoustic)\", \"length\": 230000}]}]}]}]}"
+  ]
+ },
+ "cases": [
+  {
+   "kind": "release_query",
+   "album": "Night Drive",
+   "artist": "The Example Band",
+   "expect": "release:\"Night Drive\" AND artist:\"The Example Band\""
+  },
+  {
+   "kind": "release_query",
+   "album": "A \"quoted\" \\ name",
+   "artist": "",
+   "expect": "release:\"A \\\"quoted\\\" \\\\ name\""
+  },
+  {
+   "kind": "release_query",
+   "album": "  Spaced   out ",
+   "artist": "x",
+   "expect": "release:\"Spaced out\" AND artist:\"x\""
+  },
+  {
+   "kind": "recording_query",
+   "title": "Lonely Road",
+   "artist": "Solo Artist",
+   "album": "",
+   "expect": "recording:\"Lonely Road\" AND artist:\"Solo Artist\""
+  },
+  {
+   "kind": "recording_query",
+   "title": "River \"Song\"",
+   "artist": "",
+   "album": "A\\B",
+   "expect": "recording:\"River \\\"Song\\\"\" AND release:\"A\\\\B\""
+  },
+  {
+   "kind": "recording_query",
+   "title": "日本語",
+   "artist": "歌手",
+   "album": "",
+   "expect": "recording:\"日本語\" AND artist:\"歌手\""
+  },
+  {
+   "kind": "detail",
+   "id": "rel-night-2001",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/rel-night-2001?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "release": {
+     "id": "rel-night-2001",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2001-03-07",
+     "country": "JP",
+     "status": "Official",
+     "track_count": 4,
+     "disc_count": 1,
+     "formats": "CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "1999-05-28",
+     "score": 0
+    },
+    "genre": "Electronic",
+    "date": "1999-05-28",
+    "tracks": [
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 1,
+      "track_count": 4,
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "length": 201.0,
+      "recording_id": "r-neon",
+      "composer": "Kai Example"
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 2,
+      "track_count": 4,
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "length": 245.5,
+      "recording_id": "r-signal",
+      "composer": "Kai Example, Mio Example"
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 3,
+      "track_count": 4,
+      "title": "Harbour Lights",
+      "artist": "The Example Band",
+      "length": 187.0,
+      "recording_id": "r-harbour",
+      "composer": ""
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 4,
+      "track_count": 4,
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "length": 263.0,
+      "recording_id": "r-train",
+      "composer": "Kai Example"
+     }
+    ]
+   }
+  },
+  {
+   "kind": "detail",
+   "id": "rel-night-deluxe",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/rel-night-deluxe?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "release": {
+     "id": "rel-night-deluxe",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2015-10-01",
+     "country": "XW",
+     "status": "Official",
+     "track_count": 6,
+     "disc_count": 2,
+     "formats": "2×CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "1999-05-28",
+     "score": 0
+    },
+    "genre": "Electronic",
+    "date": "1999-05-28",
+    "tracks": [
+     {
+      "disc": 1,
+      "disc_count": 2,
+      "number": 1,
+      "track_count": 4,
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "length": 201.0,
+      "recording_id": "r-neon",
+      "composer": "Kai Example"
+     },
+     {
+      "disc": 1,
+      "disc_count": 2,
+      "number": 2,
+      "track_count": 4,
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "length": 245.5,
+      "recording_id": "r-signal",
+      "composer": "Kai Example, Mio Example"
+     },
+     {
+      "disc": 1,
+      "disc_count": 2,
+      "number": 3,
+      "track_count": 4,
+      "title": "Harbour Lights",
+      "artist": "The Example Band",
+      "length": 187.0,
+      "recording_id": "r-harbour",
+      "composer": ""
+     },
+     {
+      "disc": 1,
+      "disc_count": 2,
+      "number": 4,
+      "track_count": 4,
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "length": 263.0,
+      "recording_id": "r-train",
+      "composer": "Kai Example"
+     },
+     {
+      "disc": 2,
+      "disc_count": 2,
+      "number": 1,
+      "track_count": 2,
+      "title": "Neon Streets (Demo)",
+      "artist": "The Example Band",
+      "length": 199.0,
+      "recording_id": "r-neon-demo",
+      "composer": ""
+     },
+     {
+      "disc": 2,
+      "disc_count": 2,
+      "number": 2,
+      "track_count": 2,
+      "title": "Signal Remix",
+      "artist": "The Example Band",
+      "length": 301.0,
+      "recording_id": "r-signal-remix",
+      "composer": ""
+     }
+    ]
+   }
+  },
+  {
+   "kind": "detail",
+   "id": "rel-road-album",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/rel-road-album?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "release": {
+     "id": "rel-road-album",
+     "title": "Open Country",
+     "artist": "Solo Artist",
+     "date": "2010-06-01",
+     "country": "GB",
+     "status": "Official",
+     "track_count": 3,
+     "disc_count": 1,
+     "formats": "CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "2010-06-01",
+     "score": 0
+    },
+    "genre": "Country",
+    "date": "2010-06-01",
+    "tracks": [
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 1,
+      "track_count": 3,
+      "title": "Open Country",
+      "artist": "Solo Artist",
+      "length": 180.0,
+      "recording_id": "r-open",
+      "composer": ""
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 2,
+      "track_count": 3,
+      "title": "Lonely Road",
+      "artist": "Solo Artist",
+      "length": 222.0,
+      "recording_id": "r-road",
+      "composer": "Ann Writer"
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 3,
+      "track_count": 3,
+      "title": "River \"Song\"",
+      "artist": "Solo Artist feat. Guest Singer",
+      "length": 150.0,
+      "recording_id": "r-river",
+      "composer": ""
+     }
+    ]
+   }
+  },
+  {
+   "kind": "detail",
+   "id": "rel-road-single",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/rel-road-single?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "release": {
+     "id": "rel-road-single",
+     "title": "Lonely Road",
+     "artist": "Solo Artist",
+     "date": "2010-01-20",
+     "country": "GB",
+     "status": "Official",
+     "track_count": 2,
+     "disc_count": 1,
+     "formats": "Digital Media",
+     "primary_type": "Single",
+     "secondary_types": [],
+     "first_date": "2010-01-20",
+     "score": 0
+    },
+    "genre": "Folk",
+    "date": "2010-01-20",
+    "tracks": [
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 1,
+      "track_count": 2,
+      "title": "Lonely Road",
+      "artist": "Solo Artist",
+      "length": 222.0,
+      "recording_id": "r-road",
+      "composer": "Ann Writer"
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 2,
+      "track_count": 2,
+      "title": "Lonely Road (Acoustic)",
+      "artist": "Solo Artist",
+      "length": 230.0,
+      "recording_id": "r-road-ac",
+      "composer": ""
+     }
+    ]
+   }
+  },
+  {
+   "kind": "detail",
+   "id": "rel-night-boot",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/rel-night-boot?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "release": {
+     "id": "rel-night-boot",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2003",
+     "country": "",
+     "status": "Bootleg",
+     "track_count": 2,
+     "disc_count": 1,
+     "formats": "Cassette",
+     "primary_type": "Album",
+     "secondary_types": [
+      "Live"
+     ],
+     "first_date": "2003",
+     "score": 0
+    },
+    "genre": "",
+    "date": "2003",
+    "tracks": [
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 1,
+      "track_count": 2,
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "length": 230.0,
+      "recording_id": "r-neon-live",
+      "composer": ""
+     },
+     {
+      "disc": 1,
+      "disc_count": 1,
+      "number": 2,
+      "track_count": 2,
+      "title": "Harbour Lights",
+      "artist": "The Example Band",
+      "length": 200.0,
+      "recording_id": "r-harbour-live",
+      "composer": ""
+     }
+    ]
+   }
+  },
+  {
+   "kind": "detail",
+   "id": "missing",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release/missing?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": null
+  },
+  {
+   "kind": "search_releases",
+   "album": "Night Drive",
+   "artist": "The Example Band",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json"
+   ],
+   "expect": [
+    {
+     "id": "rel-night-2001",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2001-03-07",
+     "country": "JP",
+     "status": "Official",
+     "track_count": 4,
+     "disc_count": 1,
+     "formats": "CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "",
+     "score": 100
+    },
+    {
+     "id": "rel-night-deluxe",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2015-10-01",
+     "country": "XW",
+     "status": "Official",
+     "track_count": 6,
+     "disc_count": 2,
+     "formats": "2×CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "",
+     "score": 100
+    },
+    {
+     "id": "rel-night-boot",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2003",
+     "country": "",
+     "status": "Bootleg",
+     "track_count": 2,
+     "disc_count": 1,
+     "formats": "Cassette",
+     "primary_type": "Album",
+     "secondary_types": [
+      "Live"
+     ],
+     "first_date": "",
+     "score": 100
+    }
+   ]
+  },
+  {
+   "kind": "search_releases",
+   "album": "Night",
+   "artist": "",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night%22&limit=10&fmt=json"
+   ],
+   "expect": [
+    {
+     "id": "rel-night-2001",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2001-03-07",
+     "country": "JP",
+     "status": "Official",
+     "track_count": 4,
+     "disc_count": 1,
+     "formats": "CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "",
+     "score": 80
+    },
+    {
+     "id": "rel-night-deluxe",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2015-10-01",
+     "country": "XW",
+     "status": "Official",
+     "track_count": 6,
+     "disc_count": 2,
+     "formats": "2×CD",
+     "primary_type": "Album",
+     "secondary_types": [],
+     "first_date": "",
+     "score": 80
+    },
+    {
+     "id": "rel-night-boot",
+     "title": "Night Drive",
+     "artist": "The Example Band",
+     "date": "2003",
+     "country": "",
+     "status": "Bootleg",
+     "track_count": 2,
+     "disc_count": 1,
+     "formats": "Cassette",
+     "primary_type": "Album",
+     "secondary_types": [
+      "Live"
+     ],
+     "first_date": "",
+     "score": 80
+    }
+   ]
+  },
+  {
+   "kind": "search_releases",
+   "album": "Nothing",
+   "artist": "Nobody",
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Nothing%22+AND+artist%3A%22Nobody%22&limit=10&fmt=json"
+   ],
+   "expect": []
+  },
+  {
+   "kind": "search_recordings",
+   "title": "Lonely Road",
+   "artist": "Solo Artist",
+   "album": "",
+   "urls": [
+    "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json"
+   ],
+   "expect": [
+    {
+     "id": "r-road",
+     "title": "Lonely Road",
+     "artist": "Solo Artist",
+     "length": 222.0,
+     "score": 100,
+     "releases": [
+      {
+       "release": {
+        "id": "rel-road-single",
+        "title": "Lonely Road",
+        "artist": "Solo Artist",
+        "date": "2010-01-20",
+        "country": "GB",
+        "status": "Official",
+        "track_count": 2,
+        "disc_count": 1,
+        "formats": "Digital Media",
+        "primary_type": "Single",
+        "secondary_types": [],
+        "first_date": "",
+        "score": 0
+       },
+       "disc": 1,
+       "number": 1
+      },
+      {
+       "release": {
+        "id": "rel-road-album",
+        "title": "Open Country",
+        "artist": "Solo Artist",
+        "date": "2010-06-01",
+        "country": "GB",
+        "status": "Official",
+        "track_count": 3,
+        "disc_count": 1,
+        "formats": "CD",
+        "primary_type": "Album",
+        "secondary_types": [],
+        "first_date": "",
+        "score": 0
+       },
+       "disc": 1,
+       "number": 2
+      },
+      {
+       "release": {
+        "id": "rel-road-best",
+        "title": "Best Roads",
+        "artist": "Various Artists",
+        "date": "2005",
+        "country": "US",
+        "status": "Official",
+        "track_count": 10,
+        "disc_count": 1,
+        "formats": "CD",
+        "primary_type": "Album",
+        "secondary_types": [
+         "Compilation"
+        ],
+        "first_date": "",
+        "score": 0
+       },
+       "disc": 1,
+       "number": 7
+      }
+     ]
+    },
+    {
+     "id": "r-road-ac",
+     "title": "Lonely Road (Acoustic)",
+     "artist": "Solo Artist",
+     "length": 230.0,
+     "score": 70,
+     "releases": [
+      {
+       "release": {
+        "id": "rel-road-single",
+        "title": "Lonely Road",
+        "artist": "Solo Artist",
+        "date": "2010-01-20",
+        "country": "GB",
+        "status": "Official",
+        "track_count": 2,
+        "disc_count": 1,
+        "formats": "Digital Media",
+        "primary_type": "Single",
+        "secondary_types": [],
+        "first_date": "",
+        "score": 0
+       },
+       "disc": 1,
+       "number": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "match",
+   "name": "night",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "id": "rel-night-2001",
+   "by_order": true,
+   "expect": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ]
+   ]
+  },
+  {
+   "kind": "match",
+   "name": "wrong",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "id": "rel-night-2001",
+   "by_order": false,
+   "expect": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ]
+   ]
+  },
+  {
+   "kind": "match",
+   "name": "untitled",
+   "songs": [
+    {
+     "path": "/m/u/0.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/1.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/2.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/3.flac",
+     "tags": {},
+     "duration": 0.0
+    }
+   ],
+   "id": "rel-night-2001",
+   "by_order": true,
+   "expect": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ]
+   ]
+  },
+  {
+   "kind": "match",
+   "name": "untitled-strict",
+   "songs": [
+    {
+     "path": "/m/u/0.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/1.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/2.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/3.flac",
+     "tags": {},
+     "duration": 0.0
+    }
+   ],
+   "id": "rel-night-2001",
+   "by_order": false,
+   "expect": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "kind": "match",
+   "name": "deluxe",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "id": "rel-night-deluxe",
+   "by_order": true,
+   "expect": [
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ],
+    [
+     1,
+     3
+    ],
+    [
+     1,
+     4
+    ]
+   ]
+  },
+  {
+   "kind": "changes",
+   "id": "rel-night-2001",
+   "song": {
+    "path": "/m/n/02.flac",
+    "tags": {
+     "title": "Midnight Signal",
+     "artist": "The Example Band",
+     "album": "Night Drive"
+    },
+    "duration": 245.0
+   },
+   "at": [
+    1,
+    2
+   ],
+   "fields": [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "date",
+    "track",
+    "disc",
+    "composer"
+   ],
+   "only_empty": true,
+   "expect": {
+    "album_artist": "The Example Band",
+    "genre": "Electronic",
+    "date": "1999-05-28",
+    "track": "2/4",
+    "composer": "Kai Example, Mio Example"
+   }
+  },
+  {
+   "kind": "changes",
+   "id": "rel-night-2001",
+   "song": {
+    "path": "/m/n/04.flac",
+    "tags": {
+     "title": "Last Train Home",
+     "artist": "The Example Band",
+     "album": "Night Drive",
+     "track": "4/4",
+     "genre": "Pop",
+     "album_artist": "The Example Band"
+    },
+    "duration": 263.0
+   },
+   "at": [
+    1,
+    4
+   ],
+   "fields": [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "date",
+    "track",
+    "disc",
+    "composer"
+   ],
+   "only_empty": true,
+   "expect": {
+    "date": "1999-05-28",
+    "composer": "Kai Example"
+   }
+  },
+  {
+   "kind": "changes",
+   "id": "rel-night-2001",
+   "song": {
+    "path": "/m/n/03.flac",
+    "tags": {
+     "title": "harbour lights",
+     "artist": "The Example Band",
+     "album": "Night Drive",
+     "track": "3"
+    },
+    "duration": 187.0
+   },
+   "at": [
+    1,
+    3
+   ],
+   "fields": [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "date",
+    "track",
+    "disc",
+    "composer"
+   ],
+   "only_empty": false,
+   "expect": {
+    "title": "Harbour Lights",
+    "album_artist": "The Example Band",
+    "genre": "Electronic",
+    "date": "1999-05-28",
+    "track": "3/4"
+   }
+  },
+  {
+   "kind": "changes",
+   "id": "rel-night-2001",
+   "song": {
+    "path": "/m/n/04.flac",
+    "tags": {
+     "title": "Last Train Home",
+     "artist": "The Example Band",
+     "album": "Night Drive",
+     "track": "4/4",
+     "genre": "Pop",
+     "album_artist": "The Example Band"
+    },
+    "duration": 263.0
+   },
+   "at": [
+    1,
+    4
+   ],
+   "fields": [
+    "genre"
+   ],
+   "only_empty": false,
+   "expect": {
+    "genre": "Electronic"
+   }
+  },
+  {
+   "kind": "changes",
+   "id": "rel-night-deluxe",
+   "song": {
+    "path": "/m/n/01.flac",
+    "tags": {
+     "title": "Neon Streets",
+     "artist": "The Example Band",
+     "album": "Night Drive",
+     "track": "1"
+    },
+    "duration": 201.2
+   },
+   "at": [
+    1,
+    1
+   ],
+   "fields": [
+    "disc",
+    "track"
+   ],
+   "only_empty": false,
+   "expect": {
+    "track": "1/4",
+    "disc": "1/2"
+   }
+  },
+  {
+   "kind": "changes",
+   "id": "rel-road-album",
+   "song": {
+    "path": "/m/road.mp3",
+    "tags": {
+     "title": "Lonely Road",
+     "artist": "Solo Artist"
+    },
+    "duration": 222.4
+   },
+   "at": [
+    1,
+    2
+   ],
+   "fields": [
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "genre",
+    "date",
+    "track",
+    "disc",
+    "composer"
+   ],
+   "only_empty": false,
+   "expect": {
+    "album": "Open Country",
+    "album_artist": "Solo Artist",
+    "genre": "Country",
+    "date": "2010-06-01",
+    "track": "2/3",
+    "composer": "Ann Writer"
+   }
+  },
+  {
+   "kind": "find_album",
+   "name": "night",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json",
+    "https://musicbrainz.org/ws/2/release/rel-night-2001?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "id": "rel-night-2001",
+    "tracks": [
+     [
+      1,
+      1
+     ],
+     [
+      1,
+      2
+     ],
+     [
+      1,
+      3
+     ],
+     [
+      1,
+      4
+     ]
+    ]
+   }
+  },
+  {
+   "kind": "find_album",
+   "name": "stranger",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Unknown Song",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json",
+    "https://musicbrainz.org/ws/2/release/rel-night-2001?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json",
+    "https://musicbrainz.org/ws/2/release/rel-night-deluxe?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "id": null,
+    "tracks": [
+     null,
+     null,
+     null,
+     null
+    ]
+   }
+  },
+  {
+   "kind": "find_album",
+   "name": "other-artist",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "Other Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "Other Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "Other Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "Other Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json",
+    "https://musicbrainz.org/ws/2/release/rel-night-2001?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "id": "rel-night-2001",
+    "tracks": [
+     [
+      1,
+      1
+     ],
+     [
+      1,
+      2
+     ],
+     [
+      1,
+      3
+     ],
+     [
+      1,
+      4
+     ]
+    ]
+   }
+  },
+  {
+   "kind": "find_song",
+   "name": "road",
+   "song": {
+    "path": "/m/road.mp3",
+    "tags": {
+     "title": "Lonely Road",
+     "artist": "Solo Artist"
+    },
+    "duration": 222.4
+   },
+   "urls": [
+    "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json",
+    "https://musicbrainz.org/ws/2/release/rel-road-album?inc=recordings%2Bartist-credits%2Brelease-groups%2Bgenres%2Bmedia%2Bwork-rels%2Brecording-level-rels%2Bwork-level-rels%2Bartist-rels&fmt=json"
+   ],
+   "expect": {
+    "id": "rel-road-album",
+    "track": [
+     1,
+     2
+    ]
+   }
+  },
+  {
+   "kind": "find_song",
+   "name": "no-length",
+   "song": {
+    "path": "/m/road.mp3",
+    "tags": {
+     "title": "Lonely Road",
+     "artist": "Solo Artist"
+    },
+    "duration": 0.0
+   },
+   "urls": [
+    "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json"
+   ],
+   "expect": {
+    "id": null,
+    "track": null
+   }
+  },
+  {
+   "kind": "find_song",
+   "name": "too-long",
+   "song": {
+    "path": "/m/road.mp3",
+    "tags": {
+     "title": "Lonely Road",
+     "artist": "Solo Artist"
+    },
+    "duration": 260.0
+   },
+   "urls": [
+    "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json"
+   ],
+   "expect": {
+    "id": null,
+    "track": null
+   }
+  },
+  {
+   "kind": "candidates",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "title": "Night Drive",
+   "artist": "The Example Band",
+   "album_mode": true,
+   "urls": [
+    "https://musicbrainz.org/ws/2/release?query=release%3A%22Night+Drive%22+AND+artist%3A%22The+Example+Band%22&limit=10&fmt=json"
+   ],
+   "expect": [
+    "rel-night-2001",
+    "rel-night-deluxe",
+    "rel-night-boot"
+   ]
+  },
+  {
+   "kind": "candidates",
+   "songs": [
+    {
+     "path": "/m/road.mp3",
+     "tags": {
+      "title": "Lonely Road",
+      "artist": "Solo Artist"
+     },
+     "duration": 222.4
+    }
+   ],
+   "title": "Lonely Road",
+   "artist": "Solo Artist",
+   "album_mode": false,
+   "urls": [
+    "https://musicbrainz.org/ws/2/recording?query=recording%3A%22Lonely+Road%22+AND+artist%3A%22Solo+Artist%22&limit=10&fmt=json"
+   ],
+   "expect": [
+    "rel-road-album",
+    "rel-road-single",
+    "rel-road-best"
+   ]
+  },
+  {
+   "kind": "needs_lookup",
+   "tags": {
+    "title": "a",
+    "artist": "b"
+   },
+   "expect": true
+  },
+  {
+   "kind": "needs_lookup",
+   "tags": {
+    "title": "a"
+   },
+   "expect": false
+  },
+  {
+   "kind": "needs_lookup",
+   "tags": {
+    "title": "a",
+    "album_artist": "b"
+   },
+   "expect": true
+  },
+  {
+   "kind": "needs_lookup",
+   "tags": {
+    "title": "a",
+    "artist": "b",
+    "album": "c",
+    "album_artist": "b",
+    "date": "2000",
+    "track": "1",
+    "genre": "Pop"
+   },
+   "expect": false
+  },
+  {
+   "kind": "album_of",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    }
+   ],
+   "expect": [
+    "Night Drive",
+    "The Example Band"
+   ]
+  },
+  {
+   "kind": "album_of",
+   "songs": [
+    {
+     "path": "/m/u/0.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/1.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/2.flac",
+     "tags": {},
+     "duration": 0.0
+    },
+    {
+     "path": "/m/u/3.flac",
+     "tags": {},
+     "duration": 0.0
+    }
+   ],
+   "expect": [
+    "",
+    ""
+   ]
+  },
+  {
+   "kind": "album_of",
+   "songs": [
+    {
+     "path": "/m/road.mp3",
+     "tags": {
+      "title": "Lonely Road",
+      "artist": "Solo Artist"
+     },
+     "duration": 222.4
+    }
+   ],
+   "expect": [
+    "",
+    "Solo Artist"
+   ]
+  },
+  {
+   "kind": "genre_name",
+   "name": "cool jazz",
+   "expect": "Cool Jazz"
+  },
+  {
+   "kind": "genre_name",
+   "name": "r&b",
+   "expect": "R&b"
+  },
+  {
+   "kind": "genre_name",
+   "name": "  hip   hop ",
+   "expect": "Hip Hop"
+  },
+  {
+   "kind": "genre_name",
+   "name": "j-pop",
+   "expect": "J-pop"
+  },
+  {
+   "kind": "genre_name",
+   "name": "électro",
+   "expect": "Électro"
+  },
+  {
+   "kind": "groups",
+   "songs": [
+    {
+     "path": "/m/n/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    },
+    {
+     "path": "/m/n/02.flac",
+     "tags": {
+      "title": "Midnight Signal",
+      "artist": "The Example Band",
+      "album": "Night Drive"
+     },
+     "duration": 245.0
+    },
+    {
+     "path": "/m/n/03.flac",
+     "tags": {
+      "title": "harbour lights",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "3"
+     },
+     "duration": 187.0
+    },
+    {
+     "path": "/m/n/04.flac",
+     "tags": {
+      "title": "Last Train Home",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "4/4",
+      "genre": "Pop",
+      "album_artist": "The Example Band"
+     },
+     "duration": 263.0
+    },
+    {
+     "path": "/m/road.mp3",
+     "tags": {
+      "title": "Lonely Road",
+      "artist": "Solo Artist"
+     },
+     "duration": 222.4
+    },
+    {
+     "path": "/m/other/01.flac",
+     "tags": {
+      "title": "Neon Streets",
+      "artist": "The Example Band",
+      "album": "Night Drive",
+      "track": "1"
+     },
+     "duration": 201.2
+    }
+   ],
+   "expect": [
+    [
+     "/m/n/01.flac",
+     "/m/n/02.flac",
+     "/m/n/03.flac",
+     "/m/n/04.flac"
+    ],
+    [
+     "/m/road.mp3"
+    ],
+    [
+     "/m/other/01.flac"
+    ]
+   ]
+  },
+  {
+   "kind": "user_agent",
+   "expect": "UniversalMusicPlayer/2.0.0 ( https://github.com/SU2H1/Universal-Music-Player )"
+  }
+ ]
+}

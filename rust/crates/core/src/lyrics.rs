@@ -141,7 +141,7 @@ pub fn user_agent() -> String {
 }
 
 /// `urlsplit(url).netloc`.
-fn netloc(url: &str) -> &str {
+pub(crate) fn netloc(url: &str) -> &str {
     let rest = match url.find("://") {
         Some(i) => &url[i + 3..],
         None => match url.strip_prefix("//") {
@@ -154,7 +154,7 @@ fn netloc(url: &str) -> &str {
 }
 
 /// `urlsplit(url).hostname` (lower case, without user and port).
-fn hostname(url: &str) -> String {
+pub(crate) fn hostname(url: &str) -> String {
     let n = netloc(url);
     let n = n.rsplit_once('@').map(|(_, h)| h).unwrap_or(n);
     let host = if let Some(rest) = n.strip_prefix('[') {
@@ -372,7 +372,7 @@ pub fn urlencode(params: &[(String, String)]) -> String {
 }
 
 /// Python's repr() of a string, for messages.
-fn repr(s: &str) -> String {
+pub(crate) fn repr(s: &str) -> String {
     let q = if s.contains('\'') && !s.contains('"') { '"' } else { '\'' };
     let mut out = String::from(q);
     for c in s.chars() {
@@ -392,7 +392,7 @@ fn repr(s: &str) -> String {
     out
 }
 
-fn monotonic() -> f64 {
+pub(crate) fn monotonic() -> f64 {
     static START: OnceLock<Instant> = OnceLock::new();
     START.get_or_init(Instant::now).elapsed().as_secs_f64()
 }
@@ -983,7 +983,7 @@ pub fn normalize_name(name: &str) -> String {
     strip(&base).to_string()
 }
 
-fn same_artist(a: &str, b: &str) -> bool {
+pub(crate) fn same_artist(a: &str, b: &str) -> bool {
     let (na, nb) = (normalize_name(a), normalize_name(b));
     if na.is_empty() || nb.is_empty() {
         return false;

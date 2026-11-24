@@ -175,7 +175,7 @@ def language() -> str:
     return _current
 
 
-def tr(text: str, **values) -> str:
+def tr(text: str, /, **values) -> str:
     """`text` in the language in use, with ``{name}`` placeholders filled from `values`."""
     if _current != "en":
         hit = load_catalog(_current).strings.get(text)

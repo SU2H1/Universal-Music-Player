@@ -28,6 +28,7 @@ pub mod imaging;
 pub mod json;
 pub mod library;
 pub mod lyrics;
+pub mod musicbrainz;
 pub mod musiclib;
 pub mod paths;
 pub mod playerstate;
