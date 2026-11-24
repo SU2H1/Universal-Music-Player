@@ -495,7 +495,8 @@ if __name__ == "__main__":
 """, encoding="utf-8")
     env = dict(os.environ, REALHIRES_SETTINGS=str(tmp_path / "settings.json"),
                REALHIRES_LIBRARY=str(tmp_path / "library.sqlite"), REALHIRES_PLAYER=str(tmp_path / "player.json"),
-               REALHIRES_THEMES=str(tmp_path / "themes.json"))
+               REALHIRES_THEMES=str(tmp_path / "themes.json"),
+               PYTHONIOENCODING="utf-8")  # it prints Japanese; a Windows console would use cp1252
     proc = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, encoding="utf-8",
                           env=env, timeout=180)
     log = proc.stdout + proc.stderr

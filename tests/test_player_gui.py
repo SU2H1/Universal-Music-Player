@@ -63,15 +63,17 @@ def run_script(tmp_path, body: str, env: dict, timeout: int = 240) -> str:
     script.write_text(HEADER + 'if __name__ == "__main__":\n' + textwrap.indent(body, "    "), encoding="utf-8")
     out, err = tmp_path / "gui.out", tmp_path / "gui.err"
     with open(out, "w") as fo, open(err, "w") as fe:  # files, not pipes: worker processes may outlive a crash
-        proc = subprocess.Popen([sys.executable, str(script)], stdout=fo, stderr=fe, env=env)
+        # UTF-8 output: a failing Japanese test's message would not fit a Windows console's cp1252
+        proc = subprocess.Popen([sys.executable, str(script)], stdout=fo, stderr=fe,
+                                env=dict(env, PYTHONIOENCODING="utf-8"))
         try:
             rc = proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             proc.kill()
             rc = f"killed after {timeout} s"
-    log = out.read_text(errors="replace") + err.read_text(errors="replace")
+    log = out.read_text(encoding="utf-8", errors="replace") + err.read_text(encoding="utf-8", errors="replace")
     assert rc == 0, log
-    assert out.read_text().splitlines()[-1] == "OK", log
+    assert out.read_text(encoding="utf-8", errors="replace").splitlines()[-1] == "OK", log
     return log
 
 
