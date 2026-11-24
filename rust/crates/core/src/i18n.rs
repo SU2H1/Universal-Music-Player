@@ -41,6 +41,31 @@ const JA_JSON: &str = include_str!("../../../../realhires/assets/lang/ja.json");
 
 static CURRENT: AtomicU8 = AtomicU8::new(0);
 
+thread_local! {
+    /// A language for this thread only (tests run several apps in one process).
+    static THREAD_LANG: std::cell::Cell<u8> = const { std::cell::Cell::new(u8::MAX) };
+}
+
+fn current() -> u8 {
+    let t = THREAD_LANG.with(|c| c.get());
+    if t != u8::MAX {
+        t
+    } else {
+        CURRENT.load(Ordering::Relaxed)
+    }
+}
+
+fn index_of(code: &str) -> u8 {
+    CODES.iter().position(|c| *c == code).unwrap_or(0) as u8
+}
+
+/// Use this language on the calling thread only (tests; "" goes back to the
+/// process-wide language).
+pub fn set_thread_language(language: &str) {
+    let v = if language.is_empty() { u8::MAX } else { index_of(code_of(language)) };
+    THREAD_LANG.with(|c| c.set(v));
+}
+
 /// The texts of one language.
 #[derive(Debug, Default)]
 pub struct Catalog {
@@ -239,18 +264,18 @@ pub fn code_of(language: &str) -> &'static str {
 /// Use this language from now on (a setting value or a code); returns its code.
 pub fn set_language(language: &str) -> &'static str {
     let code = code_of(if language.is_empty() { DEFAULT_LANGUAGE } else { language });
-    CURRENT.store(CODES.iter().position(|c| *c == code).unwrap_or(0) as u8, Ordering::Relaxed);
+    CURRENT.store(index_of(code), Ordering::Relaxed);
     code
 }
 
 /// The code of the language in use ("en", "ja").
 pub fn language() -> &'static str {
-    CODES[CURRENT.load(Ordering::Relaxed) as usize]
+    CODES[current() as usize]
 }
 
 /// `text` in the language in use (the catalog's text, or `text` itself).
 pub fn tr(text: &str) -> &str {
-    match catalog(CURRENT.load(Ordering::Relaxed)) {
+    match catalog(current()) {
         Some(cat) => cat.strings.get(text).map(String::as_str).unwrap_or(text),
         None => text,
     }
@@ -314,7 +339,7 @@ fn sentences(text: &str) -> Vec<&str> {
 /// text, else its "; " parts, else its sentences (untranslated parts stay).
 pub fn tr_text(text: &str) -> String {
     let code = language();
-    let Some(cat) = catalog(CURRENT.load(Ordering::Relaxed)) else { return text.to_string() };
+    let Some(cat) = catalog(current()) else { return text.to_string() };
     if text.is_empty() {
         return String::new();
     }
@@ -390,8 +415,12 @@ mod tests {
     fn languages_switch() {
         assert_eq!(code_of("日本語"), "ja");
         assert_eq!(code_of("Klingon"), "en");
-        set_language("English");
+        set_thread_language("English");
         assert_eq!(tr("Library"), "Library");
+        set_thread_language("日本語");
+        assert_eq!(tr("Library"), "ライブラリ");
+        assert_eq!(tr_name("Unknown Album"), tr("Unknown Album"));
+        set_thread_language("");
         assert!(!japanese().strings.is_empty());
     }
 }
