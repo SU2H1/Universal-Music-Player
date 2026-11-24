@@ -5,14 +5,16 @@
 use std::collections::HashMap;
 
 use egui::{pos2, vec2, Align, Align2, Color32, CornerRadius, Layout, Rect, RichText, Sense, Stroke, Ui};
+use realhires::i18n::{self, tr_name, tr_text};
 use realhires::musiclib::{self, Track};
 use realhires::paths::{abspath, file_name};
 use realhires::stats::{self, PERIODS};
+use realhires::{n_, tr};
 
 use crate::icons::{self, Icon};
 use crate::look::{self, Palette};
 use crate::pages::elided;
-use crate::player::{cover, NameAction, Page, Player};
+use crate::player::{count, cover, NameAction, Page, Player};
 
 /// The colours of the summary cards, one after the other.
 const CARD_COLORS: [u32; 10] =
@@ -44,18 +46,39 @@ fn back_link(ui: &mut Ui, pal: &Palette, label: &str) -> egui::Response {
     resp
 }
 
-fn plural(n: usize, word: &str) -> String {
-    format!("{} {word}{}", stats::thousands(n as i64), if n == 1 { "" } else { "s" })
+fn songs(n: usize) -> String {
+    count(n, n_!("1 song"), n_!("{n} songs"))
+}
+
+fn albums(n: usize) -> String {
+    count(n, n_!("1 album"), n_!("{n} albums"))
+}
+
+fn artists(n: usize) -> String {
+    count(n, n_!("1 artist"), n_!("{n} artists"))
 }
 
 fn minutes_text(tracks: &[&Track]) -> String {
     let total: f64 = tracks.iter().map(|t| t.duration.max(0.0)).sum();
     let m = (total / 60.0).round() as i64;
     if m >= 60 {
-        format!("{} hr {} min", m / 60, m % 60)
+        tr!("{h} hr {m} min", h = m / 60, m = m % 60)
     } else {
-        format!("{m} minute{}", if m == 1 { "" } else { "s" })
+        count(m as usize, n_!("1 minute"), n_!("{n} minutes"))
     }
+}
+
+/// The short weekday names under the bars (Monday first, as `stats::WEEKDAYS`).
+const WEEKDAYS_SHORT: [&str; 7] =
+    [n_!("Mon"), n_!("Tue"), n_!("Wed"), n_!("Thu"), n_!("Fri"), n_!("Sat"), n_!("Sun")];
+
+/// A summary card of Your Stats in the language in use: the label and the
+/// detail are the core's texts; the big text is a name on the "top" cards.
+fn shown_card(label: &str, big: &str, detail: &str) -> (String, String, String) {
+    let name_card = matches!(label, "Your top song" | "Your top artist" | "Your top album" | "Your top genre");
+    let big = if name_card { tr_name(big).to_string() } else { tr_text(big) };
+    let detail = if label == "Your top album" { tr_name(detail).to_string() } else { tr_text(detail) };
+    (tr_text(label), big, detail)
 }
 
 impl Player {
@@ -92,36 +115,61 @@ impl Player {
         let recent_n = self.recently_played().len();
         let year = {
             let saved = self.stats_period.clone();
-            self.stats_period = "This year".into();
+            self.stats_period = "This year".into(); // a period key (`stats::PERIODS`)
             let st = self.stats();
             self.stats_period = saved;
             st
         };
         let l = &self.lib;
         let tiles: Vec<(Icon, &str, String, Page)> = vec![
-            (Icon::Note, "All Songs", plural(l.tracks.len(), "song"), Page::AllSongs),
-            (Icon::Folder, "Folders", plural(self.scanner.cfg.library_folders.len(), "folder"), Page::Folders(None)),
-            (Icon::Albums, "Albums", plural(l.albums.len(), "album"), Page::Albums),
-            (Icon::Person, "Artists", plural(l.artists.len(), "artist"), Page::Artists),
-            (Icon::People, "Album Artists", plural(l.album_artists.len(), "album artist"), Page::AlbumArtists),
-            (Icon::Genres, "Genres", plural(l.genres.len(), "genre"), Page::Genres),
-            (Icon::Calendar, "Years", plural(l.years.len(), "year"), Page::Years),
-            (Icon::Composer, "Composers", plural(l.composers.len(), "composer"), Page::Composers),
-            (Icon::Playlist, "Playlists", plural(self.state.playlists.len(), "playlist"), Page::Playlists),
-            (Icon::Heart, "Liked Songs", plural(self.state.liked.len(), "song"), Page::Liked),
-            (Icon::ThumbDown, "Disliked Songs", plural(self.state.disliked.len(), "song"), Page::Disliked),
-            (Icon::Clock, "Recently Played", plural(recent_n, "song"), Page::RecentlyPlayed),
-            (Icon::Albums, "Recently Added", plural(l.albums.len().min(50), "album"), Page::Recent),
-            (Icon::Chart, "Your Stats", format!("{} minutes this year", stats::thousands((year.seconds / 60.0).round() as i64)), Page::Stats),
+            (Icon::Note, tr!("All Songs"), songs(l.tracks.len()), Page::AllSongs),
+            (
+                Icon::Folder,
+                tr!("Folders"),
+                count(self.scanner.cfg.library_folders.len(), n_!("1 folder"), n_!("{n} folders")),
+                Page::Folders(None),
+            ),
+            (Icon::Albums, tr!("Albums"), albums(l.albums.len()), Page::Albums),
+            (Icon::Person, tr!("Artists"), artists(l.artists.len()), Page::Artists),
+            (
+                Icon::People,
+                tr!("Album Artists"),
+                count(l.album_artists.len(), n_!("1 album artist"), n_!("{n} album artists")),
+                Page::AlbumArtists,
+            ),
+            (Icon::Genres, tr!("Genres"), count(l.genres.len(), n_!("1 genre"), n_!("{n} genres")), Page::Genres),
+            (Icon::Calendar, tr!("Years"), count(l.years.len(), n_!("1 year"), n_!("{n} years")), Page::Years),
+            (
+                Icon::Composer,
+                tr!("Composers"),
+                count(l.composers.len(), n_!("1 composer"), n_!("{n} composers")),
+                Page::Composers,
+            ),
+            (
+                Icon::Playlist,
+                tr!("Playlists"),
+                count(self.state.playlists.len(), n_!("1 playlist"), n_!("{n} playlists")),
+                Page::Playlists,
+            ),
+            (Icon::Heart, tr!("Liked Songs"), songs(self.state.liked.len()), Page::Liked),
+            (Icon::ThumbDown, tr!("Disliked Songs"), songs(self.state.disliked.len()), Page::Disliked),
+            (Icon::Clock, tr!("Recently Played"), songs(recent_n), Page::RecentlyPlayed),
+            (Icon::Albums, tr!("Recently Added"), albums(l.albums.len().min(50)), Page::Recent),
+            (
+                Icon::Chart,
+                tr!("Your Stats"),
+                tr!("{n} minutes this year", n = stats::thousands((year.seconds / 60.0).round() as i64)),
+                Page::Stats,
+            ),
         ];
         egui::ScrollArea::vertical().id_salt("library-home").auto_shrink([false, false]).show(ui, |ui| {
-            page_title(ui, pal, "Library");
+            page_title(ui, pal, tr!("Library"));
             if self.lib.tracks.is_empty() {
                 ui.label(RichText::new(self.library_status().unwrap_or_else(|| {
-                    "Add your music folder in Settings → Library to fill your library.".into()
+                    tr!("Add your music folder in Settings → Library to fill your library.").into()
                 })).color(pal.secondary));
                 ui.add_space(8.0);
-                if self.library_status().is_none() && pill(ui, pal, Icon::Folder, "Choose a music folder…").clicked() {
+                if self.library_status().is_none() && pill(ui, pal, Icon::Folder, tr!("Choose a music folder…")).clicked() {
                     self.add_library_folder();
                 }
                 ui.add_space(14.0);
@@ -155,15 +203,15 @@ impl Player {
                 let top = look::parse_hex("#fa2d48");
                 let fill = if resp.hovered() { top.gamma_multiply(0.9) } else { top };
                 ui.painter().rect_filled(rect, CornerRadius::same(12), fill);
-                ui.painter().text(rect.left_center() + vec2(20.0, -10.0), Align2::LEFT_CENTER, "Your Stats", look::title(16.0), Color32::WHITE);
+                ui.painter().text(rect.left_center() + vec2(20.0, -10.0), Align2::LEFT_CENTER, tr!("Your Stats"), look::title(16.0), Color32::WHITE);
                 ui.painter().text(
                     rect.left_center() + vec2(20.0, 12.0),
                     Align2::LEFT_CENTER,
-                    format!(
-                        "{} minutes of music this year, {} by {}.",
-                        stats::thousands((year.seconds / 60.0).round() as i64),
-                        plural(year.songs, "song"),
-                        plural(year.artists, "artist")
+                    tr!(
+                        "{minutes} minutes of music this year, {songs} by {artists}.",
+                        minutes = stats::thousands((year.seconds / 60.0).round() as i64),
+                        songs = songs(year.songs),
+                        artists = artists(year.artists)
                     ),
                     look::text(13.0),
                     Color32::WHITE,
@@ -175,7 +223,7 @@ impl Player {
             }
             if !self.lib.recent.is_empty() {
                 ui.add_space(18.0);
-                ui.label(RichText::new("Recently Added").font(look::title(18.0)).color(pal.text));
+                ui.label(RichText::new(tr!("Recently Added")).font(look::title(18.0)).color(pal.text));
                 ui.add_space(8.0);
                 let albums: Vec<usize> = self.lib.recent.iter().take(12).copied().collect();
                 egui::ScrollArea::horizontal().id_salt("home-recent").show(ui, |ui| {
@@ -199,9 +247,9 @@ impl Player {
         // with one library folder, Folders opens it at once
         let folder = folder.or_else(|| (roots.len() == 1).then(|| roots[0].clone()));
         let Some(folder) = folder else {
-            page_title(ui, pal, "Folders");
+            page_title(ui, pal, tr!("Folders"));
             if roots.is_empty() {
-                ui.label(RichText::new("No music folder yet: add one in Settings → Library.").color(pal.secondary));
+                ui.label(RichText::new(tr!("No music folder yet: add one in Settings → Library.")).color(pal.secondary));
                 return;
             }
             let rows: Vec<(String, String, usize)> = roots
@@ -214,7 +262,7 @@ impl Player {
         // breadcrumb from the library folder that holds it
         let root = roots.iter().filter(|r| folder == **r || folder.starts_with(&format!("{}{sep}", r.trim_end_matches(sep)))).max_by_key(|r| r.len()).cloned();
         ui.horizontal_wrapped(|ui| {
-            if roots.len() > 1 && back_link(ui, pal, "Folders").clicked() {
+            if roots.len() > 1 && back_link(ui, pal, tr!("Folders")).clicked() {
                 self.go(Page::Folders(None));
             }
             if let Some(root) = &root {
@@ -246,10 +294,10 @@ impl Player {
         if !paths.is_empty() {
             ui.horizontal(|ui| {
                 let name = file_name(&folder);
-                if pill(ui, pal, Icon::Play, "Play").clicked() {
+                if pill(ui, pal, Icon::Play, tr!("Play")).clicked() {
                     self.play_list(paths.clone(), Some(&paths[0]), &name);
                 }
-                if pill(ui, pal, Icon::Shuffle, "Shuffle").clicked() {
+                if pill(ui, pal, Icon::Shuffle, tr!("Shuffle")).clicked() {
                     self.shuffle_list(paths.clone(), &name);
                 }
             });
@@ -275,7 +323,7 @@ impl Player {
             icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 18.0, rect.center().y), vec2(20.0, 20.0)), Icon::Folder, pal.accent);
             let g = elided(ui, name, look::text(13.5), pal.text, rect.width() - 160.0);
             ui.painter().galley(pos2(rect.left() + 38.0, rect.center().y - g.size().y / 2.0), g, pal.text);
-            ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, plural(*n, "song"), look::text(12.0), pal.secondary);
+            ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, songs(*n), look::text(12.0), pal.secondary);
             if resp.clicked() {
                 self.go(Page::Folders(Some(path.clone())));
             }
@@ -285,14 +333,14 @@ impl Player {
     // ------------------------------------------------------------ playlists ---
 
     pub fn playlists_page(&mut self, ui: &mut Ui, pal: &Palette) {
-        page_title(ui, pal, "Playlists");
-        if pill(ui, pal, Icon::Playlist, "New Playlist…").clicked() {
-            self.ask_name("New Playlist", "New Playlist", NameAction::NewPlaylist(vec![]));
+        page_title(ui, pal, tr!("Playlists"));
+        if pill(ui, pal, Icon::Playlist, tr!("New Playlist…")).clicked() {
+            self.ask_name(tr!("New Playlist"), tr!("New Playlist"), NameAction::NewPlaylist(vec![]));
         }
         ui.add_space(14.0);
         if self.state.playlists.is_empty() {
             ui.label(
-                RichText::new("You have no playlists yet. Make one here, or choose “Add to playlist” in any song's menu.")
+                RichText::new(tr!("You have no playlists yet. Make one here, or choose “Add to playlist” in any song's menu."))
                     .color(pal.secondary),
             );
             return;
@@ -317,7 +365,7 @@ impl Player {
                         }
                         let g = elided(ui, name, look::title(13.0), pal.text, size);
                         ui.painter().galley(pos2(rect.left(), crect.bottom() + 6.0), g, pal.text);
-                        ui.painter().text(pos2(rect.left(), crect.bottom() + 24.0), Align2::LEFT_TOP, plural(songs.len(), "song"), look::text(12.0), pal.secondary);
+                        ui.painter().text(pos2(rect.left(), crect.bottom() + 24.0), Align2::LEFT_TOP, self::songs(songs.len()), look::text(12.0), pal.secondary);
                         if resp.clicked() {
                             self.go(Page::Playlist(id.clone()));
                         }
@@ -333,7 +381,7 @@ impl Player {
             self.go(Page::Playlists);
             return;
         };
-        if back_link(ui, pal, "Playlists").clicked() {
+        if back_link(ui, pal, tr!("Playlists")).clicked() {
             self.go(Page::Playlists);
             return;
         }
@@ -347,21 +395,22 @@ impl Player {
                 ui.add_space(60.0);
                 ui.label(RichText::new(&pl.name).font(look::title(26.0)).color(pal.text));
                 let tracks: Vec<&Track> = songs.iter().filter_map(|p| self.lib.track(p)).collect();
-                ui.label(RichText::new(format!("{}, {}", plural(songs.len(), "song"), minutes_text(&tracks))).color(pal.secondary));
+                let meta = tr!("{a}, {b}", a = self::songs(songs.len()), b = minutes_text(&tracks));
+                ui.label(RichText::new(meta).color(pal.secondary));
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
                     if !songs.is_empty() {
-                        if pill(ui, pal, Icon::Play, "Play").clicked() {
+                        if pill(ui, pal, Icon::Play, tr!("Play")).clicked() {
                             self.play_list(songs.clone(), None, &pl.name);
                         }
-                        if pill(ui, pal, Icon::Shuffle, "Shuffle").clicked() {
+                        if pill(ui, pal, Icon::Shuffle, tr!("Shuffle")).clicked() {
                             self.shuffle_list(songs.clone(), &pl.name);
                         }
                     }
-                    if ui.button("Rename…").clicked() {
-                        self.ask_name("Rename Playlist", &pl.name, NameAction::RenamePlaylist(pl.id.clone()));
+                    if ui.button(tr!("Rename…")).clicked() {
+                        self.ask_name(tr!("Rename Playlist"), &pl.name, NameAction::RenamePlaylist(pl.id.clone()));
                     }
-                    if ui.button("Delete…").clicked() {
+                    if ui.button(tr!("Delete…")).clicked() {
                         self.confirm = Some(crate::player::ConfirmAction::DeletePlaylist(pl.id.clone()));
                     }
                 });
@@ -369,7 +418,7 @@ impl Player {
         });
         ui.add_space(16.0);
         if songs.is_empty() {
-            ui.label(RichText::new("This playlist is empty. Add songs with “Add to playlist” in any song's menu.").color(pal.secondary));
+            ui.label(RichText::new(tr!("This playlist is empty. Add songs with “Add to playlist” in any song's menu.")).color(pal.secondary));
             return;
         }
         self.table_playlist = Some(pl.id.clone());
@@ -379,18 +428,18 @@ impl Player {
     // ------------------------------------------------------ recently played ---
 
     pub fn recently_played_page(&mut self, ui: &mut Ui, pal: &Palette) {
-        page_title(ui, pal, "Recently Played");
+        page_title(ui, pal, tr!("Recently Played"));
         let rows = self.recently_played();
         if rows.is_empty() {
-            ui.label(RichText::new("Songs you play appear here.").color(pal.secondary));
+            ui.label(RichText::new(tr!("Songs you play appear here.")).color(pal.secondary));
             return;
         }
         ui.horizontal(|ui| {
             let list: Vec<String> = rows.iter().map(|(p, _)| p.clone()).collect();
-            if pill(ui, pal, Icon::Play, "Play").clicked() {
+            if pill(ui, pal, Icon::Play, tr!("Play")).clicked() {
                 self.play_list(list, None, "Recently Played");
             }
-            if ui.button("Clear history…").clicked() {
+            if ui.button(tr!("Clear history…")).clicked() {
                 self.confirm = Some(crate::player::ConfirmAction::ClearHistory);
             }
         });
@@ -404,9 +453,10 @@ impl Player {
 
     fn period_menu(&mut self, ui: &mut Ui) {
         let mut period = self.stats_period.clone();
-        egui::ComboBox::from_id_salt("stats-period").selected_text(period.clone()).width(150.0).show_ui(ui, |ui| {
+        // the periods are shown translated and kept in English
+        egui::ComboBox::from_id_salt("stats-period").selected_text(i18n::tr(&period)).width(150.0).show_ui(ui, |ui| {
             for p in PERIODS {
-                ui.selectable_value(&mut period, p.to_string(), p);
+                ui.selectable_value(&mut period, p.to_string(), i18n::tr(p));
             }
         });
         if period != self.stats_period {
@@ -416,15 +466,15 @@ impl Player {
 
     pub fn stats_page(&mut self, ui: &mut Ui, pal: &Palette) {
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Your Stats").font(look::title(28.0)).color(pal.text));
+            ui.label(RichText::new(tr!("Your Stats")).font(look::title(28.0)).color(pal.text));
             ui.add_space(16.0);
             self.period_menu(ui);
         });
         ui.add_space(12.0);
         let st = self.stats();
-        let cards = stats::cards(&st);
+        let cards: Vec<(String, String, String)> = stats::cards(&st).iter().map(|(l, b, d)| shown_card(l, b, d)).collect();
         if cards.is_empty() {
-            ui.label(RichText::new("No listening yet in this period. Play some music and come back.").color(pal.secondary));
+            ui.label(RichText::new(tr!("No listening yet in this period. Play some music and come back.")).color(pal.secondary));
             return;
         }
         egui::ScrollArea::vertical().id_salt("stats").auto_shrink([false, false]).show(ui, |ui| {
@@ -452,19 +502,19 @@ impl Player {
                 ui.add_space(gap - ui.spacing().item_spacing.y);
             }
             ui.add_space(8.0);
-            if pill(ui, pal, Icon::Chart, "Details").clicked() {
+            if pill(ui, pal, Icon::Chart, tr!("Details")).clicked() {
                 self.go(Page::StatsDetails);
             }
         });
     }
 
     pub fn stats_details_page(&mut self, ui: &mut Ui, pal: &Palette) {
-        if back_link(ui, pal, "Your Stats").clicked() {
+        if back_link(ui, pal, tr!("Your Stats")).clicked() {
             self.go(Page::Stats);
             return;
         }
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Details").font(look::title(28.0)).color(pal.text));
+            ui.label(RichText::new(tr!("Details")).font(look::title(28.0)).color(pal.text));
             ui.add_space(16.0);
             self.period_menu(ui);
         });
@@ -473,36 +523,38 @@ impl Player {
         let lib = stats::library_stats(&self.lib.tracks);
         egui::ScrollArea::vertical().id_salt("stats-details").auto_shrink([false, false]).show(ui, |ui| {
             if st.logged == 0 {
-                ui.label(RichText::new("No listening yet in this period. Play some music and come back.").color(pal.secondary));
+                ui.label(RichText::new(tr!("No listening yet in this period. Play some music and come back.")).color(pal.secondary));
             } else {
-                section(ui, pal, "Totals");
+                section(ui, pal, tr!("Totals"));
                 let totals = [
-                    ("Minutes", stats::thousands((st.seconds / 60.0).round() as i64)),
-                    ("Plays", stats::thousands(st.plays)),
-                    ("Songs", stats::thousands(st.songs as i64)),
-                    ("Artists", stats::thousands(st.artists as i64)),
-                    ("Albums", stats::thousands(st.albums as i64)),
-                    ("Genres", stats::thousands(st.genres as i64)),
-                    ("Days with music", stats::thousands(st.days as i64)),
-                    ("Longest streak", plural(st.streak, "day")),
+                    (tr!("Minutes"), stats::thousands((st.seconds / 60.0).round() as i64)),
+                    (tr!("Plays"), stats::thousands(st.plays)),
+                    (tr!("Songs"), stats::thousands(st.songs as i64)),
+                    (tr!("Artists"), stats::thousands(st.artists as i64)),
+                    (tr!("Albums"), stats::thousands(st.albums as i64)),
+                    (tr!("Genres"), stats::thousands(st.genres as i64)),
+                    (tr!("Days with music"), stats::thousands(st.days as i64)),
+                    (tr!("Longest streak"), count(st.streak, n_!("1 day"), n_!("{n} days"))),
                 ];
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
                     for (k, v) in totals {
                         let (rect, _) = ui.allocate_exact_size(vec2(160.0, 62.0), Sense::hover());
                         ui.painter().rect_filled(rect, CornerRadius::same(10), pal.lcd);
-                        ui.painter().text(rect.left_top() + vec2(14.0, 10.0), Align2::LEFT_TOP, k, look::text(12.0), pal.secondary);
+                        let g = elided(ui, k, look::text(12.0), pal.secondary, 136.0);
+                        ui.painter().galley(rect.left_top() + vec2(14.0, 10.0), g, pal.secondary);
                         ui.painter().text(rect.left_top() + vec2(14.0, 28.0), Align2::LEFT_TOP, v, look::title(20.0), pal.text);
                     }
                 });
-                section(ui, pal, "By hour of the day (minutes)");
-                let hours: Vec<String> = (0..24).map(|h| if h % 3 == 0 { stats::hour_label(h) } else { String::new() }).collect();
+                section(ui, pal, tr!("By hour of the day (minutes)"));
+                let hours: Vec<String> =
+                    (0..24).map(|h| if h % 3 == 0 { tr_text(&stats::hour_label(h)) } else { String::new() }).collect();
                 bars(ui, pal, &st.by_hour.map(|x| x / 60.0), &hours);
-                section(ui, pal, "By day of the week (minutes)");
-                let days: Vec<String> = stats::WEEKDAYS.iter().map(|d| d[..3].to_string()).collect();
+                section(ui, pal, tr!("By day of the week (minutes)"));
+                let days: Vec<String> = WEEKDAYS_SHORT.iter().map(|d| i18n::tr(d).to_string()).collect();
                 bars(ui, pal, &st.by_weekday.map(|x| x / 60.0), &days);
                 if st.by_month.len() > 1 {
-                    section(ui, pal, "By month (minutes)");
+                    section(ui, pal, tr!("By month (minutes)"));
                     let vals: Vec<f64> = st.by_month.iter().map(|(_, s)| s / 60.0).collect();
                     let labels: Vec<String> = st
                         .by_month
@@ -510,48 +562,60 @@ impl Player {
                         .map(|(m, _)| {
                             let (y, mo) = m.split_at(4);
                             let mo: usize = mo.trim_start_matches('-').parse().unwrap_or(1);
-                            format!("{} {y}", stats::MONTHS[mo.clamp(1, 12) - 1])
+                            tr!("{month} {year}", month = i18n::tr(stats::MONTHS[mo.clamp(1, 12) - 1]), year = y)
                         })
                         .collect();
                     bars(ui, pal, &vals, &labels);
                 }
                 ui.add_space(8.0);
                 ui.columns(2, |cols| {
-                    top_list(&mut cols[0], pal, "Top songs", &st.top_songs, true);
-                    top_list(&mut cols[1], pal, "Top artists", &st.top_artists, false);
+                    top_list(&mut cols[0], pal, tr!("Top songs"), &st.top_songs, true);
+                    top_list(&mut cols[1], pal, tr!("Top artists"), &st.top_artists, false);
                 });
                 ui.columns(2, |cols| {
-                    top_list(&mut cols[0], pal, "Top albums", &st.top_albums, true);
-                    top_list(&mut cols[1], pal, "Top genres", &st.top_genres, false);
+                    top_list(&mut cols[0], pal, tr!("Top albums"), &st.top_albums, true);
+                    top_list(&mut cols[1], pal, tr!("Top genres"), &st.top_genres, false);
                 });
             }
-            section(ui, pal, "Your library");
+            section(ui, pal, tr!("Your library"));
             let gb = lib.bytes as f64 / 1e9;
             ui.label(
-                RichText::new(format!(
-                    "{}, {} by {}; {} of music, {}.",
-                    plural(lib.songs, "song"),
-                    plural(lib.albums, "album"),
-                    plural(lib.artists, "artist"),
-                    {
+                RichText::new(tr!(
+                    "{songs}, {albums} by {artists}; {time} of music, {size}.",
+                    songs = songs(lib.songs),
+                    albums = albums(lib.albums),
+                    artists = artists(lib.artists),
+                    time = {
                         let m = (lib.seconds / 60.0).round() as i64;
-                        if m >= 60 { format!("{} hr {} min", stats::thousands(m / 60), m % 60) } else { format!("{m} min") }
+                        if m >= 60 {
+                            tr!("{h} hr {m} min", h = stats::thousands(m / 60), m = m % 60)
+                        } else {
+                            tr!("{m} min", m = m)
+                        }
                     },
-                    if gb >= 1.0 { format!("{} GB", realhires::pyfmt::f(gb, 1)) } else { format!("{} MB", realhires::pyfmt::f(gb * 1000.0, 0)) }
+                    size = if gb >= 1.0 {
+                        format!("{} GB", realhires::pyfmt::f(gb, 1))
+                    } else {
+                        format!("{} MB", realhires::pyfmt::f(gb * 1000.0, 0))
+                    }
                 ))
                 .color(pal.text),
             );
             ui.add_space(6.0);
+            // the core's names ("Hi-Res Lossless", "24-bit", "lossy"), translated as the Python app does
+            let words = |rows: &[(String, usize)]| -> Vec<(String, usize)> {
+                rows.iter().map(|(k, n)| (tr_text(k), *n)).collect()
+            };
             ui.columns(4, |cols| {
-                kv_list(&mut cols[0], pal, "Quality", &lib.qualities.iter().map(|(k, n)| (k.clone(), *n)).collect::<Vec<_>>());
-                kv_list(&mut cols[1], pal, "Formats", &lib.formats);
+                kv_list(&mut cols[0], pal, tr!("Quality"), &words(&lib.qualities));
+                kv_list(&mut cols[1], pal, tr!("Formats"), &lib.formats);
                 kv_list(
                     &mut cols[2],
                     pal,
-                    "Sample rates",
+                    tr!("Sample rates"),
                     &lib.rates.iter().map(|(r, n)| (if *r > 0 { crate::eqwin::khz(*r) } else { "?".into() }, *n)).collect::<Vec<_>>(),
                 );
-                kv_list(&mut cols[3], pal, "Bit depths", &lib.bits);
+                kv_list(&mut cols[3], pal, tr!("Bit depths"), &words(&lib.bits));
             });
         });
     }
@@ -592,19 +656,19 @@ fn top_list(ui: &mut Ui, pal: &Palette, title: &str, rows: &[stats::Row], with_a
         ui.horizontal(|ui| {
             ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                 ui.label(RichText::new(format!("{:>2}", i + 1)).color(pal.secondary).monospace());
-                let mut text = r.name.clone();
+                let mut text = tr_name(&r.name).to_string();
                 if with_artist && !r.artist.is_empty() {
-                    text = format!("{text} — {}", r.artist);
+                    text = format!("{text} — {}", tr_name(&r.artist));
                 }
                 let w = (ui.available_width() - 140.0).max(60.0);
                 let g = elided(ui, &text, look::text(13.0), pal.text, w);
                 ui.label(g);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     ui.label(
-                        RichText::new(format!(
-                            "{} · {} min",
-                            if r.plays == 1 { "1 play".to_string() } else { format!("{} plays", stats::thousands(r.plays)) },
-                            stats::thousands((r.seconds / 60.0).round() as i64)
+                        RichText::new(tr!(
+                            "{plays} · {minutes} min",
+                            plays = count(r.plays.max(0) as usize, n_!("1 play"), n_!("{n} plays")),
+                            minutes = stats::thousands((r.seconds / 60.0).round() as i64)
                         ))
                         .color(pal.secondary),
                     );

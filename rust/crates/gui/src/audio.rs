@@ -19,6 +19,7 @@ use std::time::{Duration, Instant};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use realhires::eq::{EqProcessor, EqState};
 use realhires::probe::{command, tool};
+use realhires::{n_, tr};
 
 /// The engine always works in stereo.
 pub const CHANNELS: usize = 2;
@@ -284,7 +285,7 @@ fn run_decoder(shared: &Shared, job: &Job, gen: u64, start: f64, mut skip: usize
         .spawn();
     let mut child: Child = match child {
         Ok(c) => c,
-        Err(e) => return Decoded::Failed(format!("FFmpeg could not be started: {e}.")),
+        Err(e) => return Decoded::Failed(tr!("FFmpeg could not be started: {e}.", e = e)),
     };
     let stderr = child.stderr.take().map(|err| {
         std::thread::spawn(move || {
@@ -404,9 +405,9 @@ fn decode_loop(shared: Arc<Shared>, mut job: Job) {
         }
         if failed {
             let why = if errors.trim().is_empty() {
-                "FFmpeg could not decode this file.".to_string()
+                tr!("FFmpeg could not decode this file.").to_string()
             } else {
-                format!("FFmpeg could not decode this file: {}", errors.trim())
+                tr!("FFmpeg could not decode this file: {errors}", errors = errors.trim())
             };
             buf.items.push_back(Item::Fail(job.seg.id, why));
             return;
@@ -471,15 +472,17 @@ pub fn output_devices() -> Vec<String> {
     names
 }
 
+/// The sample format in English (kept in `OutputInfo`; the Playback info
+/// window shows it with `i18n::tr()`).
 fn format_label(f: cpal::SampleFormat) -> String {
     use cpal::SampleFormat as F;
     match f {
-        F::F32 => "32-bit float".into(),
-        F::F64 => "64-bit float".into(),
-        F::I16 | F::U16 => "16-bit".into(),
-        F::I24 | F::U24 => "24-bit".into(),
-        F::I32 | F::U32 => "32-bit".into(),
-        F::I8 | F::U8 => "8-bit".into(),
+        F::F32 => n_!("32-bit float").into(),
+        F::F64 => n_!("64-bit float").into(),
+        F::I16 | F::U16 => n_!("16-bit").into(),
+        F::I24 | F::U24 => n_!("24-bit").into(),
+        F::I32 | F::U32 => n_!("32-bit").into(),
+        F::I8 | F::U8 => n_!("8-bit").into(),
         other => format!("{other:?}"),
     }
 }
@@ -645,10 +648,11 @@ impl Engine {
             };
             if !same {
                 let info = OutputInfo {
-                    device: if self.manual { "Test output".into() } else { "Null output (no sound)".into() },
+                    // English, shown with `i18n::tr()`
+                    device: if self.manual { n_!("Test output").into() } else { n_!("Null output (no sound)").into() },
                     rate,
                     channels: 2,
-                    format: "32-bit float".into(),
+                    format: n_!("32-bit float").into(),
                     resampled_from: None,
                     soxr: has_soxr(),
                 };
@@ -676,9 +680,9 @@ impl Engine {
         };
         let Some(device) = device else {
             self.output = Output::None;
-            return Err("No audio output device was found.".into());
+            return Err(tr!("No audio output device was found.").into());
         };
-        let name = device.description().map(|d| d.name().to_string()).unwrap_or_else(|_| "Output".into());
+        let name = device.description().map(|d| d.name().to_string()).unwrap_or_else(|_| n_!("Output").into());
         let config = choose_config(&device, song_rate)?;
         let rate = config.sample_rate();
         if let Output::Cpal { info, device: dev, .. } = &self.output {
@@ -699,7 +703,7 @@ impl Engine {
             .unwrap_or_default();
         let default_rate = device.default_output_config().map(|c| c.sample_rate()).unwrap_or(rate);
         let stream = build_stream(&device, &config.config(), format, self.shared.clone())?;
-        stream.play().map_err(|e| format!("The audio output could not start: {e}."))?;
+        stream.play().map_err(|e| tr!("The audio output could not start: {e}.", e = e))?;
         let info = OutputInfo {
             device: name.clone(),
             rate,
@@ -857,7 +861,7 @@ fn choose_config(device: &cpal::Device, song_rate: u32) -> Result<cpal::Supporte
             }
         }
     }
-    let def = device.default_output_config().map_err(|e| format!("The audio device has no usable format: {e}."))?;
+    let def = device.default_output_config().map_err(|e| tr!("The audio device has no usable format: {e}.", e = e))?;
     if usable(def.sample_format()) {
         return Ok(def);
     }
@@ -871,7 +875,7 @@ fn choose_config(device: &cpal::Device, song_rate: u32) -> Result<cpal::Supporte
                 .min_by_key(|r| rank(r.sample_format()))
         })
         .map(|r| r.with_sample_rate(rate))
-        .ok_or_else(|| "The audio device supports no sample format this player can write.".to_string())
+        .ok_or_else(|| tr!("The audio device supports no sample format this player can write.").to_string())
 }
 
 fn build_stream(
@@ -881,13 +885,13 @@ fn build_stream(
     shared: Arc<Shared>,
 ) -> Result<cpal::Stream, String> {
     use cpal::SampleFormat as F;
-    let err = |e: cpal::Error| format!("The audio output could not be opened: {e}.");
+    let err = |e: cpal::Error| tr!("The audio output could not be opened: {e}.", e = e);
     match format {
         F::F32 => stream_of::<f32>(device, config, shared).map_err(err),
         F::I32 => stream_of::<i32>(device, config, shared).map_err(err),
         F::I16 => stream_of::<i16>(device, config, shared).map_err(err),
         F::U16 => stream_of::<u16>(device, config, shared).map_err(err),
-        other => Err(format!("The audio device wants {other:?} samples, which this player cannot write.")),
+        other => Err(tr!("The audio device wants {format} samples, which this player cannot write.", format = format!("{other:?}"))),
     }
 }
 
@@ -909,7 +913,7 @@ where
             }
         },
         move |e| {
-            errs.events.lock().unwrap().push(Event::OutputError(format!("The audio output failed: {e}.")));
+            errs.events.lock().unwrap().push(Event::OutputError(tr!("The audio output failed: {e}.", e = e)));
         },
         None,
     )

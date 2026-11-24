@@ -7,9 +7,11 @@
 use std::sync::mpsc::{self, Receiver};
 
 use egui::{Align2, RichText};
+use realhires::i18n::{self, tr_text};
 use realhires::probe::Tags;
 use realhires::settings::Settings;
 use realhires::tagedit::{self, Changes, TagOutcome, FIELDS};
+use realhires::{n_, tr};
 
 use crate::look::Palette;
 
@@ -48,7 +50,8 @@ pub enum Outcome {
     Saved { close: bool },
 }
 
-pub const SEVERAL: &str = "Several values: kept unless you type here";
+/// Shown (translated) in a field whose songs have different values.
+pub const SEVERAL: &str = n_!("Several values: kept unless you type here");
 
 impl EditInfo {
     pub fn new(ctx: &egui::Context, paths: Vec<String>, heading: String, subheading: String) -> Self {
@@ -164,7 +167,7 @@ impl EditInfo {
         };
         let mut close = false;
         let n = self.paths.len();
-        egui::Window::new("Edit Info")
+        egui::Window::new(tr!("Edit Info"))
             .id(egui::Id::new("player-edit-info"))
             .collapsible(false)
             .resizable(false)
@@ -179,36 +182,38 @@ impl EditInfo {
                 ui.add_space(8.0);
                 match &self.stage {
                     Stage::Reading => {
-                        ui.label(RichText::new(format!(
-                            "Reading the information of {} song{}…",
-                            realhires::stats::thousands(n as i64),
-                            if n == 1 { "" } else { "s" }
-                        ))
-                        .color(pal.secondary));
+                        let text = if n == 1 {
+                            tr!("Reading the information of 1 song…").to_string()
+                        } else {
+                            tr!("Reading the information of {n} songs…", n = realhires::stats::thousands(n as i64))
+                        };
+                        ui.label(RichText::new(text).color(pal.secondary));
                     }
                     Stage::Saving(i, total) => {
-                        ui.label(RichText::new(format!("Saving {} of {}…", (i + 1).min(*total), total)).color(pal.secondary));
+                        let text = tr!("Saving {i} of {n}…", i = (i + 1).min(*total), n = total);
+                        ui.label(RichText::new(text).color(pal.secondary));
                     }
                     _ => {}
                 }
                 if let Stage::Done(head, lines) = &self.stage {
-                    ui.label(RichText::new(head).strong());
+                    // `tagedit::save_summary()`'s English texts, translated when shown
+                    ui.label(RichText::new(tr_text(head)).strong());
                     for l in lines {
-                        ui.label(l);
+                        ui.label(tr_text(l));
                     }
                     ui.add_space(8.0);
-                    if ui.button("Close").clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                    if ui.button(tr!("Close")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                         close = true;
                     }
                     return;
                 }
                 egui::Grid::new("edit-info-fields").num_columns(2).spacing([14.0, 6.0]).show(ui, |ui| {
                     for (i, f) in FIELDS.iter().enumerate() {
-                        ui.label(tagedit::label(f));
+                        ui.label(i18n::tr(tagedit::label(f)));
                         ui.vertical(|ui| {
                             let mut edit = egui::TextEdit::singleline(&mut self.text[i]).desired_width(400.0);
                             if self.initial[i].is_none() {
-                                edit = edit.hint_text(SEVERAL);
+                                edit = edit.hint_text(i18n::tr(SEVERAL));
                             }
                             let r = ui.add_enabled(editing, edit);
                             // the cursor starts in Title for one song, in Album for an album
@@ -219,7 +224,7 @@ impl EditInfo {
                             }
                             let h = tagedit::hint(f);
                             if !h.is_empty() {
-                                ui.label(RichText::new(h).small().color(pal.secondary));
+                                ui.label(RichText::new(i18n::tr(h)).small().color(pal.secondary));
                             }
                         });
                         ui.end_row();
@@ -227,19 +232,20 @@ impl EditInfo {
                 });
                 if !self.error.is_empty() {
                     ui.add_space(4.0);
-                    ui.label(RichText::new(&self.error).color(egui::Color32::from_rgb(0xe0, 0x30, 0x30)));
+                    // `tagedit::check_changes()`'s English message, translated when shown
+                    ui.label(RichText::new(tr_text(&self.error)).color(egui::Color32::from_rgb(0xe0, 0x30, 0x30)));
                 }
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     let saving = self.saving();
-                    if ui.add_enabled(editing, egui::Button::new(RichText::new("Save").strong())).clicked()
+                    if ui.add_enabled(editing, egui::Button::new(RichText::new(tr!("Save")).strong())).clicked()
                         || (editing && ui.input(|i| i.key_pressed(egui::Key::Enter)))
                     {
                         if !self.save(ctx, cfg) {
                             close = true;
                         }
                     }
-                    if ui.add_enabled(!saving, egui::Button::new("Cancel")).clicked()
+                    if ui.add_enabled(!saving, egui::Button::new(tr!("Cancel"))).clicked()
                         || (!saving && ui.input(|i| i.key_pressed(egui::Key::Escape)))
                     {
                         close = true;

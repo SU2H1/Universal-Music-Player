@@ -15,12 +15,14 @@ use egui_extras::{Column, TableBuilder};
 use realhires::analysis::imap_get;
 use realhires::eta::ScanEta;
 use realhires::fix::{fix_advice, fix_outlook, plan_fixes, FIXABLE_VERDICTS};
+use realhires::i18n::{self, tr_name, tr_text};
 use realhires::library::{group_results, sort_groups, Group, GroupMode};
 use realhires::paths::{abspath, file_name, parent};
 use realhires::pyfmt::{f, fs, g};
 use realhires::settings::{self, Settings};
 use realhires::store::{open_store, settings_key, ResultStore};
 use realhires::verdict::{saved_note, FileResult, Verdict, VERDICT_ORDER};
+use realhires::{n_, tr};
 
 use crate::dialogs::{Confirm, ConfirmAction, FixDoneWindow, FixWindow, SettingsWindow, SummaryWindow};
 use crate::lyrics::{lyrics_job, LyricsWindow};
@@ -43,11 +45,12 @@ impl View {
             _ => View::Files,
         }
     }
+    /// The setting value (also a key); show it with `i18n::tr()`.
     pub fn label(self) -> &'static str {
         match self {
-            View::Files => "Files",
-            View::Album => "By album",
-            View::Artist => "By artist",
+            View::Files => n_!("Files"),
+            View::Album => n_!("By album"),
+            View::Artist => n_!("By artist"),
         }
     }
 }
@@ -74,23 +77,42 @@ pub enum PlotTab {
 }
 
 const COLUMNS: [(Col, &str); 8] = [
-    (Col::Verdict, "Verdict"),
-    (Col::Why, "Why"),
-    (Col::Claimed, "Claimed"),
-    (Col::Estimated, "Real (est.)"),
-    (Col::Bandwidth, "Bandwidth"),
-    (Col::Fix, "After fix"),
-    (Col::Name, "File"),
-    (Col::Folder, "Folder"),
+    (Col::Verdict, n_!("Verdict")),
+    (Col::Why, n_!("Why")),
+    (Col::Claimed, n_!("Claimed")),
+    (Col::Estimated, n_!("Real (est.)")),
+    (Col::Bandwidth, n_!("Bandwidth")),
+    (Col::Fix, n_!("After fix")),
+    (Col::Name, n_!("File")),
+    (Col::Folder, n_!("Folder")),
 ];
 
 pub struct GroupFilter {
     pub mode: GroupMode,
-    pub label: String,
+    /// the album or artist, its artist (albums) and its counts, for the chip
+    pub title: String,
+    pub subtitle: String,
+    pub problems: usize,
+    pub total: usize,
     pub paths: HashSet<String>,
     pub order: Vec<String>,
     pub back: View,
     pub filters: [bool; 7],
+}
+
+impl GroupFilter {
+    /// "Album: Title — Artist  (2 of 12 fake/suspicious)", in the language in use.
+    pub fn label(&self) -> String {
+        let head = if self.mode == GroupMode::Album {
+            tr!("Album: {title} — {artist}", title = tr_name(&self.title), artist = tr_name(&self.subtitle))
+        } else {
+            tr!("Artist: {name}", name = tr_name(&self.title))
+        };
+        format!(
+            "{head}  {}",
+            tr!("({n} of {total} fake/suspicious)", n = self.problems, total = self.total)
+        )
+    }
 }
 
 pub struct SourceRow {
@@ -258,7 +280,7 @@ impl App {
             lyrics_shown: None,
             spectro: SpectroTexture::default(),
             shown_plot: None,
-            status: "Add a folder or files, then press Scan.".into(),
+            status: tr!("Add a folder or files, then press Scan.").into(),
             summary: None,
             settings_win: None,
             fix_win: None,
@@ -306,7 +328,7 @@ impl App {
         }
         let path = abspath(path);
         if self.sources.iter().any(|s| s.path == path) {
-            self.status = format!("Already added: {path}");
+            self.status = tr!("Already added: {path}", path = path);
             self.source_sel = [path].into();
             return;
         }
@@ -315,7 +337,7 @@ impl App {
         let cancel = Arc::new(AtomicBool::new(false));
         self.listing.insert(path.clone(), cancel.clone());
         self.source_files.insert(path.clone(), vec![]);
-        self.status = format!("Looking for audio files in {path} …");
+        self.status = tr!("Looking for audio files in {path} …", path = path);
         work::list_source(path, &self.cfg, self.post.clone(), cancel);
     }
 
@@ -328,7 +350,7 @@ impl App {
         self.source_files.entry(source).or_default().extend(batch);
         self.request_lookup(new);
         self.rows_dirty = true;
-        self.status = format!("Looking for audio files… {} found so far", self.all_files().len());
+        self.status = tr!("Looking for audio files… {n} found so far", n = self.all_files().len());
     }
 
     fn on_listed(&mut self, source: String) {
@@ -354,22 +376,35 @@ impl App {
         let empty = self.sources.iter().filter(|s| self.source_files.get(&s.path).is_none_or(|v| v.is_empty())).count();
         let saved = files.iter().filter(|f| self.results.contains_key(*f)).count();
         let mut msg = if self.lookup_busy > 0 {
-            format!("{} found; looking up saved results ({saved} so far)…", plural(total, "audio file"))
+            if total == 1 {
+                tr!("1 audio file found; looking up saved results ({saved} so far)…", saved = saved)
+            } else {
+                tr!("{n} audio files found; looking up saved results ({saved} so far)…", n = total, saved = saved)
+            }
         } else if saved > 0 {
             let rest = total - saved;
-            format!(
-                "{saved} of {total} files were checked before and have not changed: their saved results are shown. {}",
-                if rest > 0 {
-                    format!("Press Scan to analyse the other {rest}.")
-                } else {
-                    "Nothing new to scan.".into()
-                }
-            )
+            let next = if rest > 0 {
+                tr!("Press Scan to analyse the other {n}.", n = rest)
+            } else {
+                tr!("Nothing new to scan.").to_string()
+            };
+            let sentence = tr!(
+                "{saved} of {total} files were checked before and have not changed: their saved results are shown.",
+                saved = saved,
+                total = total
+            );
+            tr!("{sentence} {next}", sentence = sentence, next = next)
         } else {
-            format!("{} ready in {}. Press Scan.", plural(total, "audio file"), plural(self.sources.len(), "source"))
+            let files = count(total, n_!("1 audio file"), n_!("{n} audio files"));
+            if self.sources.len() == 1 {
+                tr!("{files} ready in 1 source. Press Scan.", files = files)
+            } else {
+                tr!("{files} ready in {n} sources. Press Scan.", files = files, n = self.sources.len())
+            }
         };
         if empty > 0 {
-            msg += &format!("  ({empty} source(s) contain no audio files.)");
+            msg += "  ";
+            msg += &tr!("({n} source(s) contain no audio files.)", n = empty);
         }
         msg
     }
@@ -396,11 +431,11 @@ impl App {
 
     pub fn remove_sources(&mut self) {
         if self.scanning {
-            self.status = "Stop the scan before removing sources.".into();
+            self.status = tr!("Stop the scan before removing sources.").into();
             return;
         }
         if self.source_sel.is_empty() {
-            self.status = "Select a source in the “Sources to scan” list to remove it.".into();
+            self.status = tr!("Select a source in the “Sources to scan” list to remove it.").into();
             return;
         }
         let sel = std::mem::take(&mut self.source_sel);
@@ -415,7 +450,11 @@ impl App {
         self.results.retain(|p, _| keep.contains(p));
         self.selection.retain(|p| keep.contains(p));
         self.rows_dirty = true;
-        self.status = format!("Removed {} source(s). {} left to scan.", sel.len(), plural(keep.len(), "audio file"));
+        self.status = if keep.len() == 1 {
+            tr!("Removed {n} source(s). 1 audio file left to scan.", n = sel.len())
+        } else {
+            tr!("Removed {n} source(s). {files} audio files left to scan.", n = sel.len(), files = keep.len())
+        };
     }
 
     pub fn clear(&mut self) {
@@ -435,11 +474,11 @@ impl App {
         self.lookup_gen += 1;
         self.close_group(false);
         self.rows_dirty = true;
-        self.status = "Add a folder or files, then press Scan.".into();
+        self.status = tr!("Add a folder or files, then press Scan.").into();
     }
 
     pub fn add_folder_dialog(&mut self) {
-        if let Some(d) = rfd::FileDialog::new().set_title("Choose a music folder").pick_folder() {
+        if let Some(d) = rfd::FileDialog::new().set_title(tr!("Choose a music folder")).pick_folder() {
             self.add_source(&d.to_string_lossy());
         }
     }
@@ -448,9 +487,9 @@ impl App {
         let exts: Vec<String> =
             self.cfg.extension_set().iter().map(|e| e.trim_start_matches('.').to_string()).collect();
         if let Some(files) = rfd::FileDialog::new()
-            .set_title("Choose audio files")
-            .add_filter("Audio files", &exts)
-            .add_filter("All files", &["*"])
+            .set_title(tr!("Choose audio files"))
+            .add_filter(tr!("Audio files"), &exts)
+            .add_filter(tr!("All files"), &["*"])
             .pick_files()
         {
             for f in files {
@@ -465,12 +504,12 @@ impl App {
             return;
         }
         if self.sources.is_empty() {
-            self.info = Some(("Real-Hi-Res".into(), "Add a folder or some files first.".into()));
+            self.info = Some(("Real-Hi-Res".into(), tr!("Add a folder or some files first.").into()));
             return;
         }
         if !self.listing.is_empty() {
             self.scan_when_listed = true;
-            self.status = "Still looking for audio files… the scan starts as soon as the list is complete.".into();
+            self.status = tr!("Still looking for audio files… the scan starts as soon as the list is complete.").into();
             return;
         }
         let subset = files.is_some();
@@ -479,12 +518,13 @@ impl App {
         if files.is_empty() {
             self.info = Some((
                 "Real-Hi-Res".into(),
-                "The added folders/files contain no audio files.\n\nCheck the file extensions under Settings → Scanning.".into(),
+                tr!("The added folders/files contain no audio files.\n\nCheck the file extensions under Settings → Scanning.")
+                    .into(),
             ));
             return;
         }
         if let Err(e) = realhires::probe::require_tools() {
-            self.info = Some(("FFmpeg not found".into(), e));
+            self.info = Some((tr!("FFmpeg not found").into(), tr_text(&e)));
             return;
         }
         if subset {
@@ -511,7 +551,7 @@ impl App {
         self.rows_dirty = true;
         self.refresh();
         self.scan_started = Instant::now();
-        self.status = format!("Scanning {} files…", files.len());
+        self.status = tr!("Scanning {n} files…", n = files.len());
         self.scan_seq += 1;
         let max_seconds = self.wanted();
         self.scan =
@@ -521,7 +561,7 @@ impl App {
     pub fn stop_scan(&mut self) {
         if let Some(s) = &self.scan {
             s.stop.store(true, Ordering::Relaxed);
-            self.status = "Stopping after the files already in progress…".into();
+            self.status = tr!("Stopping after the files already in progress…").into();
         }
         self.stop_scan_lyrics();
     }
@@ -567,9 +607,10 @@ impl App {
         if saved + missing + left == 0 {
             return String::new();
         }
-        let mut s = format!("  ·  Lyrics: {saved} saved, {missing} not found");
+        let mut s = String::from("  ·  ");
+        s += &tr!("Lyrics: {saved} saved, {not_found} not found", saved = saved, not_found = missing);
         if left > 0 && self.scan_lyrics.is_some() {
-            s += &format!(", {left} to go");
+            s += &tr!(", {left} to go", left = left);
         }
         s
     }
@@ -613,13 +654,20 @@ impl App {
             let extra = if skipped.is_empty() {
                 String::new()
             } else {
-                format!("\n\n{} other fake file(s) cannot be changed; the Fix window says why.", skipped.len())
+                format!(
+                    "\n\n{}",
+                    tr!("{n} other fake file(s) cannot be changed; the Fix window says why.", n = skipped.len())
+                )
             };
             self.confirm = Some(Confirm {
-                title: "Fix to real resolution".into(),
+                title: tr!("Fix to real resolution").into(),
                 text: format!(
-                    "{} fake file(s) can be fixed to the resolution they really have. Fix them now?{extra}\n\n(Settings → Fixing → After a scan)",
-                    plans.len()
+                    "{}{extra}\n\n{}",
+                    tr!(
+                        "{n} fake file(s) can be fixed to the resolution they really have. Fix them now?",
+                        n = plans.len()
+                    ),
+                    tr!("(Settings → Fixing → After a scan)")
                 ),
                 action: ConfirmAction::FixAfterScan(fakes),
             });
@@ -630,7 +678,7 @@ impl App {
 
     pub fn open_fix(&mut self, results: Vec<FileResult>, autostart: bool) {
         if results.is_empty() {
-            self.status = "Select one or more fake files to fix.".into();
+            self.status = tr!("Select one or more fake files to fix.").into();
             return;
         }
         self.fix_win = Some(FixWindow::new(&self.cfg, results, autostart));
@@ -664,40 +712,47 @@ impl App {
         let c = self.counts();
         let fakes = c[0] + c[1];
         let n = self.results.len().max(1);
-        let tail = format!(
-            "{fakes} fake ({}%), {} suspicious, {} real hi-res",
-            f(100.0 * fakes as f64 / n as f64, 0),
-            c[2],
-            c[3]
+        let tail = tr!(
+            "{fakes} fake ({pct}%), {sus} suspicious, {real} real hi-res",
+            fakes = fakes,
+            pct = f(100.0 * fakes as f64 / n as f64, 0),
+            sus = c[2],
+            real = c[3]
         );
         let reused = self.results.values().filter(|r| r.saved.is_some()).count();
         if fin {
+            let n = self.results.len();
             let head = if stopped {
-                "Stopped"
+                tr!("Stopped")
             } else if self.last_elapsed.is_some() {
-                "Finished"
+                tr!("Finished")
             } else {
-                "Saved results"
+                tr!("Saved results")
             };
-            let extra = if reused > 0 && self.last_elapsed.is_some() {
-                format!(" ({reused} unchanged, from saved results)")
+            let head = if reused > 0 && self.last_elapsed.is_some() {
+                tr!("{head}: {n} files ({reused} unchanged, from saved results)", head = head, n = n, reused = reused)
             } else {
-                String::new()
+                tr!("{head}: {n} files", head = head, n = n)
             };
-            self.status = format!("{head}: {} files{extra}  ·  {tail}{}", self.results.len(), self.lyrics_status());
+            self.status = format!("{head}  ·  {tail}{}", self.lyrics_status());
         } else {
             let mut busy = if !self.scan_order.is_empty() {
-                format!("analysing {} ({} at a time)", self.scan_order.len(), self.scan_workers)
+                tr!("analysing {n} ({workers} at a time)", n = self.scan_order.len(), workers = self.scan_workers)
             } else {
-                "looking up saved results".into()
+                tr!("looking up saved results").into()
             };
             if let Some(e) = &self.eta {
-                busy += &format!(", {}", e.text());
+                busy = tr!("{busy}, {time_left}", busy = busy, time_left = tr_text(&e.text()));
             }
             self.status = format!(
-                "Scanning: {}/{} files, {reused} from saved results, {busy}  ·  {tail}{}",
-                self.done,
-                self.total,
+                "{}  ·  {tail}{}",
+                tr!(
+                    "Scanning: {done}/{total} files, {reused} from saved results, {busy}",
+                    done = self.done,
+                    total = self.total,
+                    reused = reused,
+                    busy = busy
+                ),
                 self.lyrics_status()
             );
         }
@@ -791,12 +846,12 @@ impl App {
                 }
                 Msg::FixStatus(s) => {
                     if let Some(w) = self.fix_win.as_mut() {
-                        w.status = s;
+                        w.status = tr_text(&s); // also prepare_gapless()'s progress
                     }
                 }
                 Msg::FixStart(p) => {
                     if let Some(w) = self.fix_win.as_mut() {
-                        w.set_status(&p, "Fixing…".into(), None);
+                        w.set_status(&p, tr!("Fixing…").into(), None);
                     }
                 }
                 Msg::FixDone(o) => {
@@ -810,7 +865,7 @@ impl App {
                 Msg::FixFinished => {
                     if let Some(w) = self.fix_win.as_mut() {
                         w.finished();
-                        self.status = format!("Fix: {}", w.status);
+                        self.status = tr!("Fix: {status}", status = &w.status);
                         // a pop-up says it is done; it stays when the Fix window is closed
                         self.fix_done = Some(FixDoneWindow::new(&w.outcomes, w.skipped));
                         if w.hidden {
@@ -909,7 +964,10 @@ impl App {
     fn matches(&self, r: &FileResult, q: &str) -> bool {
         self.in_group(&r.path)
             && self.show[index_of(r.verdict)]
-            && (q.is_empty() || r.path.to_lowercase().contains(q) || r.summary.to_lowercase().contains(q))
+            && (q.is_empty()
+                || r.path.to_lowercase().contains(q)
+                || r.summary.to_lowercase().contains(q)
+                || (i18n::language() != "en" && tr_text(&r.summary).to_lowercase().contains(q)))
     }
 
     fn sort_key(&self, r: &FileResult) -> (i64, i64, String, String) {
@@ -917,11 +975,11 @@ impl App {
         match self.sort_col {
             Col::Verdict => (index_of(r.verdict) as i64, 0, p, String::new()),
             Col::Bandwidth => ((r.bandwidth_hz.unwrap_or(0.0) * 1000.0) as i64, 0, p, String::new()),
-            Col::Fix => (0, 0, fix_outlook(r, &self.cfg).to_lowercase(), p),
+            Col::Fix => (0, 0, tr_text(&fix_outlook(r, &self.cfg)).to_lowercase(), p),
             Col::Claimed => (r.sample_rate as i64, r.claimed_bits.unwrap_or(0) as i64, p, String::new()),
             Col::Estimated => (r.true_rate.unwrap_or(0) as i64, r.effective_bits.unwrap_or(0) as i64, p, String::new()),
             Col::Name => (0, 0, file_name(&r.path).to_lowercase(), String::new()),
-            Col::Why => (0, 0, r.summary.to_lowercase(), p),
+            Col::Why => (0, 0, tr_text(&r.summary).to_lowercase(), p),
             Col::Folder => (0, 0, parent(&r.path).to_lowercase(), p),
             Col::Track => {
                 let order = self.group_filter.as_ref().map(|g| &g.order);
@@ -987,7 +1045,7 @@ impl App {
 
     pub fn select_all(&mut self) {
         self.selection = self.rows.iter().cloned().collect();
-        self.status = format!("Selected all {} listed files.", self.rows.len());
+        self.status = tr!("Selected all {n} listed files.", n = self.rows.len());
     }
 
     fn selected_results(&self) -> Vec<FileResult> {
@@ -1004,12 +1062,12 @@ impl App {
 
     pub fn download_lyrics(&mut self, paths: Vec<String>) {
         if self.lyrics_win.as_ref().is_some_and(|w| w.running) {
-            self.status = "Lyrics are being downloaded already; wait for them or press Stop first.".into();
+            self.status = tr!("Lyrics are being downloaded already; wait for them or press Stop first.").into();
             return;
         }
         if self.scan_lyrics_busy() {
-            self.status = "Lyrics are being downloaded for the scanned songs; wait for them or stop the scan first."
-                .into();
+            self.status =
+                tr!("Lyrics are being downloaded for the scanned songs; wait for them or stop the scan first.").into();
             return;
         }
         self.lyrics_win = Some(LyricsWindow::new(self, paths));
@@ -1023,9 +1081,11 @@ impl App {
             vec![]
         };
         if paths.is_empty() {
-            self.status = "Select one or more songs in the Files view (Ctrl/Cmd+A selects all listed), or use Edit → \
-                           Download synced lyrics for all songs."
-                .into();
+            self.status = tr!(
+                "Select one or more songs in the Files view (Ctrl/Cmd+A selects all listed), or use Edit → \
+                 Download synced lyrics for all songs."
+            )
+            .into();
             return;
         }
         self.download_lyrics(paths);
@@ -1034,7 +1094,7 @@ impl App {
     pub fn lyrics_all(&mut self) {
         let files = self.all_files();
         if files.is_empty() {
-            self.info = Some(("Download synced lyrics".into(), "Add a folder or files first.".into()));
+            self.info = Some((tr!("Download synced lyrics").into(), tr!("Add a folder or files first.").into()));
             return;
         }
         self.download_lyrics(files);
@@ -1048,8 +1108,8 @@ impl App {
             self.selected_results().into_iter().filter(|r| FIXABLE_VERDICTS.contains(&r.verdict)).collect();
         if sel.is_empty() {
             self.info = Some((
-                "Fix to real resolution".into(),
-                "Select one or more fake hi-res or fake lossless files first.".into(),
+                tr!("Fix to real resolution").into(),
+                tr!("Select one or more fake hi-res or fake lossless files first.").into(),
             ));
             return;
         }
@@ -1063,8 +1123,10 @@ impl App {
         let all: Vec<FileResult> =
             self.results.values().filter(|r| FIXABLE_VERDICTS.contains(&r.verdict)).cloned().collect();
         if all.is_empty() {
-            self.info =
-                Some(("Fix to real resolution".into(), "No fake hi-res or fake lossless files were found.".into()));
+            self.info = Some((
+                tr!("Fix to real resolution").into(),
+                tr!("No fake hi-res or fake lossless files were found.").into(),
+            ));
             return;
         }
         self.open_fix(all, false);
@@ -1075,7 +1137,7 @@ impl App {
         let paths: Vec<String> =
             self.rows.iter().filter(|p| self.selection.contains(*p) && listed.contains(*p)).cloned().collect();
         if paths.is_empty() {
-            self.status = "Select the files to analyse again.".into();
+            self.status = tr!("Select the files to analyse again.").into();
             return;
         }
         self.start_scan(Some(paths), true);
@@ -1089,7 +1151,7 @@ impl App {
             .map(|(p, _)| p.clone())
             .collect();
         if paths.is_empty() {
-            self.status = "No saved results from older detection rules are listed.".into();
+            self.status = tr!("No saved results from older detection rules are listed.").into();
             return;
         }
         self.start_scan(Some(paths), true);
@@ -1097,18 +1159,20 @@ impl App {
 
     pub fn forget_saved_ask(&mut self) {
         let Some(st) = &self.store else {
-            self.info =
-                Some(("Saved results".into(), "Saving results is turned off (Settings → Saved results).".into()));
+            self.info = Some((
+                tr!("Saved results").into(),
+                tr!("Saving results is turned off (Settings → Saved results).").into(),
+            ));
             return;
         };
         let s = st.stats();
         self.confirm = Some(Confirm {
-            title: "Delete all saved results".into(),
-            text: format!(
-                "Delete the saved results of {} file(s) ({} MB in {})?\n\nThe files themselves are not touched; they are simply analysed again the next time they are scanned.",
-                s.files,
-                f(s.disk_bytes as f64 / 1e6, 0),
-                s.path.display()
+            title: tr!("Delete all saved results").into(),
+            text: tr!(
+                "Delete the saved results of {n} file(s) ({mb} MB in {path})?\n\nThe files themselves are not touched; they are simply analysed again the next time they are scanned.",
+                n = s.files,
+                mb = f(s.disk_bytes as f64 / 1e6, 0),
+                path = s.path.display()
             ),
             action: ConfirmAction::ForgetSaved,
         });
@@ -1121,15 +1185,24 @@ impl App {
                 for r in self.results.values_mut() {
                     r.saved = None;
                 }
-                self.status = format!("Deleted {n} saved result(s). The results on screen stay until you scan again.");
+                self.status =
+                    tr!("Deleted {n} saved result(s). The results on screen stay until you scan again.", n = n);
             }
-            Err(e) => self.info = Some(("Saved results".into(), format!("Could not delete the saved results: {e}"))),
+            Err(e) => {
+                self.info = Some((
+                    tr!("Saved results").into(),
+                    tr!("Could not delete the saved results: {error}", error = tr_text(&e.to_string())),
+                ))
+            }
         }
     }
 
     pub fn save_settings(&mut self) {
         if let Err(e) = settings::save(&self.cfg, None) {
-            self.info = Some(("Settings".into(), format!("Could not save settings: {e}")));
+            self.info = Some((
+                tr!("Settings").into(),
+                tr!("Could not save settings: {error}", error = tr_text(&e.to_string())),
+            ));
         }
     }
 
@@ -1139,6 +1212,11 @@ impl App {
         let detection = settings_key(&new) != settings_key(&self.cfg);
         let store_changed =
             (new.save_results, new.saved_graphs_mb) != (self.cfg.save_results, self.cfg.saved_graphs_mb);
+        if new.language != self.cfg.language {
+            // egui draws every frame, so the whole app speaks the new language at once
+            i18n::set_language(&new.language);
+            self.lyrics_shown = None;
+        }
         self.cfg = new;
         self.graphs = GraphWorker::start(self.cfg.clone(), self.post.clone());
         if store_changed {
@@ -1165,10 +1243,10 @@ impl App {
         }
         self.spectro = SpectroTexture::default();
         self.status = if detection {
-            "Settings saved. Files without a result for the new detection settings are analysed when you press Scan."
+            tr!("Settings saved. Files without a result for the new detection settings are analysed when you press Scan.")
                 .into()
         } else {
-            "Settings saved.".into()
+            tr!("Settings saved.").into()
         };
     }
 
@@ -1208,15 +1286,12 @@ impl App {
 
     fn open_group(&mut self, g: &Group) {
         let mode = if self.view == View::Album { GroupMode::Album } else { GroupMode::Artist };
-        let mut label = if mode == GroupMode::Album {
-            format!("Album: {} — {}", g.title, g.subtitle)
-        } else {
-            format!("Artist: {}", g.title)
-        };
-        label += &format!("  ({} of {} fake/suspicious)", g.problems(), g.total);
         self.group_filter = Some(GroupFilter {
             mode,
-            label,
+            title: g.title.clone(),
+            subtitle: g.subtitle.clone(),
+            problems: g.problems(),
+            total: g.total,
             paths: g.paths.iter().cloned().collect(),
             order: g.paths.clone(),
             back: self.view,
@@ -1263,7 +1338,7 @@ impl App {
                     let text = match self.results.get(p) {
                         Some(r) => {
                             let tags: Vec<&str> = r.tags.iter().map(|(_, v)| v.as_str()).collect();
-                            format!(
+                            let mut text = format!(
                                 "{} {} {} {} {} {}",
                                 verdict_style(r.verdict).0,
                                 r.summary,
@@ -1271,15 +1346,26 @@ impl App {
                                 r.estimated(),
                                 p,
                                 tags.join(" ")
-                            )
+                            );
+                            if i18n::language() != "en" {
+                                // what the list shows, so the find bar also finds the translated texts
+                                text += &format!(" {} {}", verdict_label(r.verdict), tr_text(&r.summary));
+                            }
+                            text
                         }
+                        None if i18n::language() != "en" => format!("{PENDING_LABEL} {} {p}", i18n::tr(PENDING_LABEL)),
                         None => format!("{PENDING_LABEL} {p}"),
                     };
                     (p.clone(), text)
                 })
                 .collect()
         } else {
-            self.groups.iter().map(|g| (g.key.clone(), format!("{} {}", g.title, g.subtitle))).collect()
+            self.groups
+                .iter()
+                .map(|g| {
+                    (g.key.clone(), format!("{} {} {} {}", g.title, g.subtitle, tr_name(&g.title), tr_name(&g.subtitle)))
+                })
+                .collect()
         }
     }
 
@@ -1429,7 +1515,7 @@ impl App {
         let paths: Vec<String> = self.rows.iter().filter(|p| self.selection.contains(*p)).cloned().collect();
         if !paths.is_empty() {
             ctx.copy_text(paths.join("\n"));
-            self.status = format!("Copied {} path(s).", paths.len());
+            self.status = tr!("Copied {n} path(s).", n = paths.len());
         }
     }
 
@@ -1496,12 +1582,12 @@ impl App {
         crate::dialogs::show_all(self, &ctx);
         if self.about {
             let mut open = true;
-            egui::Window::new(format!("About {}", realhires::APP_NAME)).open(&mut open).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, Vec2::ZERO).show(&ctx, |ui| {
+            egui::Window::new(tr!("About {app}", app = realhires::APP_NAME)).id(egui::Id::unique("about-window")).open(&mut open).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, Vec2::ZERO).show(&ctx, |ui| {
                 ui.heading(format!("{} {}", realhires::APP_NAME, realhires::VERSION));
-                ui.label("A music player that finds fake hi-res audio (upsampled or 16-bit padded) and fake lossless files made from MP3/AAC, by analysing the decoded audio itself.");
-                ui.label("This is the Rust version; it shares its settings, saved results, library and player state with the Python version.");
-                ui.label(realhires::lyrics::ABOUT_CREDIT);
-                ui.label("Windows and Linux use the Inter typeface by The Inter Project Authors (SIL Open Font License 1.1).");
+                ui.label(tr!("A music player that finds fake hi-res audio (upsampled or 16-bit padded) and fake lossless files made from MP3/AAC, by analysing the decoded audio itself."));
+                ui.label(tr!("This is the Rust version; it shares its settings, saved results, library and player state with the Python version."));
+                ui.label(tr_text(realhires::lyrics::ABOUT_CREDIT));
+                ui.label(tr!("Windows and Linux use the Inter typeface by The Inter Project Authors (SIL Open Font License 1.1)."));
                 ui.horizontal_wrapped(|ui| {
                     ui.hyperlink_to("LRCLIB", "https://lrclib.net");
                     ui.hyperlink_to("LRCGET", "https://github.com/tranxuanthang/lrcget");
@@ -1562,58 +1648,58 @@ impl App {
 
     fn menu_bar(&mut self, ui: &mut Ui) {
         egui::MenuBar::new().ui(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.button("Add Folder…").clicked() {
+            ui.menu_button(tr!("File"), |ui| {
+                if ui.button(tr!("Add Folder…")).clicked() {
                     self.add_folder_dialog();
                 }
-                if ui.button("Add Files…").clicked() {
+                if ui.button(tr!("Add Files…")).clicked() {
                     self.add_files_dialog();
                 }
                 ui.separator();
-                if ui.button("Export listed files as CSV…").clicked() {
+                if ui.button(tr!("Export listed files as CSV…")).clicked() {
                     self.export(false, false);
                 }
-                if ui.button("Export listed files as JSON…").clicked() {
+                if ui.button(tr!("Export listed files as JSON…")).clicked() {
                     self.export(true, false);
                 }
                 ui.separator();
-                if ui.button("Delete all saved results…").clicked() {
+                if ui.button(tr!("Delete all saved results…")).clicked() {
                     self.forget_saved_ask();
                 }
                 ui.separator();
-                if ui.button("Quit").clicked() {
+                if ui.button(tr!("Quit")).clicked() {
                     self.quit = true;
                 }
             });
-            ui.menu_button("Edit", |ui| {
-                if ui.button("Open file location").clicked() {
+            ui.menu_button(tr!("Edit"), |ui| {
+                if ui.button(tr!("Open file location")).clicked() {
                     self.reveal_current();
                 }
-                if ui.button("Open file").clicked() {
+                if ui.button(tr!("Open file")).clicked() {
                     self.open_current_file();
                 }
-                if ui.button("Select all listed files").clicked() {
+                if ui.button(tr!("Select all listed files")).clicked() {
                     self.select_all();
                 }
-                if ui.button("Copy path").clicked() {
+                if ui.button(tr!("Copy path")).clicked() {
                     let ctx = ui.ctx().clone();
                     self.copy_paths(&ctx);
                 }
                 ui.separator();
-                if ui.button("Find…").clicked() {
+                if ui.button(tr!("Find…")).clicked() {
                     self.open_find();
                 }
                 ui.separator();
-                if ui.button("Fix selected files to real resolution…").clicked() {
+                if ui.button(tr!("Fix selected files to real resolution…")).clicked() {
                     self.fix_selected();
                 }
-                if ui.button("Fix all fake files to real resolution…").clicked() {
+                if ui.button(tr!("Fix all fake files to real resolution…")).clicked() {
                     self.fix_all();
                 }
                 ui.separator();
                 if ui
                     .add(
-                        egui::Button::new("Download synced lyrics for selected songs…").shortcut_text(
+                        egui::Button::new(tr!("Download synced lyrics for selected songs…")).shortcut_text(
                             ui.ctx().format_shortcut(&KeyboardShortcut::new(Modifiers::COMMAND, Key::L)),
                         ),
                     )
@@ -1621,44 +1707,44 @@ impl App {
                 {
                     self.lyrics_selected();
                 }
-                if ui.button("Download synced lyrics for all songs…").clicked() {
+                if ui.button(tr!("Download synced lyrics for all songs…")).clicked() {
                     self.lyrics_all();
                 }
                 ui.separator();
-                if ui.button("Re-scan selected files").clicked() {
+                if ui.button(tr!("Re-scan selected files")).clicked() {
                     self.rescan_selected();
                 }
-                if ui.button("Re-scan files checked by older rules").clicked() {
+                if ui.button(tr!("Re-scan files checked by older rules")).clicked() {
                     self.rescan_outdated();
                 }
                 ui.separator();
-                if ui.button("Settings…").clicked() {
+                if ui.button(tr!("Settings…")).clicked() {
                     self.settings_win = Some(SettingsWindow::new(&self.cfg));
                 }
             });
-            ui.menu_button("View", |ui| {
+            ui.menu_button(tr!("View"), |ui| {
                 for v in [View::Files, View::Album, View::Artist] {
-                    if ui.button(v.label()).clicked() {
+                    if ui.button(i18n::tr(v.label())).clicked() {
                         self.switch_view(v);
                     }
                 }
                 ui.separator();
-                if ui.button("Scan summary…").clicked() {
+                if ui.button(tr!("Scan summary…")).clicked() {
                     if self.results.is_empty() {
-                        self.info = Some(("Scan summary".into(), "Nothing scanned yet.".into()));
+                        self.info = Some((tr!("Scan summary").into(), tr!("Nothing scanned yet.").into()));
                     } else {
                         self.summary = Some(SummaryWindow::new(self));
                     }
                 }
-                if ui.button("Show problem files only").clicked() {
+                if ui.button(tr!("Show problem files only")).clicked() {
                     self.set_filters(&[Verdict::FakeLossless, Verdict::Fake, Verdict::Suspect]);
                 }
-                if ui.button("Show all files").clicked() {
+                if ui.button(tr!("Show all files")).clicked() {
                     self.set_filters(&VERDICT_ORDER);
                 }
             });
-            ui.menu_button("Help", |ui| {
-                if ui.button(format!("About {}", realhires::APP_NAME)).clicked() {
+            ui.menu_button(tr!("Help"), |ui| {
+                if ui.button(tr!("About {app}", app = realhires::APP_NAME)).clicked() {
                     self.about = true;
                 }
             });
@@ -1667,26 +1753,26 @@ impl App {
 
     fn toolbar(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            if ui.button("Add Folder…").clicked() {
+            if ui.button(tr!("Add Folder…")).clicked() {
                 self.add_folder_dialog();
             }
-            if ui.button("Add Files…").clicked() {
+            if ui.button(tr!("Add Files…")).clicked() {
                 self.add_files_dialog();
             }
-            if ui.add_enabled(!self.scanning, egui::Button::new("Clear")).clicked() {
+            if ui.add_enabled(!self.scanning, egui::Button::new(tr!("Clear"))).clicked() {
                 self.clear();
             }
             ui.add_space(12.0);
-            ui.checkbox(&mut self.quick, format!("Quick scan (first {} s)", g(self.cfg.quick_scan_seconds)));
+            ui.checkbox(&mut self.quick, tr!("Quick scan (first {seconds} s)", seconds = g(self.cfg.quick_scan_seconds)));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if ui.button("⚙ Settings…").clicked() {
+                if ui.button(format!("⚙ {}", tr!("Settings…"))).clicked() {
                     self.settings_win = Some(SettingsWindow::new(&self.cfg));
                 }
                 ui.add_space(12.0);
-                if ui.add_enabled(self.scanning, egui::Button::new("Stop")).clicked() {
+                if ui.add_enabled(self.scanning, egui::Button::new(tr!("Stop"))).clicked() {
                     self.stop_scan();
                 }
-                let scan = egui::Button::new(RichText::new("Scan").strong());
+                let scan = egui::Button::new(RichText::new(tr!("Scan")).strong());
                 if ui.add_enabled(!self.scanning, scan).clicked() {
                     self.start_scan(None, false);
                 }
@@ -1697,12 +1783,12 @@ impl App {
     fn sources_panel(&mut self, ui: &mut Ui) {
         let mut remove = false;
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Sources to scan").strong());
+            ui.label(RichText::new(tr!("Sources to scan")).strong());
             if !self.sources.is_empty() {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui
-                        .add_enabled(!self.source_sel.is_empty(), egui::Button::new("Remove"))
-                        .on_hover_text("Remove the selected sources (Delete key)")
+                        .add_enabled(!self.source_sel.is_empty(), egui::Button::new(tr!("Remove")))
+                        .on_hover_text(tr!("Remove the selected sources (Delete key)"))
                         .clicked()
                     {
                         remove = true;
@@ -1711,7 +1797,7 @@ impl App {
             }
         });
         if self.sources.is_empty() {
-            ui.label(RichText::new("Nothing added yet. Click “Add Folder…” or “Add Files…” (or drop folders here): the files found are listed below straight away, then press Scan.").color(hex(0x666666)));
+            ui.label(RichText::new(tr!("Nothing added yet. Click “Add Folder…” or “Add Files…” (or drop folders here): the files found are listed below straight away, then press Scan.")).color(hex(0x666666)));
             return;
         }
         let text = ui.visuals().text_color();
@@ -1720,40 +1806,40 @@ impl App {
             egui::Grid::new("srcgrid").striped(true).num_columns(4).min_col_width(80.0).spacing([24.0, 2.0]).show(
                 ui,
                 |ui| {
-                    ui.label(RichText::new("Folder / file").color(hex(0x666666)));
-                    ui.label(RichText::new("Type").color(hex(0x666666)));
-                    ui.label(RichText::new("Audio files").color(hex(0x666666)));
-                    ui.label(RichText::new("Fake / suspicious").color(hex(0x666666)));
+                    ui.label(RichText::new(tr!("Folder / file")).color(hex(0x666666)));
+                    ui.label(RichText::new(tr!("Type")).color(hex(0x666666)));
+                    ui.label(RichText::new(tr!("Audio files")).color(hex(0x666666)));
+                    ui.label(RichText::new(tr!("Fake / suspicious")).color(hex(0x666666)));
                     ui.end_row();
                     for s in &self.sources {
                         let files = self.source_files.get(&s.path).map(Vec::as_slice).unwrap_or(&[]);
                         let listing = self.listing.contains_key(&s.path);
                         let empty = files.is_empty() && !listing;
                         let (count, color) = if listing {
-                            (format!("{} so far…", files.len()), hex(0x808080))
+                            (tr!("{n} so far…", n = files.len()), hex(0x808080))
                         } else if empty {
                             let why = if s.is_dir {
-                                "no audio files found"
+                                tr!("no audio files found")
                             } else {
-                                "not an audio file (check Settings → Scanning → File extensions)"
+                                tr!("not an audio file (check Settings → Scanning → File extensions)")
                             };
                             (why.to_string(), hex(0xc62828))
                         } else {
-                            (plural(files.len(), "file"), text)
+                            (count(files.len(), n_!("1 file"), n_!("{n} files")), text)
                         };
                         let sel = self.source_sel.contains(&s.path);
                         let label = RichText::new(&s.path).color(if empty { hex(0xc62828) } else { text });
                         if ui.add(egui::Button::selectable(sel, label)).clicked() {
                             clicked = Some(s.path.clone());
                         }
-                        ui.label(if s.is_dir { "Folder" } else { "File" });
+                        ui.label(if s.is_dir { tr!("Folder") } else { tr!("File") });
                         ui.label(RichText::new(count).color(color));
                         let done: Vec<&FileResult> = files.iter().filter_map(|f| self.results.get(f)).collect();
                         let probs = done.iter().filter(|r| r.is_problem()).count();
                         ui.label(if done.is_empty() || listing {
                             String::new()
                         } else {
-                            format!("{probs} of {}", done.len())
+                            tr!("{n} of {total}", n = probs, total = done.len())
                         });
                         ui.end_row();
                     }
@@ -1778,25 +1864,26 @@ impl App {
 
     fn filter_bar(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.label("View:");
+            ui.label(tr!("View:"));
             for v in [View::Files, View::Album, View::Artist] {
-                if ui.add(egui::Button::selectable(self.view == v, v.label())).clicked() && self.view != v {
+                if ui.add(egui::Button::selectable(self.view == v, i18n::tr(v.label()))).clicked() && self.view != v {
                     self.switch_view(v);
                 }
             }
             if self.view != View::Files {
                 ui.add_space(16.0);
-                ui.label("Rings show:");
+                ui.label(tr!("Rings show:"));
                 let before = (self.cfg.card_label.clone(), self.cfg.group_sort.clone());
-                egui::ComboBox::from_id_salt("ring").selected_text(self.cfg.card_label.clone()).show_ui(ui, |ui| {
-                    for c in ["Percentage", "Songs (x of n)"] {
-                        ui.selectable_value(&mut self.cfg.card_label, c.to_string(), c);
+                // the setting values stay English; the menus show them translated
+                egui::ComboBox::from_id_salt("ring").selected_text(i18n::tr(&self.cfg.card_label)).show_ui(ui, |ui| {
+                    for c in [n_!("Percentage"), n_!("Songs (x of n)")] {
+                        ui.selectable_value(&mut self.cfg.card_label, c.to_string(), i18n::tr(c));
                     }
                 });
-                ui.label("Sort:");
-                egui::ComboBox::from_id_salt("gsort").selected_text(self.cfg.group_sort.clone()).show_ui(ui, |ui| {
-                    for c in ["Most fake first", "Name"] {
-                        ui.selectable_value(&mut self.cfg.group_sort, c.to_string(), c);
+                ui.label(tr!("Sort:"));
+                egui::ComboBox::from_id_salt("gsort").selected_text(i18n::tr(&self.cfg.group_sort)).show_ui(ui, |ui| {
+                    for c in [n_!("Most fake first"), n_!("Name")] {
+                        ui.selectable_value(&mut self.cfg.group_sort, c.to_string(), i18n::tr(c));
                     }
                 });
                 if before != (self.cfg.card_label.clone(), self.cfg.group_sort.clone()) {
@@ -1806,18 +1893,20 @@ impl App {
             }
             if let Some(gf) = &self.group_filter {
                 ui.add_space(16.0);
-                ui.label(RichText::new(&gf.label).color(hex(0x0b62c4)).strong());
-                let back = if gf.mode == GroupMode::Album { "◀ Back to albums" } else { "◀ Back to artists" };
+                ui.label(RichText::new(gf.label()).color(hex(0x0b62c4)).strong());
+                let back = if gf.mode == GroupMode::Album { tr!("Back to albums") } else { tr!("Back to artists") };
+                let back = format!("◀ {back}");
                 if ui.button(back).clicked() {
                     self.close_group(true);
                 }
             }
         });
         ui.horizontal(|ui| {
-            ui.label("Show:");
+            ui.label(tr!("Show:"));
             let c = self.counts();
             for (i, v) in VERDICT_ORDER.iter().enumerate() {
-                let (label, color, _) = verdict_style(*v);
+                let (_, color, _) = verdict_style(*v);
+                let label = verdict_label(*v);
                 let text = if self.results.is_empty() { label.to_string() } else { format!("{label} ({})", c[i]) };
                 if ui.checkbox(&mut self.show[i], RichText::new(text).color(color)).changed() {
                     self.rows_dirty = true;
@@ -1828,21 +1917,21 @@ impl App {
                     .add(
                         egui::TextEdit::singleline(&mut self.search)
                             .desired_width(180.0)
-                            .hint_text("file, folder or reason"),
+                            .hint_text(tr!("file, folder or reason")),
                     )
                     .changed()
                 {
                     self.rows_dirty = true;
                     self.groups_dirty = true;
                 }
-                ui.label("Search:");
+                ui.label(tr!("Search:"));
             });
         });
     }
 
     fn find_bar(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.label("Find:");
+            ui.label(tr!("Find:"));
             let resp = ui.add(egui::TextEdit::singleline(&mut self.find_text).desired_width(260.0));
             if self.find_focus {
                 resp.request_focus();
@@ -1864,9 +1953,9 @@ impl App {
             }
             let n = self.find_matches.len();
             if n > 0 {
-                ui.label(format!("{} of {n}", self.find_index.unwrap_or(0) + 1));
+                ui.label(tr!("{n} of {total}", n = self.find_index.unwrap_or(0) + 1, total = n));
             } else if !self.find_text.trim().is_empty() {
-                ui.label(RichText::new("No matches").color(hex(0xc62828)));
+                ui.label(RichText::new(tr!("No matches")).color(hex(0xc62828)));
             }
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 if ui.button("✕").clicked() {
@@ -1875,7 +1964,7 @@ impl App {
                     self.find_index = None;
                 }
                 ui.label(
-                    RichText::new("Enter = next, Shift+Enter = previous, Esc = close").small().color(hex(0x888888)),
+                    RichText::new(tr!("Enter = next, Shift+Enter = previous, Esc = close")).small().color(hex(0x888888)),
                 );
             });
         });
@@ -1889,14 +1978,15 @@ impl App {
             let outdated = self.results.values().filter(|r| r.saved.as_ref().is_some_and(|s| s.outdated)).count();
             if outdated > 0 && !self.scanning {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ui.button("Re-scan them").clicked() {
+                    if ui.button(tr!("Re-scan them")).clicked() {
                         self.rescan_outdated();
                     }
-                    let what = if outdated == 1 { " was" } else { "s were" };
-                    ui.label(
-                        RichText::new(format!("{outdated} saved result{what} made by older detection rules."))
-                            .color(hex(0x8a5a00)),
-                    );
+                    let text = if outdated == 1 {
+                        tr!("1 saved result was made by older detection rules.").to_string()
+                    } else {
+                        tr!("{n} saved results were made by older detection rules.", n = outdated)
+                    };
+                    ui.label(RichText::new(text).color(hex(0x8a5a00)));
                 });
             }
         });
@@ -1907,18 +1997,21 @@ impl App {
         let folder = parent(path);
         match self.results.get(path) {
             Some(r) => {
-                let (label, color, _) = verdict_style(r.verdict);
+                let color = verdict_style(r.verdict).1;
                 let bw = match r.bandwidth_hz {
                     Some(b) if b != 0.0 => format!("{} kHz", f(b / 1000.0, 1)),
                     _ => "-".into(),
                 };
-                let fix = fix_outlook(r, &self.cfg);
-                ([label.into(), r.summary.clone(), r.claimed(), r.estimated(), bw, fix, name, folder], color)
+                // the core's texts in the language in use
+                let fix = tr_text(&fix_outlook(r, &self.cfg));
+                let why = tr_text(&r.summary);
+                let est = tr_text(&r.estimated());
+                ([verdict_label(r.verdict).into(), why, r.claimed(), est, bw, fix, name, folder], color)
             }
             None if running.contains(path) => (
                 [
-                    RUNNING_LABEL.into(),
-                    "Analysing…".into(),
+                    i18n::tr(RUNNING_LABEL).into(),
+                    tr!("Analysing…").into(),
                     String::new(),
                     String::new(),
                     String::new(),
@@ -1929,10 +2022,10 @@ impl App {
                 hex(RUNNING_COLOR),
             ),
             None => {
-                let why = if self.scanning { "Waiting in the scan queue…" } else { "Not scanned yet: press Scan" };
+                let why = if self.scanning { tr!("Waiting in the scan queue…") } else { tr!("Not scanned yet: press Scan") };
                 (
                     [
-                        PENDING_LABEL.into(),
+                        i18n::tr(PENDING_LABEL).into(),
                         why.into(),
                         String::new(),
                         String::new(),
@@ -1987,7 +2080,10 @@ impl App {
                         ""
                     };
                     if ui
-                        .add(egui::Button::new(RichText::new(format!("{title}{arrow}")).strong()).frame(false))
+                        .add(
+                            egui::Button::new(RichText::new(format!("{}{arrow}", i18n::tr(title))).strong())
+                                .frame(false),
+                        )
                         .clicked()
                     {
                         sort = Some(c);
@@ -2035,17 +2131,17 @@ impl App {
                 }
                 resp.context_menu(|ui| {
                     for (label, act) in [
-                        ("Open file location", "reveal"),
-                        ("Open file", "open"),
-                        ("Copy path", "copy"),
-                        ("Fix to real resolution…", "fix"),
-                        ("Download synced lyrics…", "lyrics"),
-                        ("Re-scan", "rescan"),
+                        (n_!("Open file location"), "reveal"),
+                        (n_!("Open file"), "open"),
+                        (n_!("Copy path"), "copy"),
+                        (n_!("Fix to real resolution…"), "fix"),
+                        (n_!("Download synced lyrics…"), "lyrics"),
+                        (n_!("Re-scan"), "rescan"),
                     ] {
                         if act == "fix" {
                             ui.separator();
                         }
-                        if ui.button(label).clicked() {
+                        if ui.button(i18n::tr(label)).clicked() {
                             menu_action = Some(act);
                             ui.close();
                         }
@@ -2091,7 +2187,7 @@ impl App {
         }
         if self.rows.is_empty() && !self.results.is_empty() {
             ui.label(
-                RichText::new("No files match the current filters. Tick more verdicts above, or clear the search.")
+                RichText::new(tr!("No files match the current filters. Tick more verdicts above, or clear the search."))
                     .color(hex(0x777777)),
             );
         }
@@ -2104,9 +2200,9 @@ impl App {
         if self.groups.is_empty() {
             ui.label(
                 RichText::new(if self.results.is_empty() {
-                    "Scan some files to see their albums and artists."
+                    tr!("Scan some files to see their albums and artists.")
                 } else {
-                    "No albums match the search."
+                    tr!("No albums match the search.")
                 })
                 .color(hex(0x777777)),
             );
@@ -2169,9 +2265,14 @@ impl App {
                         let tx = crect.left();
                         let mut y = crect.bottom() + 8.0;
                         let tw = cw - 26.0;
+                        let subtitle = if self.view == View::Artist {
+                            count(gr.albums, n_!("1 album"), n_!("{n} albums"))
+                        } else {
+                            tr_name(&gr.subtitle).to_string()
+                        };
                         for (text, font, color) in [
-                            (gr.title.clone(), FontId::proportional(13.0), ui.visuals().strong_text_color()),
-                            (gr.subtitle.clone(), FontId::proportional(11.5), hex(0x777777)),
+                            (tr_name(&gr.title).to_string(), FontId::proportional(13.0), ui.visuals().strong_text_color()),
+                            (subtitle, FontId::proportional(11.5), hex(0x777777)),
                             card_line(gr),
                         ] {
                             let galley = p.layout(text, font, color, tw);
@@ -2203,11 +2304,8 @@ impl App {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 let (text, color) = match (&r, &cur) {
-                    (Some(r), _) => {
-                        let (l, c, _) = verdict_style(r.verdict);
-                        (l.to_uppercase(), c)
-                    }
-                    (None, Some(_)) => (PENDING_LABEL.to_uppercase(), hex(PENDING_COLOR)),
+                    (Some(r), _) => (verdict_label(r.verdict).to_uppercase(), verdict_style(r.verdict).1),
+                    (None, Some(_)) => (i18n::tr(PENDING_LABEL).to_uppercase(), hex(PENDING_COLOR)),
                     _ => (String::new(), hex(0x9e9e9e)),
                 };
                 if !text.is_empty() {
@@ -2218,23 +2316,24 @@ impl App {
                         },
                     );
                 }
-                let name = cur.as_ref().map(|p| file_name(p)).unwrap_or_else(|| "Select a file in the list".into());
+                let name =
+                    cur.as_ref().map(|p| file_name(p)).unwrap_or_else(|| tr!("Select a file in the list").into());
                 ui.label(RichText::new(name).strong());
             });
             ui.add_space(6.0);
             let why = match (&r, &cur) {
                 (Some(r), _) => {
                     if r.summary.is_empty() {
-                        r.reasons.first().cloned().unwrap_or_default()
+                        tr_text(&r.reasons.first().cloned().unwrap_or_default())
                     } else {
-                        r.summary.clone()
+                        tr_text(&r.summary)
                     }
                 }
                 (None, Some(_)) => {
                     if self.scanning {
-                        "Waiting in the scan queue…".into()
+                        tr!("Waiting in the scan queue…").into()
                     } else {
-                        "This file will be analysed when you press Scan.".into()
+                        tr!("This file will be analysed when you press Scan.").into()
                     }
                 }
                 _ => String::new(),
@@ -2244,7 +2343,7 @@ impl App {
             egui::Grid::new("facts").num_columns(4).spacing([6.0, 2.0]).show(ui, |ui| {
                 let facts = self.facts(r.as_ref());
                 for (i, (k, v)) in facts.iter().enumerate() {
-                    ui.label(RichText::new(format!("{k}:")).color(hex(0x666666)));
+                    ui.label(RichText::new(tr!("{fact}:", fact = i18n::tr(k))).color(hex(0x666666)));
                     ui.label(v);
                     if i % 2 == 1 {
                         ui.end_row();
@@ -2254,13 +2353,13 @@ impl App {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 let has = cur.is_some();
-                if ui.add_enabled(has, egui::Button::new("Open Folder")).clicked() {
+                if ui.add_enabled(has, egui::Button::new(tr!("Open Folder"))).clicked() {
                     self.reveal_current();
                 }
-                if ui.add_enabled(has, egui::Button::new("Open File")).clicked() {
+                if ui.add_enabled(has, egui::Button::new(tr!("Open File"))).clicked() {
                     self.open_current_file();
                 }
-                if ui.add_enabled(has, egui::Button::new("Copy Path")).clicked() {
+                if ui.add_enabled(has, egui::Button::new(tr!("Copy Path"))).clicked() {
                     let ctx = ui.ctx().clone();
                     self.copy_paths(&ctx);
                 }
@@ -2269,15 +2368,16 @@ impl App {
                     .iter()
                     .any(|p| self.results.get(p).is_some_and(|r| FIXABLE_VERDICTS.contains(&r.verdict)));
                 ui.add_space(12.0);
-                if ui.add_enabled(fixable && !self.scanning, egui::Button::new("Fix to real resolution…")).clicked() {
+                if ui.add_enabled(fixable && !self.scanning, egui::Button::new(tr!("Fix to real resolution…"))).clicked()
+                {
                     self.fix_selected();
                 }
-                if ui.add_enabled(has, egui::Button::new("Get lyrics…")).clicked() {
+                if ui.add_enabled(has, egui::Button::new(tr!("Get lyrics…"))).clicked() {
                     self.lyrics_selected();
                 }
             });
             ui.add_space(4.0);
-            ui.label(RichText::new("Details").color(hex(0x666666)));
+            ui.label(RichText::new(tr!("Details")).color(hex(0x666666)));
             egui::ScrollArea::vertical().id_salt("details").auto_shrink([false, false]).show(ui, |ui| {
                 let text = self.details(r.as_ref(), cur.as_deref());
                 ui.add(egui::Label::new(RichText::new(text).size(12.5)).wrap());
@@ -2286,9 +2386,9 @@ impl App {
         egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal(|ui| {
                 for (t, label) in [
-                    (PlotTab::Spectrogram, "Spectrogram"),
-                    (PlotTab::Spectrum, "Average spectrum"),
-                    (PlotTab::Lyrics, "Lyrics"),
+                    (PlotTab::Spectrogram, tr!("Spectrogram")),
+                    (PlotTab::Spectrum, tr!("Average spectrum")),
+                    (PlotTab::Lyrics, tr!("Lyrics")),
                 ] {
                     if ui.add(egui::Button::selectable(self.tab == t, label)).clicked() {
                         self.tab = t;
@@ -2363,13 +2463,22 @@ impl App {
         plot
     }
 
+    /// The facts grid: (English name, shown with `i18n::tr()`; value).
     fn facts(&self, r: Option<&FileResult>) -> Vec<(&'static str, String)> {
         let dash = "–".to_string();
         let Some(r) = r else {
-            return ["Claimed", "Real (estimated)", "Bandwidth", "Bits used", "Format", "Duration", "After fix"]
-                .iter()
-                .map(|k| (*k, dash.clone()))
-                .collect();
+            return [
+                n_!("Claimed"),
+                n_!("Real (estimated)"),
+                n_!("Bandwidth"),
+                n_!("Bits used"),
+                n_!("Format"),
+                n_!("Duration"),
+                n_!("After fix"),
+            ]
+            .iter()
+            .map(|k| (*k, dash.clone()))
+            .collect();
         };
         let mut bits = r.effective_bits;
         if r.is_float && bits.is_some_and(|b| b > 24) {
@@ -2377,7 +2486,7 @@ impl App {
         }
         vec![
             ("Claimed", r.claimed()),
-            ("Real (estimated)", r.estimated()),
+            ("Real (estimated)", tr_text(&r.estimated())),
             (
                 "Bandwidth",
                 r.bandwidth_hz
@@ -2388,14 +2497,21 @@ impl App {
             (
                 "Bits used",
                 match (bits.filter(|b| *b != 0), r.claimed_bits.filter(|b| *b != 0)) {
-                    (Some(b), Some(c)) => format!("{b} of {c}"),
+                    (Some(b), Some(c)) => tr!("{bits} of {claimed}", bits = b, claimed = c),
                     (Some(b), None) => b.to_string(),
                     _ => dash.clone(),
                 },
             ),
-            ("Format", if r.codec.is_empty() { dash.clone() } else { format!("{}, {} ch", r.codec, r.channels) }),
+            (
+                "Format",
+                if r.codec.is_empty() {
+                    dash.clone()
+                } else {
+                    tr!("{codec}, {channels} ch", codec = &r.codec, channels = r.channels)
+                },
+            ),
             ("Duration", if r.duration.is_some_and(|d| d != 0.0) { fmt_duration(r.duration) } else { "?".into() }),
-            ("After fix", Some(fix_outlook(r, &self.cfg)).filter(|s| !s.is_empty()).unwrap_or(dash.clone())),
+            ("After fix", Some(tr_text(&fix_outlook(r, &self.cfg))).filter(|s| !s.is_empty()).unwrap_or(dash.clone())),
         ]
     }
 
@@ -2403,13 +2519,15 @@ impl App {
         let Some(r) = r else {
             return path.map(|p| format!("{p}\n")).unwrap_or_default();
         };
-        let mut parts: Vec<String> = r.reasons.iter().chain(&r.notes).map(|x| format!("• {x}\n")).collect();
+        // the core's reasons and notes in the language in use
+        let mut parts: Vec<String> =
+            r.reasons.iter().chain(&r.notes).map(|x| format!("• {}\n", tr_text(x))).collect();
         // what Fix does with it, and whether it stays fake afterwards
         if let Some(advice) = fix_advice(r, &self.cfg) {
-            parts.push(format!("• {advice}\n"));
+            parts.push(format!("• {}\n", tr_text(&advice)));
         }
         if r.saved.is_some() {
-            parts.insert(0, format!("• {}\n", saved_note(r)));
+            parts.insert(0, format!("• {}\n", tr_text(&saved_note(r))));
         }
         if !r.cliffs_db.is_empty() {
             let items: Vec<String> = r
@@ -2425,17 +2543,26 @@ impl App {
                     )
                 })
                 .collect();
-            parts.push(format!("• Drop at source Nyquists (narrow/deep): {}\n", items.join(", ")));
+            parts.push(format!(
+                "• {}\n",
+                tr!("Drop at source Nyquists (narrow/deep): {values}", values = items.join(", "))
+            ));
         }
         if let Some(c) = r.converter_floor_db.filter(|c| !c.is_nan()) {
-            parts.push(format!("• 26-40 kHz band: {} dB relative to the rounding noise\n", fs(c, 0)));
+            parts.push(format!(
+                "• {}\n",
+                tr!("26-40 kHz band: {db} dB relative to the rounding noise", db = fs(c, 0))
+            ));
         }
         if let Some(s) = r.grid_step.filter(|s| *s != 0.0) {
             parts.push(format!(
-                "• Value grid: step {} (24-bit LSBs), {}-bit master, gain {} dB\n",
-                f(s, 1),
-                r.grid_bits.map(|b| b.to_string()).unwrap_or_default(),
-                fs(r.grid_gain_db.unwrap_or(0.0), 1)
+                "• {}\n",
+                tr!(
+                    "Value grid: step {step} (24-bit LSBs), {bits}-bit master, gain {gain} dB",
+                    step = f(s, 1),
+                    bits = r.grid_bits.map(|b| b.to_string()).unwrap_or_default(),
+                    gain = fs(r.grid_gain_db.unwrap_or(0.0), 1)
+                )
             ));
         }
         parts.push(format!("\n{}\n", r.path));
@@ -2451,7 +2578,7 @@ impl App {
             self.rows.iter().filter_map(|p| self.results.get(p).cloned()).collect()
         };
         if rows.is_empty() {
-            self.info = Some(("Export".into(), "No scanned files are listed.".into()));
+            self.info = Some((tr!("Export").into(), tr!("No scanned files are listed.").into()));
             return;
         }
         let (name, ext) = if json { ("realhires-report.json", "json") } else { ("realhires-report.csv", "csv") };
@@ -2462,8 +2589,13 @@ impl App {
         let p = path.to_string_lossy().into_owned();
         let res = if json { realhires::report::write_json(&rows, &p) } else { realhires::report::write_csv(&rows, &p) };
         match res {
-            Ok(()) => self.status = format!("Exported {} files to {p}", rows.len()),
-            Err(e) => self.info = Some(("Export".into(), format!("Could not write {p}: {e}"))),
+            Ok(()) => self.status = tr!("Exported {n} files to {path}", n = rows.len(), path = &p),
+            Err(e) => {
+                self.info = Some((
+                    tr!("Export").into(),
+                    tr!("Could not write {path}: {error}", path = &p, error = tr_text(&e.to_string())),
+                ))
+            }
         }
     }
 }
@@ -2473,15 +2605,25 @@ fn card_line(gr: &Group) -> (String, FontId, Color32) {
     if gr.problems() > 0 {
         let mut parts = vec![];
         if gr.fake > 0 {
-            parts.push(format!("{} fake", gr.fake));
+            parts.push(tr!("{n} fake", n = gr.fake));
         }
         if gr.suspicious > 0 {
-            parts.push(format!("{} suspicious", gr.suspicious));
+            parts.push(tr!("{n} suspicious", n = gr.suspicious));
         }
-        let line = format!("{} of {}", parts.join(" + "), plural(gr.total, "song"));
+        let parts = parts.join(" + ");
+        let line = if gr.total == 1 {
+            tr!("{parts} of 1 song", parts = parts)
+        } else {
+            tr!("{parts} of {total} songs", parts = parts, total = gr.total)
+        };
         (line, font, hex(if gr.fake > 0 { RING_FAKE } else { RING_SUS }))
     } else {
-        (format!("All {} fine", plural(gr.total, "song")), font, hex(RING_OK))
+        let line = if gr.total == 1 {
+            tr!("All 1 song fine").to_string()
+        } else {
+            tr!("All {n} songs fine", n = gr.total)
+        };
+        (line, font, hex(RING_OK))
     }
 }
 
@@ -2708,6 +2850,157 @@ mod tests {
         frame(&ctx, &mut app);
         let text = app.lyrics_shown.as_ref().map(|(_, j)| j.text.clone()).unwrap_or_default();
         assert!(text.starts_with("Synced lyrics · Song.lrc") && text.contains("[00:01.00]  la la"), "{text}");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    /// The texts of a frame, joined by newlines (what the window shows).  Two
+    /// frames are run first, since egui lays a new window or grid out unseen.
+    fn frame_texts(ctx: &egui::Context, app: &mut App) -> String {
+        frame(ctx, app);
+        frame(ctx, app);
+        fn collect(shape: &egui::epaint::Shape, out: &mut Vec<String>) {
+            match shape {
+                egui::epaint::Shape::Text(t) => out.push(t.galley.text().to_string()),
+                egui::epaint::Shape::Vec(v) => v.iter().for_each(|s| collect(s, out)),
+                _ => {}
+            }
+        }
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 880.0))),
+            ..Default::default()
+        };
+        let out = ctx.run_ui(input, |ui| app.ui(ui));
+        let mut texts = vec![];
+        for c in &out.shapes {
+            collect(&c.shape, &mut texts);
+        }
+        out.drop_without_applying_deltas();
+        texts.join("\n")
+    }
+
+    /// The Japanese of an English text, which must have one.
+    fn ja(text: &str) -> String {
+        let t = realhires::i18n::japanese().strings.get(text).cloned().unwrap_or_else(|| panic!("no Japanese for {text:?}"));
+        assert_ne!(t, text);
+        t
+    }
+
+    /// The Quality check page and its windows in Japanese (2.1): the list, the
+    /// dashboard, the status line, the summary, every Settings tab, the Fix
+    /// window and the pop-up after it, a confirmation, the lyrics window and
+    /// the Lyrics tab.
+    #[test]
+    fn quality_check_page_in_japanese() {
+        let _env = crate::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());
+        realhires::i18n::set_thread_language("日本語");
+        let tmp = std::env::temp_dir().join(format!("rhr-gui-ja-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let music = tmp.join("Artist").join("Album");
+        std::fs::create_dir_all(&music).unwrap();
+        std::env::set_var("REALHIRES_RESULTS", tmp.join("results.sqlite"));
+        std::env::set_var("REALHIRES_SETTINGS", tmp.join("settings.json"));
+        let p = |n: &str| music.join(n).to_string_lossy().into_owned();
+        let noise = |rate: u32| format!("anoisesrc=r={rate}:a=0.2:c=pink:d=4:seed=7");
+        ffmpeg(&["-f", "lavfi", "-i", &noise(44100), "-c:a", "pcm_s16le", "-ac", "2", &p("01 cd.wav")]);
+        ffmpeg(&["-f", "lavfi", "-i", &noise(44100), "-ar", "96000", "-c:a", "pcm_s24le", "-ac", "2", &p("02 fake.wav")]);
+
+        let ctx = egui::Context::default();
+        let dir = music.to_string_lossy().into_owned();
+        let mut app = App::new(&ctx, Settings::default(), vec![dir.clone()]);
+        assert_eq!(app.status, ja("Looking for audio files in {path} …").replace("{path}", &dir));
+        run_until(&ctx, &mut app, "the scan", |a| a.results.len() == 2 && !a.scanning);
+        // the status line, the list and the dashboard
+        assert!(app.status.starts_with(&ja("Finished")), "{}", app.status);
+        assert!(!app.status.contains("fake"), "{}", app.status);
+        let fake = app.results.values().find(|r| r.verdict == Verdict::Fake).unwrap().clone();
+        let (texts, _) = app.row_texts(&fake.path, &HashSet::new());
+        assert_eq!(texts[0], ja("Fake hi-res"));
+        app.select_only(&fake.path);
+        let page = frame_texts(&ctx, &mut app);
+        for t in ["File", "Edit", "View", "Help", "Scan", "Sources to scan", "Verdict", "Why", "After fix", "Details",
+            "Spectrogram", "Average spectrum", "Lyrics", "Open Folder", "Get lyrics…", "Show:", "Search:"]
+        {
+            assert!(page.contains(&ja(t)), "{t:?} is not shown in Japanese:\n{page}");
+        }
+        assert!(page.contains(&ja("Fake hi-res").to_uppercase()), "the badge:\n{page}");
+        let facts = app.facts(Some(&fake));
+        assert!(page.contains(&tr!("{fact}:", fact = i18n::tr(facts[0].0))), "{page}");
+
+        // the summary pop-up
+        run_until(&ctx, &mut app, "the summary pop-up", |a| a.summary.is_some());
+        let summary = frame_texts(&ctx, &mut app);
+        for t in ["Scan summary", "fake or suspicious", "Show this summary after every scan", "Show problem files"] {
+            assert!(summary.contains(&ja(t)), "{t:?} is not shown in Japanese:\n{summary}");
+        }
+        let head = ja("Scanned {n} files in {seconds} s").replace("{n}", "2");
+        assert!(summary.contains(head.split("{seconds}").next().unwrap()), "{summary}");
+        app.summary = None;
+
+        // every tab of the Settings window: the group names, the first setting and the buttons
+        for (i, group) in settings::GROUPS.iter().enumerate() {
+            let mut w = SettingsWindow::new(&app.cfg);
+            w.tab = i;
+            app.settings_win = Some(w);
+            let shown = frame_texts(&ctx, &mut app);
+            for g in settings::GROUPS {
+                assert!(shown.contains(i18n::tr(g)), "the tab {g:?} is not shown:\n{shown}");
+            }
+            let first = Settings::field_info().into_iter().find(|f| f.group == *group).unwrap();
+            assert!(shown.contains(i18n::tr(first.label)), "{:?} is not shown on {group}:\n{shown}", first.label);
+            for t in ["Settings", "Restore defaults", "Cancel", "Save"] {
+                assert!(shown.contains(&ja(t)), "{t:?} is not shown in Japanese on {group}:\n{shown}");
+            }
+        }
+        app.settings_win = None;
+
+        // the album view
+        app.switch_view(View::Album);
+        let cards = frame_texts(&ctx, &mut app);
+        assert!(cards.contains(&ja("Rings show:")) && cards.contains(&ja("By album")), "{cards}");
+        assert!(cards.contains(&tr!("{parts} of {total} songs", parts = tr!("{n} fake", n = 1), total = 2)), "{cards}");
+        app.switch_view(View::Files);
+
+        // the Fix window, then the pop-up after fixing
+        app.open_fix(vec![fake.clone()], false);
+        let fix = frame_texts(&ctx, &mut app);
+        for t in ["Fix to real resolution", "Fix 1 file: real resolution", "Claimed → real", "Fix files", "Close"] {
+            assert!(fix.contains(&ja(t)), "{t:?} is not shown in Japanese:\n{fix}");
+        }
+        app.fix_win = None;
+        app.fix_done = Some(FixDoneWindow::new(&[], 0));
+        let done = frame_texts(&ctx, &mut app);
+        assert!(done.contains(&ja("Fixing finished")) && done.contains(&ja("Show in folder")), "{done}");
+        app.fix_done = None;
+
+        // a confirmation
+        app.forget_saved_ask();
+        let ask = frame_texts(&ctx, &mut app);
+        for t in ["Delete all saved results", "Yes", "No"] {
+            assert!(ask.contains(&ja(t)), "{t:?} is not shown in Japanese:\n{ask}");
+        }
+        app.confirm = None;
+
+        // the lyrics window and the Lyrics tab of a song without lyrics
+        app.download_lyrics(vec![fake.path.clone()]);
+        assert_eq!(app.lyrics_win.as_ref().unwrap().head, ja("Download synced lyrics for 1 song"));
+        let lyrics = frame_texts(&ctx, &mut app);
+        for t in ["Download synced lyrics", "Artist – title", "Download lyrics", "Options", "Songs that already have lyrics:"] {
+            assert!(lyrics.contains(&ja(t)), "{t:?} is not shown in Japanese:\n{lyrics}");
+        }
+        app.lyrics_win = None;
+        app.tab = PlotTab::Lyrics;
+        let tab = frame_texts(&ctx, &mut app);
+        assert!(tab.contains(&ja("No lyrics next to this song yet.")), "{tab}");
+        app.tab = PlotTab::Spectrogram;
+        let graphs = frame_texts(&ctx, &mut app);
+        assert!(
+            graphs.contains(&ja("Spectrogram (time →, frequency ↑)")) || graphs.contains(&ja("Drawing the spectrogram…")),
+            "{graphs}"
+        );
+
+        // English again on this thread
+        realhires::i18n::set_thread_language("");
+        assert_eq!(tr!("Scan summary"), "Scan summary");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 

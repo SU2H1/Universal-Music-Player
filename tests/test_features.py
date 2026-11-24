@@ -347,6 +347,162 @@ if __name__ == "__main__":
     assert out.read_text().splitlines()[-1].startswith("OK 1 "), log  # one summary pop-up was shown
 
 
+@needs_ffmpeg
+@pytest.mark.skipif(not _gui_available(), reason="needs Tkinter and a display")
+def test_gui_in_japanese(library, tmp_path):
+    """Language = 日本語 (2.1): the Quality check window shows its menus, column headings, verdicts,
+    dashboard and windows (summary, Settings with every tab, Fix, lyrics) in Japanese, keeps the
+    English values where the settings store them, and no Tk callback raises."""
+    music = tmp_path / "music"
+    music.mkdir()
+    for key in ("real_24_96", "fake_up_44_to_96", "cd_16_44", "fake_flac_cd"):
+        if key in library:
+            shutil.copy(library[key], music)
+    (tmp_path / "settings.json").write_text(json.dumps({"language": "日本語"}), encoding="utf-8")
+    script = tmp_path / "drive_ja.py"
+    script.write_text(f"""
+import faulthandler, os, re, sys
+sys.path.insert(0, {str(Path(__file__).resolve().parents[1])!r})
+faulthandler.enable()
+CJK = re.compile("[\\u3040-\\u30ff\\u4e00-\\u9fff]")
+def run():
+    faulthandler.dump_traceback_later(150, exit=True)
+    import tkinter as tk
+    from tkinter import ttk
+    from realhires import gui, i18n, settings
+    root = tk.Tk()
+    def fail(exc, val, tb):  # an exception in a Tk callback must end the test, not hang it
+        import traceback
+        traceback.print_exception(exc, val, tb)
+        os._exit(1)
+    root.report_callback_exception = fail
+    cfg = settings.load()
+    assert cfg.language == "日本語", cfg.language
+    i18n.set_language(cfg.language)  # as gui.scanner_main() and the player do
+    def ja(shown, english, **values):
+        want = i18n.tr(english, **values)
+        assert shown == want, (shown, want)
+        assert CJK.search(shown), ("shown in English", english, shown)
+    def labels(menu):
+        return [menu.entrycget(i, "label") for i in range(menu.index("end") + 1)
+                if menu.type(i) not in ("separator", "tearoff")]
+    def walk(w):
+        yield w
+        for c in w.winfo_children():
+            yield from walk(c)
+    app = gui.App(root, cfg=cfg)
+    for shown, english in zip(labels(app.menubar), ("File", "Edit", "View", "Help")):
+        ja(shown, english)
+    edit = next(i for i in range(app.menubar.index("end") + 1) if app.menubar.type(i) == "cascade"
+                and app.menubar.entrycget(i, "label") == i18n.tr("Edit"))
+    ja(labels(root.nametowidget(app.menubar.entrycget(edit, "menu")))[0], "Open file location")
+    ja(labels(app.menu)[-1], "Re-scan")
+    for col, english in (("verdict", "Verdict"), ("why", "Why"), ("bandwidth", "Bandwidth"), ("fix", "After fix")):
+        ja(app.tree.heading(col, "text").rstrip(" ▲▼"), english)
+    ja(app.scan_btn.cget("text"), "Scan")
+    ja(app.open_folder_btn.cget("text"), "Open Folder")
+    ja(app.plots.tab(2, "text"), "Lyrics")
+    for v, cb in app.filter_checks.items():
+        ja(cb.cget("text"), gui.VERDICT_STYLE[v][0])
+    app._add_source({str(music)!r})
+    def listed():
+        if app.listing or app.lookup_busy:
+            return root.after(100, listed)
+        rows = app.tree.get_children()
+        assert rows, "nothing listed"
+        for i in rows:
+            ja(app.tree.set(i, "verdict"), "Not scanned")
+        assert CJK.search(app.status_var.get()), app.status_var.get()
+        app.start_scan()
+        root.after(200, scanned)
+    def scanned():
+        if app.scanning or not app.results:
+            return root.after(200, scanned)
+        root.after(400, summary)
+    def summary():
+        root.update()
+        dialogs = [w for w in root.winfo_children() if isinstance(w, gui.SummaryDialog)]
+        assert len(dialogs) == 1, "no summary pop-up"
+        ja(dialogs[0].title(), "Scan summary")
+        dialogs[0]._close(show_all=True)
+        root.update()
+        rows = app.tree.get_children()
+        shown = {{app.tree.set(i, "verdict") for i in rows}}
+        assert len(rows) == len(app.results) and shown <= {{gui.verdict_label(v) for v in gui.VERDICT_STYLE}}, shown
+        assert all(CJK.search(s) for s in shown), shown
+        fake = next(i for i in rows if app.results[i].verdict == "FAKE HI-RES")
+        app.tree.selection_set(fake)
+        root.update()
+        ja(app.badge.cget("text"), "Fake hi-res")
+        assert CJK.search(app.status_var.get()) and CJK.search(app.text.get("1.0", "end"))
+        # the cards of the album view, and its options: shown translated, stored in English
+        app.set_view("By album")
+        root.update()
+        c = app.cards.canvas
+        assert any(CJK.search(c.itemcget(i, "text")) for i in c.find_all() if c.type(i) == "text")
+        sort_box = next(w for w in walk(app.grid_opts) if isinstance(w, ttk.Combobox)
+                        and i18n.tr("Name") in w.cget("values"))
+        assert sort_box.get() == i18n.tr(app.cfg.group_sort)
+        sort_box.set(i18n.tr("Name"))
+        root.update()
+        assert app.group_sort_var.get() == app.cfg.group_sort == "Name"
+        app.set_view("Files")
+        root.update()
+        # Settings: every tab; a choice is shown translated and saved in English; the language note
+        d = gui.SettingsDialog(app)
+        root.update()
+        nb = next(w for w in walk(d) if isinstance(w, ttk.Notebook))
+        assert i18n.tr("Saved results") in [nb.tab(i, "text") for i in range(len(nb.tabs()))]
+        for i in range(len(nb.tabs())):
+            nb.select(i)
+            root.update()
+        box = next(w for w in walk(d) if isinstance(w, ttk.Combobox)
+                   and i18n.tr("Most fake first") in w.cget("values"))
+        box.set(i18n.tr("Most fake first"))
+        root.update()
+        assert d.vars["group_sort"].get() == "Most fake first"
+        assert d.language_note.cget("text") == ""
+        d.vars["language"].set("English")
+        root.update()
+        ja(d.language_note.cget("text"), "The new language is used when the app starts again.")
+        d.vars["language"].set("日本語")
+        d._save()
+        root.update()
+        saved = settings.load()
+        assert saved.group_sort == "Most fake first" and saved.language == "日本語", saved
+        # the Fix window (not started) and the lyrics window (not started: nothing is downloaded)
+        fakes = [r for r in app.results.values() if r.verdict in ("FAKE HI-RES", "FAKE LOSSLESS")]
+        f = gui.FixDialog(app, fakes)
+        root.update()
+        ja(f.title(), "Fix to real resolution")
+        ja(f.tv.heading("#0", "text"), "File")
+        assert CJK.search(f.head.cget("text")), f.head.cget("text")
+        assert f.v_output.get() == app.cfg.fix_output  # the English choice, as the settings store it
+        assert any(isinstance(w, ttk.Combobox) and w.get() == i18n.tr(app.cfg.fix_output) for w in walk(f))
+        f.destroy()
+        n = len(app.all_files())
+        lyr = gui.LyricsDialog(app, app.all_files())
+        root.update()
+        ja(lyr.title(), "Download synced lyrics")
+        ja(lyr.head.cget("text"), "Download synced lyrics for {{n}} songs", n=n)
+        lyr.destroy()
+        print("OK", len(app.results), sorted(shown))
+        app.quit_app()
+    root.after(300, listed)
+    root.mainloop()
+if __name__ == "__main__":
+    run()
+""", encoding="utf-8")
+    env = dict(os.environ, REALHIRES_SETTINGS=str(tmp_path / "settings.json"),
+               REALHIRES_LIBRARY=str(tmp_path / "library.sqlite"), REALHIRES_PLAYER=str(tmp_path / "player.json"),
+               REALHIRES_THEMES=str(tmp_path / "themes.json"))
+    proc = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, encoding="utf-8",
+                          env=env, timeout=180)
+    log = proc.stdout + proc.stderr
+    assert proc.returncode == 0, log
+    assert proc.stdout.splitlines()[-1].startswith("OK "), log
+
+
 # ---------------------------------------------------------- console output ---
 @needs_ffmpeg
 def test_cli_survives_legacy_console_encoding(library, tmp_path):

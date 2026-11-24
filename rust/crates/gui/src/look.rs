@@ -2,6 +2,9 @@
 //! the system on macOS (bold for headings, "SF Pro Display Bold"), the bundled
 //! Inter (SIL Open Font License) on Windows and Linux, or the family chosen in
 //! Settings → Appearance; light and dark palettes close to Apple Music's.
+//! Japanese (2.1: the menus in Japanese, and Japanese titles in any language)
+//! is drawn with an installed Japanese font, regular and bold, added after
+//! those (`japanese_fonts()`); no CJK font is bundled.
 
 use std::sync::{Arc, OnceLock, RwLock};
 
@@ -174,6 +177,65 @@ fn font_pair(family: &str) -> (FontData, FontData, String) {
     (r, b, "Inter".into())
 }
 
+/// Families with Japanese kana and kanji, tried in this order: macOS,
+/// Windows, then Linux; the system's own fallback for Japanese comes after.
+const JAPANESE_FAMILIES: [&str; 12] = [
+    "Hiragino Sans",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI",
+    "Yu Gothic",
+    "Meiryo UI",
+    "Meiryo",
+    "MS Gothic",
+    "Noto Sans CJK JP",
+    "Noto Sans JP",
+    "IPAGothic",
+    "TakaoGothic",
+    "VL Gothic",
+];
+
+/// (regular, bold, family) of an installed font that draws Japanese, read once.
+/// egui only draws the fonts it was given; eframe's system font provider
+/// would find one character by character, but in the system's locale (so
+/// kanji could come from a Chinese font) and only in a regular weight, so
+/// headings in Japanese would not be bold.
+pub fn japanese_fonts() -> Option<(FontData, FontData, String)> {
+    static FOUND: OnceLock<Option<(FontData, FontData, String)>> = OnceLock::new();
+    FOUND.get_or_init(find_japanese_fonts).clone()
+}
+
+fn find_japanese_fonts() -> Option<(FontData, FontData, String)> {
+    let mut c = fontique::Collection::new(fontique::CollectionOptions { shared: false, system_fonts: true });
+    let mut names: Vec<String> = JAPANESE_FAMILIES.iter().map(|s| s.to_string()).collect();
+    if let Ok(ja) = fontique::Language::parse("ja") {
+        for script in [*b"Hira", *b"Hani"] {
+            let ids: Vec<fontique::FamilyId> = c.fallback_families((fontique::Script::from_bytes(script), &ja)).collect();
+            for id in ids {
+                if let Some(n) = c.family_name(id) {
+                    names.push(n.to_string());
+                }
+            }
+        }
+    }
+    for name in names {
+        let Some(fam) = c.family_by_name(&name) else { continue };
+        let face = |w: fontique::FontWeight| -> Option<FontData> {
+            let f = fam.match_font(fontique::FontWidth::NORMAL, fontique::FontStyle::Normal, w, false)?;
+            let blob = f.load(None)?; // memory-mapped, not copied
+            let map = f.charmap_index().charmap(blob.data())?;
+            if ['あ', 'ア', '曲'].iter().any(|ch| map.map(*ch).is_none_or(|g| g == 0)) {
+                return None;
+            }
+            let data = FontData::from_blob(blob.into_raw_parts().0, f.index());
+            Some(if f.has_weight_axis() { data.tweak(tweak(w.value(), None)) } else { data })
+        };
+        if let (Some(r), Some(b)) = (face(fontique::FontWeight::NORMAL), face(fontique::FontWeight::BOLD)) {
+            return Some((r, b, name));
+        }
+    }
+    None
+}
+
 /// Install the fonts and text sizes; returns the family actually used.
 pub fn install_fonts(ctx: &egui::Context, family: &str) -> String {
     let (regular, bold_data, used) = font_pair(family);
@@ -185,6 +247,15 @@ pub fn install_fonts(ctx: &egui::Context, family: &str) -> String {
     let mut heading = vec![BOLD.to_string()];
     heading.extend(fallbacks);
     defs.families.insert(bold(), heading);
+    // Japanese after everything else, so Latin text keeps its fonts
+    if let Some((ja_regular, ja_bold, _)) = japanese_fonts() {
+        defs.font_data.insert("rhr-ja".into(), Arc::new(ja_regular));
+        defs.font_data.insert("rhr-ja-bold".into(), Arc::new(ja_bold));
+        for fam in [FontFamily::Proportional, FontFamily::Monospace] {
+            defs.families.entry(fam).or_default().push("rhr-ja".into());
+        }
+        defs.families.entry(bold()).or_default().push("rhr-ja-bold".into());
+    }
     ctx.set_fonts(defs);
     ctx.all_styles_mut(|style| {
         style.text_styles = [

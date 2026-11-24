@@ -267,7 +267,7 @@ pub fn start_fix(mut plans: Vec<FixPlan>, everything: Vec<FileResult>, cfg: Sett
         let p2 = post.clone();
         let joins = prepare_gapless(&mut plans, &everything, &mut |m| p2.send(Msg::FixStatus(m.to_string())));
         if joins > 0 {
-            post.send(Msg::FixStatus(format!("Fixing… ({joins} gapless join(s) kept seamless)")));
+            post.send(Msg::FixStatus(realhires::tr!("Fixing… ({n} gapless join(s) kept seamless)", n = joins)));
         }
         let next = AtomicUsize::new(0);
         std::thread::scope(|s| {

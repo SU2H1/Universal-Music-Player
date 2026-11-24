@@ -225,6 +225,16 @@ settings! {
         s("While a scan runs, look each song up on LRCLIB as soon as it has been analysed and save its lyrics as \
            set on the Lyrics tab (one request at a time, as LRCLIB asks)."), Bool, None, None, NUMS;
 
+    musicbrainz_auto: bool = false, "Library", "Add song information from MusicBrainz automatically",
+        s("When new songs come into the library, look those that miss some information (artist, album, album \
+           artist, release date, track number or genre) up on MusicBrainz and fill in what is missing. Only a \
+           certain match is used, and information already in a tag is never replaced. Each song is looked up once, \
+           one request per second, as MusicBrainz asks. Off: use Get info from MusicBrainz… in a song's or an \
+           album's menu."), Bool, None, None, NUMS;
+    musicbrainz_server: String = s("https://musicbrainz.org"), "Library", "MusicBrainz server",
+        s("Address of the MusicBrainz server the song information comes from. Change it only for a mirror of your \
+           own."), Str, None, None, NUMS;
+
     // ---- Playback (2.0) ---------------------------------------------------
     output_device: String = s(""), "Playback", "Output device",
         s("The sound device the player plays through. Empty = the system's default device."), Str, None, None, NUMS;

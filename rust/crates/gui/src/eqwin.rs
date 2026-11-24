@@ -2,8 +2,10 @@
 
 use egui::{pos2, vec2, Align2, Color32, CornerRadius, Rect, RichText, Sense, Shape, Stroke};
 use realhires::eq::{self, Band, BAND_TYPES, GRAPHIC_LABELS, MAX_PARAMETRIC_BANDS, PRESETS};
+use realhires::i18n::{self, tr_text};
 use realhires::musiclib::Track;
 use realhires::playerstate::PlayerState;
+use realhires::{n_, tr};
 
 use crate::audio::OutputInfo;
 use crate::look::{self, Palette};
@@ -51,10 +53,29 @@ fn db(v: f64) -> String {
 
 fn channels(n: i64) -> String {
     match n {
-        1 => "Mono".into(),
-        2 => "Stereo".into(),
+        1 => tr!("Mono").into(),
+        2 => tr!("Stereo").into(),
         0 => "—".into(),
-        n => format!("{n} channels"),
+        n => tr!("{n} channels", n = n),
+    }
+}
+
+/// The same in the middle of a line ("48 kHz, 32-bit float, stereo").
+fn channels_lower(n: i64) -> String {
+    match n {
+        1 => tr!("mono").into(),
+        2 => tr!("stereo").into(),
+        0 => "—".into(),
+        n => tr!("{n} channels", n = n),
+    }
+}
+
+/// A user's preset keeps its name; a built-in one ("Rock", "Custom") is shown translated.
+fn preset_shown(name: &str) -> &str {
+    if name == eq::CUSTOM || PRESETS.iter().any(|(n, _)| *n == name) {
+        i18n::tr(name)
+    } else {
+        name
     }
 }
 
@@ -62,23 +83,23 @@ fn channels(n: i64) -> String {
 pub fn eq_summary(s: &PlayerState) -> String {
     let e = &s.eq;
     if !e.enabled {
-        return "Off".into();
+        return tr!("Off").into();
     }
     let mut parts = vec![];
     if e.graphic_enabled {
-        parts.push(format!("Graphic: {}", e.preset));
+        parts.push(tr!("Graphic: {preset}", preset = preset_shown(&e.preset)));
     }
     if e.parametric_enabled {
         let n = e.bands.iter().filter(|b| b.on).count();
-        parts.push(format!("Parametric: {}", crate::style::plural(n, "band")));
+        parts.push(tr!("Parametric: {bands}", bands = crate::style::count(n, n_!("1 band"), n_!("{n} bands"))));
     }
     if parts.is_empty() {
-        return "On, no bands".into();
+        return tr!("On, no bands").into();
     }
     let pre = eq::preamp_db(e, eq::RESPONSE_RATE);
     let mut text = parts.join(" + ");
     if pre.abs() >= 0.05 {
-        text += &format!(" (pre-amp {})", db(pre));
+        text += &tr!(" (pre-amp {db})", db = db(pre));
     }
     text
 }
@@ -90,52 +111,57 @@ pub fn info_sections(
     out: Option<&OutputInfo>,
     state: &PlayerState,
     gapless: bool,
-    verdict: Option<&(String, String)>,
+    verdict: Option<&(realhires::verdict::Verdict, String)>,
 ) -> Vec<(&'static str, Vec<(&'static str, String)>)> {
     let dash = |s: &str| if s.trim().is_empty() { "—".to_string() } else { s.to_string() };
     let track_no = match (t.track, album_tracks) {
         (0, _) => "—".to_string(),
-        (n, total) if total > 1 => format!("{n} of {total}"),
+        (n, total) if total > 1 => tr!("{track} of {count}", track = n, count = total),
         (n, _) => n.to_string(),
     };
     let track = vec![
-        ("Title", t.display_title()),
-        ("Artist", dash(&t.artist)),
-        ("Album", dash(&t.album)),
-        ("Album artist", dash(&t.album_artist)),
-        ("Genre", dash(&t.genre)),
-        ("Year", dash(&t.year)),
-        ("Track", track_no),
-        ("Disc", if t.disc > 0 { t.disc.to_string() } else { "—".into() }),
-        ("Duration", crate::player::fmt_time(t.duration)),
-        ("File", t.path.clone()),
-        ("Size", if t.size > 0 { realhires::fix::fmt_bytes(t.size as f64) } else { "—".into() }),
+        (tr!("Title"), t.display_title()),
+        (tr!("Artist"), dash(&t.artist)),
+        (tr!("Album"), dash(&t.album)),
+        (tr!("Album artist"), dash(&t.album_artist)),
+        (tr!("Genre"), dash(&t.genre)),
+        (tr!("Year"), dash(&t.year)),
+        (tr!("Track"), track_no),
+        (tr!("Disc"), if t.disc > 0 { t.disc.to_string() } else { "—".into() }),
+        (tr!("Duration"), crate::player::fmt_time(t.duration)),
+        (tr!("File"), t.path.clone()),
+        (tr!("Size"), if t.size > 0 { realhires::fix::fmt_bytes(t.size as f64) } else { "—".into() }),
     ];
     let bits = if t.is_lossy {
         "—".to_string()
     } else if t.is_float {
-        "32-bit float".into()
+        tr!("32-bit float").into()
     } else if t.bits > 0 {
-        format!("{}-bit", t.bits)
+        tr!("{n}-bit", n = t.bits)
     } else {
         "—".into()
     };
     let version = crate::audio::ffmpeg_version();
     let decoder = vec![
         (
-            "Format",
+            tr!("Format"),
             if t.codec.is_empty() {
                 "—".into()
             } else {
-                format!("{} ({})", t.codec.to_uppercase(), if t.is_lossy { "lossy" } else { "lossless" })
+                let codec = t.codec.to_uppercase();
+                if t.is_lossy {
+                    tr!("{codec} (lossy)", codec = codec)
+                } else {
+                    tr!("{codec} (lossless)", codec = codec)
+                }
             },
         ),
-        ("Sample rate", khz(t.sample_rate)),
-        ("Bit depth", bits),
-        ("Channels", channels(t.channels)),
-        ("Bit rate", if t.bit_rate > 0 { format!("{} kbps", thousands((t.bit_rate as f64 / 1000.0).round() as i64)) } else { "—".into() }),
+        (tr!("Sample rate"), khz(t.sample_rate)),
+        (tr!("Bit depth"), bits),
+        (tr!("Channels"), channels(t.channels)),
+        (tr!("Bit rate"), if t.bit_rate > 0 { format!("{} kbps", thousands((t.bit_rate as f64 / 1000.0).round() as i64)) } else { "—".into() }),
         (
-            "Decoder",
+            tr!("Decoder"),
             match version.split(" Copyright").next().map(str::trim).filter(|v| !v.is_empty()) {
                 Some(v) => format!("FFmpeg ({v})"),
                 None => "FFmpeg".into(),
@@ -145,31 +171,43 @@ pub fn info_sections(
     let gain = gain_of(state);
     let output = match out {
         Some(o) => vec![
-            ("Device", o.device.clone()),
-            ("Output", format!("{}, {}, {}", khz(o.rate as i64), o.format, channels(o.channels as i64).to_lowercase())),
+            // the null and test outputs' names and the sample formats are the engine's English words
+            (tr!("Device"), i18n::tr(&o.device).to_string()),
             (
-                "Resampling",
+                tr!("Output"),
+                tr!(
+                    "{rate}, {format}, {channels}",
+                    rate = khz(o.rate as i64),
+                    format = i18n::tr(&o.format),
+                    channels = channels_lower(o.channels as i64)
+                ),
+            ),
+            (
+                tr!("Resampling"),
                 match o.resampled_from {
-                    None => "None: the device runs at the song's rate".into(),
-                    Some(from) => format!(
-                        "From {} to {} ({})",
-                        khz(from as i64),
-                        khz(o.rate as i64),
-                        if o.soxr { "soxr" } else { "FFmpeg's resampler" }
+                    None => tr!("None: the device runs at the song's rate").into(),
+                    Some(from) => tr!(
+                        "From {from} to {to} ({resampler})",
+                        from = khz(from as i64),
+                        to = khz(o.rate as i64),
+                        resampler = if o.soxr { "soxr" } else { tr!("FFmpeg's resampler") }
                     ),
                 },
             ),
-            ("Volume", if gain <= 0.0 { "Muted".into() } else { db(20.0 * (gain as f64).log10()) }),
-            ("Equalizer", eq_summary(state)),
-            ("Gapless", if gapless { "On".into() } else { "Off".into() }),
+            (tr!("Volume"), if gain <= 0.0 { tr!("Muted").into() } else { db(20.0 * (gain as f64).log10()) }),
+            (tr!("Equalizer"), eq_summary(state)),
+            (tr!("Gapless"), if gapless { tr!("On").into() } else { tr!("Off").into() }),
         ],
-        None => vec![("Device", "Not open yet".into())],
+        None => vec![(tr!("Device"), tr!("Not open yet").into())],
     };
+    // the summary is the core's English text
     let check = vec![match verdict {
-        Some((v, s)) => ("Verdict", format!("{v}: {s}")),
-        None => ("Verdict", "Not checked yet".into()),
+        Some((v, s)) => {
+            (tr!("Verdict"), tr!("{verdict}: {summary}", verdict = crate::style::verdict_label(*v), summary = tr_text(s)))
+        }
+        None => (tr!("Verdict"), tr!("Not checked yet").into()),
     }];
-    vec![("Track", track), ("Decoder", decoder), ("Output", output), ("Quality check", check)]
+    vec![(tr!("Track"), track), (tr!("Decoder"), decoder), (tr!("Output"), output), (tr!("Quality check"), check)]
 }
 
 pub fn info_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
@@ -180,7 +218,8 @@ pub fn info_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
     let out = p.engine.info();
     let sections = info_sections(&t, n_album, out.as_ref(), &p.state, p.scanner.cfg.gapless, info.verdict.as_ref());
     let mut open = true;
-    egui::Window::new("Playback info")
+    egui::Window::new(tr!("Playback info"))
+        .id(egui::Id::unique("player-playback-info"))
         .open(&mut open)
         .collapsible(false)
         .resizable(true)
@@ -211,7 +250,7 @@ pub fn info_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                 });
             });
             ui.separator();
-            if ui.button("Copy").clicked() {
+            if ui.button(tr!("Copy")).clicked() {
                 let text: String = sections
                     .iter()
                     .map(|(t, rows)| {
@@ -265,7 +304,8 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
     let presets: Vec<(String, eq::EqState)> = p.state.eq_presets.iter().map(|x| (x.name.clone(), x.eq.clone())).collect();
     let notes = p.eq_notes.clone();
     let mut action: Option<EqAction> = None;
-    egui::Window::new("Equalizer")
+    egui::Window::new(tr!("Equalizer"))
+        .id(egui::Id::unique("player-equalizer"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
@@ -275,12 +315,12 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
         .show(ctx, |ui| {
             // presets: the built-in ones (graphic gains) and the user's own (the whole EQ)
             ui.horizontal(|ui| {
-                ui.label("Preset");
-                let shown = if !mine.is_empty() { mine.clone() } else { state.preset.clone() };
+                ui.label(tr!("Preset"));
+                let shown = if !mine.is_empty() { mine.clone() } else { preset_shown(&state.preset).to_string() };
                 egui::ComboBox::from_id_salt("eq-all-presets").selected_text(shown).width(170.0).height(440.0).show_ui(ui, |ui| {
-                    ui.label(RichText::new("Built-in").small().color(pal.secondary));
+                    ui.label(RichText::new(tr!("Built-in")).small().color(pal.secondary));
                     for (name, _) in PRESETS.iter() {
-                        if ui.selectable_label(mine.is_empty() && state.preset == *name, *name).clicked() {
+                        if ui.selectable_label(mine.is_empty() && state.preset == *name, i18n::tr(name)).clicked() {
                             state.apply_preset(name);
                             state.graphic_enabled = true;
                             state.enabled = true;
@@ -288,7 +328,7 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                     }
                     if !presets.is_empty() {
                         ui.separator();
-                        ui.label(RichText::new("My presets").small().color(pal.secondary));
+                        ui.label(RichText::new(tr!("My presets")).small().color(pal.secondary));
                         for (name, st) in &presets {
                             if ui.selectable_label(mine == *name, name).clicked() {
                                 // a preset keeps the equalizer on when it was on
@@ -299,40 +339,49 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                         }
                     }
                 });
-                if ui.button("Save as preset…").clicked() {
+                if ui.button(tr!("Save as preset…")).clicked() {
                     action = Some(EqAction::SaveAs);
                 }
                 ui.add_enabled_ui(!mine.is_empty(), |ui| {
-                    if ui.button("Rename…").clicked() {
+                    if ui.button(tr!("Rename…")).clicked() {
                         action = Some(EqAction::Rename(mine.clone()));
                     }
-                    if ui.button("Delete…").clicked() {
+                    if ui.button(tr!("Delete…")).clicked() {
                         action = Some(EqAction::Delete(mine.clone()));
                     }
                 });
-                if ui.button("Import…").on_hover_text("Presets of this app (.json) and Equalizer APO or AutoEQ files (.txt)").clicked() {
+                if ui
+                    .button(tr!("Import…"))
+                    .on_hover_text(tr!("Presets of this app (.json) and Equalizer APO or AutoEQ files (.txt)"))
+                    .clicked()
+                {
                     action = Some(EqAction::Import);
                 }
-                if ui.button("Export…").on_hover_text("As a preset of this app (.json) or as Equalizer APO / AutoEQ text (.txt)").clicked() {
+                if ui
+                    .button(tr!("Export…"))
+                    .on_hover_text(tr!("As a preset of this app (.json) or as Equalizer APO / AutoEQ text (.txt)"))
+                    .clicked()
+                {
                     action = Some(EqAction::Export(if mine.is_empty() { state.preset.clone() } else { mine.clone() }));
                 }
             });
             for n in &notes {
-                ui.label(RichText::new(n).small().color(pal.secondary));
+                // the import notes and errors of the core are English: translated here
+                ui.label(RichText::new(tr_text(n)).small().color(pal.secondary));
             }
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                ui.checkbox(&mut state.enabled, RichText::new("Equalizer on").strong());
+                ui.checkbox(&mut state.enabled, RichText::new(tr!("Equalizer on")).strong());
                 ui.add_space(12.0);
-                ui.checkbox(&mut state.prevent_clipping, "Prevent clipping").on_hover_text(
-                    "Lowers the level by as much as the equalizer raises it at its highest point, so loud passages never clip.",
-                );
+                ui.checkbox(&mut state.prevent_clipping, tr!("Prevent clipping")).on_hover_text(tr!(
+                    "Lowers the level by as much as the equalizer raises it at its highest point, so loud passages never clip."
+                ));
             });
             ui.add_space(6.0);
             response_plot(ui, pal, &state);
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                for (i, name) in ["Graphic", "Parametric"].iter().enumerate() {
+                for (i, name) in [tr!("Graphic"), tr!("Parametric")].iter().enumerate() {
                     if ui.add(egui::Button::selectable(tab == i, *name)).clicked() {
                         tab = i;
                     }
@@ -349,17 +398,17 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
         });
     p.eq_tab = tab;
     match action {
-        Some(EqAction::SaveAs) => p.ask_name("Save Equalizer Preset", "My Preset", NameAction::SaveEqPreset),
-        Some(EqAction::Rename(n)) => p.ask_name("Rename Preset", &n.clone(), NameAction::RenameEqPreset(n)),
+        Some(EqAction::SaveAs) => p.ask_name(tr!("Save Equalizer Preset"), tr!("My Preset"), NameAction::SaveEqPreset),
+        Some(EqAction::Rename(n)) => p.ask_name(tr!("Rename Preset"), &n.clone(), NameAction::RenameEqPreset(n)),
         Some(EqAction::Delete(n)) => p.confirm = Some(ConfirmAction::DeleteEqPreset(n)),
         Some(EqAction::Import) => {
-            if let Some(path) = rfd::FileDialog::new().add_filter("Equalizer presets", &["json", "txt"]).pick_file() {
+            if let Some(path) = rfd::FileDialog::new().add_filter(tr!("Equalizer presets"), &["json", "txt"]).pick_file() {
                 let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Imported".into());
                 let result = std::fs::read(&path)
-                    .map_err(|e| format!("The file could not be read: {e}."))
+                    .map_err(|e| tr!("The file could not be read: {e}.", e = e))
                     .and_then(|b| p.import_eq_text(&String::from_utf8_lossy(&b), &stem));
                 match result {
-                    Ok(name) => p.eq_notes.insert(0, format!("Imported as “{name}”.")),
+                    Ok(name) => p.eq_notes.insert(0, tr!("Imported as “{name}”.", name = name)),
                     Err(e) => p.eq_notes = vec![e],
                 }
                 state = p.state.eq.clone();
@@ -367,7 +416,7 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
         }
         Some(EqAction::Export(name)) => {
             let file = rfd::FileDialog::new()
-                .add_filter("Universal Music Player preset", &["json"])
+                .add_filter(tr!("Universal Music Player preset"), &["json"])
                 .add_filter("Equalizer APO / AutoEQ", &["txt"])
                 .set_file_name(format!("{name}.json"))
                 .save_file();
@@ -375,8 +424,8 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                 let apo = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("txt"));
                 let text = if apo { eq::export_apo(&name, &state) } else { eq::export_json(&name, &state) };
                 p.eq_notes = vec![match std::fs::write(&path, text) {
-                    Ok(()) => format!("Exported to {}.", path.display()),
-                    Err(e) => format!("The preset could not be saved: {e}."),
+                    Ok(()) => tr!("Exported to {path}.", path = path.display()),
+                    Err(e) => tr!("The preset could not be saved: {e}.", e = e),
                 }];
             }
         }
@@ -394,12 +443,12 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
 
 fn graphic(ui: &mut egui::Ui, _pal: &Palette, s: &mut eq::EqState) {
     ui.horizontal(|ui| {
-        ui.checkbox(&mut s.graphic_enabled, "Use the graphic equalizer");
+        ui.checkbox(&mut s.graphic_enabled, tr!("Use the graphic equalizer"));
     });
     ui.add_space(6.0);
     ui.add_enabled_ui(s.graphic_enabled, |ui| {
         ui.horizontal(|ui| {
-            ui.label("Pre-amp");
+            ui.label(tr!("Pre-amp"));
             ui.add(egui::Slider::new(&mut s.graphic_preamp, -12.0..=12.0).suffix(" dB").step_by(0.5));
         });
         ui.add_space(8.0);
@@ -417,7 +466,7 @@ fn graphic(ui: &mut egui::Ui, _pal: &Palette, s: &mut eq::EqState) {
                         s.gains[i] = 0.0;
                         changed = true;
                     }
-                    r.on_hover_text(format!("{} Hz: {} (double-click resets it)", label, db(s.gains[i])));
+                    r.on_hover_text(tr!("{freq} Hz: {gain} (double-click resets it)", freq = label, gain = db(s.gains[i])));
                     ui.label(RichText::new(*label).small());
                     ui.label(RichText::new(format!("{:+.1}", s.gains[i])).small().weak());
                 });
@@ -430,25 +479,26 @@ fn graphic(ui: &mut egui::Ui, _pal: &Palette, s: &mut eq::EqState) {
 }
 
 fn parametric(ui: &mut egui::Ui, pal: &Palette, s: &mut eq::EqState) {
-    ui.checkbox(&mut s.parametric_enabled, "Use the parametric equalizer");
+    ui.checkbox(&mut s.parametric_enabled, tr!("Use the parametric equalizer"));
     ui.add_space(6.0);
     ui.add_enabled_ui(s.parametric_enabled, |ui| {
         ui.horizontal(|ui| {
-            ui.label("Pre-amp");
+            ui.label(tr!("Pre-amp"));
             ui.add(egui::Slider::new(&mut s.parametric_preamp, -12.0..=12.0).suffix(" dB").step_by(0.5));
         });
         ui.add_space(6.0);
         let mut remove = None;
         egui::ScrollArea::vertical().max_height(250.0).show(ui, |ui| egui::Grid::new("eq-bands").num_columns(7).spacing([10.0, 6.0]).show(ui, |ui| {
-            for h in ["On", "Type", "Frequency", "Gain", "Q", ""] {
+            for h in [tr!("On"), tr!("Type"), tr!("Frequency"), tr!("Gain"), "Q", ""] {
                 ui.label(RichText::new(h).small().color(pal.secondary));
             }
             ui.end_row();
             for (i, b) in s.bands.iter_mut().enumerate() {
                 ui.checkbox(&mut b.on, "");
-                egui::ComboBox::from_id_salt(("band-type", i)).selected_text(eq::band_type_label(&b.kind)).width(110.0).show_ui(ui, |ui| {
+                let kind = i18n::tr(eq::band_type_label(&b.kind));
+                egui::ComboBox::from_id_salt(("band-type", i)).selected_text(kind).width(110.0).show_ui(ui, |ui| {
                     for k in BAND_TYPES {
-                        ui.selectable_value(&mut b.kind, k.to_string(), eq::band_type_label(k));
+                        ui.selectable_value(&mut b.kind, k.to_string(), i18n::tr(eq::band_type_label(k)));
                     }
                 });
                 let speed = b.freq * 0.01;
@@ -456,7 +506,7 @@ fn parametric(ui: &mut egui::Ui, pal: &Palette, s: &mut eq::EqState) {
                 let has_gain = eq::has_gain(&b.kind);
                 ui.add_enabled(has_gain, egui::DragValue::new(&mut b.gain).range(-12.0..=12.0).speed(0.1).suffix(" dB").max_decimals(1));
                 ui.add(egui::DragValue::new(&mut b.q).range(eq::MIN_Q..=eq::MAX_Q).speed(0.01).max_decimals(2));
-                if ui.small_button("Remove").clicked() {
+                if ui.small_button(tr!("Remove")).clicked() {
                     remove = Some(i);
                 }
                 ui.end_row();
@@ -466,7 +516,7 @@ fn parametric(ui: &mut egui::Ui, pal: &Palette, s: &mut eq::EqState) {
             s.bands.remove(i);
         }
         ui.add_space(6.0);
-        if ui.add_enabled(s.bands.len() < MAX_PARAMETRIC_BANDS, egui::Button::new("Add band")).clicked() {
+        if ui.add_enabled(s.bands.len() < MAX_PARAMETRIC_BANDS, egui::Button::new(tr!("Add band"))).clicked() {
             s.bands.push(Band::default());
         }
     });

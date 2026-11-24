@@ -733,6 +733,230 @@ root.mainloop()
 
 
 @needs_ffmpeg
+@pytest.mark.skipif(not _has_miniaudio(), reason="miniaudio not installed")
+@pytest.mark.skipif(not _gui_available(), reason="needs Tkinter and a display")
+def test_player_in_japanese(tmp_path):
+    """2.1: Settings → Appearance → Language = 日本語.  Every page, every Settings group,
+    the Equalizer, Playback info and Edit Info windows, a name dialog and a song's menu
+    work in Japanese (any exception in a Tk callback fails the test); choices are shown
+    translated and stored in English; choosing English shows the restart note, and
+    Restart now saves everything and starts the app again with the same command."""
+    lib = make_library(tmp_path, seconds=2, mp3=False)
+    from realhires import settings
+
+    cfg = settings.Settings()
+    cfg.library_folders = [lib["music"]]
+    cfg.theme = "Light"
+    cfg.language = "日本語"
+    settings.save(cfg, str(tmp_path / "settings.json"))
+    env = dict(os.environ, REALHIRES_SETTINGS=str(tmp_path / "settings.json"),
+               REALHIRES_PLAYER=str(tmp_path / "player.json"), REALHIRES_LIBRARY=str(tmp_path / "library.sqlite"),
+               REALHIRES_RESULTS=str(tmp_path / "results.sqlite"), REALHIRES_THEMES=str(tmp_path / "themes.json"),
+               REALHIRES_AUDIO_BACKEND="null")
+    body = f"""
+LIB = {json.dumps(lib)}
+S = LIB["songs"]
+import tkinter as tk
+from realhires import i18n, player_gui, playerstate, settings
+from realhires.i18n import tr
+from realhires.player_collections import TILES
+player_gui.messagebox.askyesno = lambda *a, **k: True  # confirmations say yes
+state = {{}}
+
+def fail(exc, val, tb):
+    import traceback
+    traceback.print_exception(exc, val, tb)
+    os._exit(1)
+
+def wait(cond, then, timeout=30.0, what="", start=None):
+    start = start or time.monotonic()
+    if cond():
+        return root.after(50, then)
+    assert time.monotonic() - start < timeout, "timed out: " + what
+    root.after(100, lambda: wait(cond, then, timeout, what, start))
+
+def texts(canvas):
+    return [canvas.itemcget(i, "text") for i in canvas.find_all() if canvas.type(i) == "text"]
+
+def widget_texts(w):
+    out = []
+    for c in w.winfo_children():
+        try:
+            out.append(str(c.cget("text")))
+        except tk.TclError:
+            pass
+        if isinstance(c, tk.Canvas):
+            out += texts(c)
+        out += widget_texts(c)
+    return out
+
+def menu_labels(m):
+    return [m.entrycget(i, "label") for i in range(m.index("end") + 1) if m.type(i) not in ("separator", "tearoff")]
+
+root = tk.Tk()
+root.geometry("1280x800")
+root.report_callback_exception = fail
+app = player_gui.PlayerApp(root)
+assert i18n.language() == "ja"
+started = []
+app.start_process = lambda cmd, **kw: started.append((cmd, kw))  # Restart now must not start anything
+
+def loaded():
+    # the sidebar, the menus and the Library page in Japanese
+    items = [text for _, text, _ in app.sidebar.items()]
+    for needed in ("ライブラリ", "すべての曲", "アルバム", "プレイリスト", "お気に入りの曲", "最近再生した項目",
+                   "あなたの統計", "新規プレイリスト…"):
+        assert needed in items, (needed, items)
+    assert "設定" in texts(app.sidebar.foot)
+    top = menu_labels(app.menubar)
+    assert top == ["ファイル", "コントロール", "表示", "ヘルプ"], top
+    shown = texts(app.page("library").c)
+    assert "ライブラリ" in shown and "すべての曲" in shown and "11曲" in shown, shown
+    # every page of the library
+    for key, name, _ in TILES:
+        app.show_page(key)
+        root.update()
+        assert app.page_name == key and app.pages[key].winfo_ismapped(), key
+    assert app.page("songs").title_l.cget("text") == "すべての曲"
+    heads = texts(app.page("songs").table.canvas)
+    assert "タイトル" in heads and "アーティスト" in heads, heads
+    album = next(a for a in app.albums if a["title"] == "Northern Lights")
+    app.open_album(album)
+    root.update()
+    assert app.page("album").table.footer.startswith("4曲、"), app.page("album").table.footer
+    app.show_page("search", text="rain")
+    root.update()
+    assert app.page("search").title_l.cget("text") == "「rain」の検索結果"
+    # a song's menu
+    m = app.song_menu(app.track(S["Taxi Lights"]))
+    labels = menu_labels(m)
+    assert "プレイリストに追加" in labels and "お気に入り" in labels and "情報を編集…" in labels, labels
+    # a name dialog: a new playlist
+    def answer(tries=0):
+        d = app.name_dialog
+        if d is None or (not d.win.winfo_viewable() and tries < 40):
+            return root.after(50, lambda: answer(tries + 1))
+        state["dialog"] = (d.win.title(), d.var.get(), widget_texts(d.win))
+        d.var.set("ドライブ")
+        d.submit()
+    root.after(50, answer)
+    pid = app.new_playlist()
+    title, initial, dtexts = state["dialog"]
+    assert title == "新規プレイリスト" and initial == "新規プレイリスト", state["dialog"]
+    assert "プレイリストの名前" in dtexts and "キャンセル" in dtexts, dtexts
+    assert app.state.playlist(pid)["name"] == "ドライブ" and app.page_name == "playlist"
+    app.delete_playlist(pid)
+    # play a song for more than a second: Recently Played says "今日 hh:mm"
+    app.play_list(album["tracks"], 0, album["title"])
+    wait(lambda: app.engine.position() > 1.3, heard, what="first song")
+
+def heard():
+    app.next()
+    app.engine.pause()
+    root.update()
+    app.show_page("played")
+    rp = app.page("played")
+    assert rp._value(rp.table.rows[0], "played").startswith("今日 "), rp._value(rp.table.rows[0], "played")
+    for name in ("stats", "stats_details", "nowplaying"):
+        app.show_page(name)
+        root.update()
+    app.toggle_up_next(); root.update()
+    assert app.up_next.source.cget("text").startswith("再生元："), app.up_next.source.cget("text")
+    app.toggle_up_next()
+    # the Playback info, Equalizer and Edit Info windows
+    app.open_info()
+    info = app.info_window.text()
+    assert app.info_window.win.title() == "再生情報"
+    for needed in ("トラック", "タイトル: ", "サンプリング周波数: 96 kHz", "デコーダ", "ギャップレス: オン"):
+        assert needed in info, (needed, info)
+    app.info_window.close()
+    app.open_eq()
+    w = app.eq_window
+    root.update()
+    assert w.win.title() == "イコライザ"
+    assert [w.nb.tab(i, "text") for i in range(2)] == ["グラフィック", "パラメトリック"]
+    assert "完了" in widget_texts(w.win) and "プリアンプ" in widget_texts(w.win)
+    w.nb.select(1); root.update()
+    w._add_band(); root.update()
+    menu = w.build_preset_menu()
+    assert menu_labels(menu)[0] == tr("Flat")
+    w._preset("Rock")
+    assert w.v_preset.get() == "Rock"  # the value stays English
+    w.close()
+    ed = app.edit_info([app.track(S["Taxi Lights"])])
+    state["edit"] = ed
+    wait(lambda: ed.ready, edit_ready, what="tags read")
+
+def edit_ready():
+    ed = state["edit"]
+    assert ed.win.title() == "情報を編集"
+    shown = widget_texts(ed.win)
+    assert "保存" in shown and "キャンセル" in shown and "Taxi Lights" in shown, shown
+    ed.cancel()
+    root.update()
+    # every Settings group: the name, the fields and the actions
+    page = None
+    for g in settings.GROUPS:
+        app.show_page("settings", group=g)
+        root.update()
+        page = app.page("settings")
+        assert page.group == g
+        shown = widget_texts(page.inner)
+        assert tr(g) in shown, (g, shown)
+    rows = [page.sections.value(r, "name") for r in page.sections.rows]
+    assert rows == [tr(g) for g in settings.GROUPS] and rows[0] == "ライブラリ", rows
+    assert "設定" in widget_texts(page)
+    # a choice is shown translated and stored in English
+    app.show_page("settings", group="Display")
+    root.update()
+    page = app.page("settings")
+    info = next(f for f in settings.Settings.field_info() if f["name"] == "group_sort")
+    cb = page.boxes["group_sort"]
+    assert list(cb.cget("values")) == [tr(c) for c in info["choices"]]
+    assert cb.get() == tr(settings.Settings().group_sort), cb.get()  # the current choice, translated
+    cb.current(1)
+    cb.event_generate("<<ComboboxSelected>>")
+    root.update()
+    assert app.cfg.group_sort == info["choices"][1] and settings.load().group_sort == info["choices"][1]
+    # Appearance: no restart note while the language is the one in use
+    app.show_page("settings", group="Appearance")
+    root.update()
+    page = app.page("settings")
+    assert page.restart_note is None
+    assert "テーマの色" in widget_texts(page.inner)
+    cb = page.boxes["language"]
+    assert list(cb.cget("values")) == ["English", "日本語"]  # the languages in their own names
+    assert cb.get() == "日本語" and page.theme_box.get() == tr("Light"), (cb.get(), page.theme_box.get())
+    cb.current(0)
+    cb.event_generate("<<ComboboxSelected>>")
+    wait(lambda: app.page("settings").restart_note is not None, switched, what="restart note")
+
+def switched():
+    page = app.page("settings")
+    assert settings.load().language == "English" and i18n.language() == "ja"  # used after a restart
+    note = widget_texts(page.restart_note)
+    assert tr("The new language is used when the app starts again.") in note, note
+    assert "今すぐ再起動" in note, note
+    button = [c for c in page.restart_note.winfo_children() if getattr(c, "text", "") == "今すぐ再起動"][0]
+    state["pos"] = app.position()
+    button.command()  # Restart now: saved like Quit, the app started again, this window closed
+
+app.root.after(100, lambda: wait(lambda: len(app.tracks) == len(S) and not app.library_busy(), loaded,
+                                 what="library"))
+root.mainloop()
+assert len(started) == 1, started
+cmd, kw = started[0]
+assert cmd == [sys.executable, "-m", "realhires.gui"], cmd
+assert kw["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1" and kw["close_fds"], kw
+assert kw["env"]["REALHIRES_SETTINGS"] == os.environ["REALHIRES_SETTINGS"]
+saved = playerstate.load()
+assert saved.last_path == S["Glacier Song"] and abs(saved.last_position - state["pos"]) < 0.3, saved
+print("OK")
+"""
+    run_script(tmp_path, body, env)
+
+
+@needs_ffmpeg
 @pytest.mark.skipif(not _gui_available(), reason="needs Tkinter and a display")
 def test_check_new_songs_when_the_app_starts(tmp_path):
     """Settings → Library → Check new songs when the app starts: after the library index

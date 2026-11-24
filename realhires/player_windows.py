@@ -12,7 +12,8 @@ import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
-from . import eq, tagedit
+from . import eq, i18n, tagedit
+from .i18n import N_, tr, tr_name, tr_text
 from .player import fmt_db
 from .player_theme import PillButton, Slider
 from .player_pages import frame, label
@@ -47,7 +48,7 @@ class NameDialog:
     name or raises an error whose message is shown under the field."""
 
     def __init__(self, app: "PlayerApp", title: str, prompt: str, initial: str = "",
-                 check: Optional[Callable[[str], str]] = None, ok: str = "OK", parent=None):
+                 check: Optional[Callable[[str], str]] = None, ok: str = N_("OK"), parent=None):
         self.app, t = app, app.theme
         self.check = check
         self.result: Optional[str] = None
@@ -66,8 +67,8 @@ class NameDialog:
         self.error.pack(anchor="w", pady=(4, 0))
         btns = frame(box, t)
         btns.pack(fill="x", pady=(12, 0))
-        PillButton(btns, t, ok, command=self.submit).pack(side="right")
-        PillButton(btns, t, "Cancel", kind="plain", command=self.cancel).pack(side="right", padx=(0, 8))
+        PillButton(btns, t, tr(ok), command=self.submit).pack(side="right")
+        PillButton(btns, t, tr("Cancel"), kind="plain", command=self.cancel).pack(side="right", padx=(0, 8))
         self.entry.bind("<Return>", lambda e: self.submit())
         self.entry.bind("<KP_Enter>", lambda e: self.submit())
         self.entry.select_range(0, "end")
@@ -79,10 +80,10 @@ class NameDialog:
         try:
             name = self.check(name) if self.check is not None else " ".join(name.split())
         except ValueError as exc:  # playerstate.InvalidName, themes.ThemeError
-            self.error.configure(text=str(exc))
+            self.error.configure(text=tr_text(str(exc)))
             return
         if not name:
-            self.error.configure(text="Give it a name.")
+            self.error.configure(text=tr("Give it a name."))
             return
         self.result = name
         self.close()
@@ -106,7 +107,7 @@ class NameDialog:
 
 
 def ask_name(app: "PlayerApp", title: str, prompt: str, initial: str = "",
-             check: Optional[Callable[[str], str]] = None, ok: str = "OK", parent=None) -> Optional[str]:
+             check: Optional[Callable[[str], str]] = None, ok: str = N_("OK"), parent=None) -> Optional[str]:
     """A name from the user, or None when they cancel (waits for the dialog)."""
     return NameDialog(app, title, prompt, initial, check, ok, parent).run()
 
@@ -116,7 +117,7 @@ class PlaybackInfoWindow:
 
     def __init__(self, app: "PlayerApp"):
         self.app, t = app, app.theme
-        self.win = _window(app, "Playback Info")
+        self.win = _window(app, tr("Playback Info"))
         self.win.protocol("WM_DELETE_WINDOW", self.close)
         self.win.bind("<<Close>>", lambda e: self.close())
         box = frame(self.win, t)
@@ -128,8 +129,8 @@ class PlaybackInfoWindow:
         bottom.pack(fill="x", pady=(14, 0))
         self.copied = label(bottom, t, "", "small", fg="text2")
         self.copied.pack(side="left")
-        PillButton(bottom, t, "Close", kind="plain", command=self.close).pack(side="right")
-        PillButton(bottom, t, "Copy", command=self.copy).pack(side="right", padx=(0, 8))
+        PillButton(bottom, t, tr("Close"), kind="plain", command=self.close).pack(side="right")
+        PillButton(bottom, t, tr("Copy"), command=self.copy).pack(side="right", padx=(0, 8))
         self.sections: List[Tuple[str, List[Tuple[str, str]]]] = []
         self.refresh()
         self.win.minsize(560, 300)
@@ -174,7 +175,7 @@ class PlaybackInfoWindow:
     def copy(self) -> None:
         self.win.clipboard_clear()
         self.win.clipboard_append(self.text())
-        self.copied.configure(text="Copied to the clipboard.")
+        self.copied.configure(text=tr("Copied to the clipboard."))
 
     def close(self) -> None:
         self.app.info_window = None
@@ -191,7 +192,7 @@ class EqualizerWindow:
         self.app, self.t = app, app.theme
         t = self.t
         self.state = eq.normalize(copy.deepcopy(app.state.eq))
-        self.win = _window(app, "Equalizer")
+        self.win = _window(app, tr("Equalizer"))
         self.win.protocol("WM_DELETE_WINDOW", self.close)
         self.win.bind("<<Close>>", lambda e: self.close())
         box = frame(self.win, t)
@@ -200,20 +201,20 @@ class EqualizerWindow:
         top.pack(fill="x")
         self.v_on = tk.BooleanVar(value=self.state["enabled"])
         self.v_clip = tk.BooleanVar(value=self.state["prevent_clipping"])
-        ttk.Checkbutton(top, text="Equalizer on", variable=self.v_on, style="P.TCheckbutton",
+        ttk.Checkbutton(top, text=tr("Equalizer on"), variable=self.v_on, style="P.TCheckbutton",
                         command=self._toggles).pack(side="left")
-        ttk.Checkbutton(top, text="Prevent clipping", variable=self.v_clip, style="P.TCheckbutton",
+        ttk.Checkbutton(top, text=tr("Prevent clipping"), variable=self.v_clip, style="P.TCheckbutton",
                         command=self._toggles).pack(side="left", padx=(18, 0))
         self.pre_note = label(top, t, "", "small", fg="text2")
         self.pre_note.pack(side="right")
         presets = frame(box, t)
         presets.pack(fill="x", pady=(10, 0))
-        label(presets, t, "Preset", "body", fg="text2").pack(side="left", padx=(0, 8))
+        label(presets, t, tr("Preset"), "body", fg="text2").pack(side="left", padx=(0, 8))
         self.v_preset = tk.StringVar(value="")
         self.preset_btn = PillButton(presets, t, "", kind="plain", arrow=True, command=self._post_presets)
         self.preset_btn.pack(side="left")
-        for text, cmd in (("Export…", self._export), ("Import…", self._import), ("Delete…", self._delete),
-                          ("Rename…", self._rename), ("Save as preset…", self._save_as)):
+        for text, cmd in ((tr("Export…"), self._export), (tr("Import…"), self._import), (tr("Delete…"), self._delete),
+                          (tr("Rename…"), self._rename), (tr("Save as preset…"), self._save_as)):
             PillButton(presets, t, text, kind="plain", command=cmd).pack(side="right", padx=(8, 0))
         self.note = label(box, t, "", "small", fg="text2", wraplength=640, justify="left")
         self.note.pack(anchor="w", pady=(4, 0))
@@ -226,14 +227,14 @@ class EqualizerWindow:
         self.nb.pack(fill="both", expand=True)
         self.graphic = frame(self.nb, t)
         self.param = frame(self.nb, t)
-        self.nb.add(self.graphic, text="Graphic")
-        self.nb.add(self.param, text="Parametric")
+        self.nb.add(self.graphic, text=tr("Graphic"))
+        self.nb.add(self.param, text=tr("Parametric"))
         self._build_graphic()
         self._build_param()
         bottom = frame(box, t)
         bottom.pack(fill="x", pady=(12, 0))
-        PillButton(bottom, t, "Done", command=self.close).pack(side="right")
-        PillButton(bottom, t, "Reset", kind="plain", command=self._reset).pack(side="right", padx=(0, 8))
+        PillButton(bottom, t, tr("Done"), command=self.close).pack(side="right")
+        PillButton(bottom, t, tr("Reset"), kind="plain", command=self._reset).pack(side="right", padx=(0, 8))
         t.on_change(self.draw_curve, self.win)
         self.win.minsize(700, 600)
         self.draw_curve()
@@ -245,13 +246,13 @@ class EqualizerWindow:
         head = frame(self.graphic, t)
         head.pack(fill="x", pady=(12, 6), padx=8)
         self.v_gon = tk.BooleanVar(value=g["enabled"])
-        ttk.Checkbutton(head, text="Use the graphic equalizer", variable=self.v_gon, style="P.TCheckbutton",
+        ttk.Checkbutton(head, text=tr("Use the graphic equalizer"), variable=self.v_gon, style="P.TCheckbutton",
                         command=self._toggles).pack(side="left")
         bands = frame(self.graphic, t)
         bands.pack(fill="both", expand=True, padx=8, pady=(4, 8))
         self.g_sliders: List[Slider] = []
         self.g_values: List[tk.Label] = []
-        cols = [("Pre-amp", g["preamp"])] + list(zip(eq.GRAPHIC_LABELS, g["gains"]))
+        cols = [(tr("Pre-amp"), g["preamp"])] + list(zip(eq.GRAPHIC_LABELS, g["gains"]))
         for i, (name, value) in enumerate(cols):
             col = frame(bands, t)
             col.grid(row=0, column=i, padx=(0, 18) if i == 0 else 4, sticky="ns")
@@ -268,8 +269,8 @@ class EqualizerWindow:
                 self.g_values.append(val)
             else:
                 self.g_pre, self.g_pre_val = s, val
-        label(self.graphic, t, "Drag a slider to boost or cut that band (up to 12 dB). Double-click a slider "
-                               "to set it back to 0 dB.", "small", fg="text2").pack(anchor="w", padx=8, pady=(0, 8))
+        label(self.graphic, t, tr("Drag a slider to boost or cut that band (up to 12 dB). Double-click a slider "
+                                  "to set it back to 0 dB."), "small", fg="text2").pack(anchor="w", padx=8, pady=(0, 8))
 
     def _db(self, v: float) -> str:
         return ("+" if v > 0.05 else "") + f"{v:.1f}"
@@ -301,11 +302,11 @@ class EqualizerWindow:
         head = frame(self.param, t)
         head.pack(fill="x", pady=(12, 6), padx=8)
         self.v_pon = tk.BooleanVar(value=p["enabled"])
-        ttk.Checkbutton(head, text="Use the parametric equalizer", variable=self.v_pon, style="P.TCheckbutton",
+        ttk.Checkbutton(head, text=tr("Use the parametric equalizer"), variable=self.v_pon, style="P.TCheckbutton",
                         command=self._toggles).pack(side="left")
         pre = frame(self.param, t)
         pre.pack(fill="x", padx=8, pady=(2, 8))
-        label(pre, t, "Pre-amp", "body_b").pack(side="left")
+        label(pre, t, tr("Pre-amp"), "body_b").pack(side="left")
         self.p_pre_val = label(pre, t, f"{self._db(p['preamp'])} dB", "body", fg="text2", width=8)
         self.p_pre = Slider(pre, t, -eq.GAIN_LIMIT_DB, eq.GAIN_LIMIT_DB, p["preamp"], command=self._param_pre,
                             length=260, origin=0.0, reset=0.0)
@@ -315,7 +316,7 @@ class EqualizerWindow:
         self.rows.pack(fill="both", expand=True, padx=8)
         bottom = frame(self.param, t)
         bottom.pack(fill="x", padx=8, pady=(8, 10))
-        self.add_btn = PillButton(bottom, t, "Add band", kind="plain", command=self._add_band)
+        self.add_btn = PillButton(bottom, t, tr("Add band"), kind="plain", command=self._add_band)
         self.add_btn.pack(side="left")
         self._band_rows()
 
@@ -324,17 +325,17 @@ class EqualizerWindow:
         for w in self.rows.winfo_children():
             w.destroy()
         t.prune()
-        heads = ("On", "Type", "Frequency (Hz)", "Gain (dB)", "Q", "")
+        heads = (tr("On"), tr("Type"), tr("Frequency (Hz)"), tr("Gain (dB)"), "Q", "")
         for c, text in enumerate(heads):
             label(self.rows, t, text, "small_b", fg="text2").grid(row=0, column=c, sticky="w", padx=(0, 12),
                                                                    pady=(0, 4))
-        type_labels = [eq.BAND_TYPE_LABELS[k] for k in eq.BAND_TYPES]
+        type_labels = [tr(eq.BAND_TYPE_LABELS[k]) for k in eq.BAND_TYPES]
         for r, b in enumerate(self.state["parametric"]["bands"], start=1):
             on = tk.BooleanVar(value=b["on"])
             ttk.Checkbutton(self.rows, variable=on, style="P.TCheckbutton",
                             command=lambda r=r, v=on: self._band(r - 1, "on", v.get())).grid(row=r, column=0,
                                                                                             sticky="w")
-            kind = tk.StringVar(value=eq.BAND_TYPE_LABELS[b["type"]])
+            kind = tk.StringVar(value=tr(eq.BAND_TYPE_LABELS[b["type"]]))
             cb = ttk.Combobox(self.rows, textvariable=kind, values=type_labels, state="readonly", width=11,
                               style="P.TCombobox", font=t.f("body"))
             cb.grid(row=r, column=1, sticky="w", padx=(0, 12), pady=3)
@@ -353,7 +354,7 @@ class EqualizerWindow:
                     sp.bind(ev, lambda e, r=r, k=key, v=var: self._band_text(r - 1, k, v))
                 if key == "gain" and b["type"] not in eq.GAIN_TYPES:
                     sp.state(["disabled"])
-            PillButton(self.rows, t, "Remove", kind="plain", height=28,
+            PillButton(self.rows, t, tr("Remove"), kind="plain", height=28,
                        command=lambda r=r: self._remove_band(r - 1)).grid(row=r, column=5, sticky="w")
         self.add_btn.set(enabled=len(self.state["parametric"]["bands"]) < eq.MAX_PARAMETRIC_BANDS)
 
@@ -431,10 +432,16 @@ class EqualizerWindow:
         """The user preset the EQ is, else the built-in preset of the graphic bands, or Custom."""
         return self.app.state.matching_eq_preset() or eq.preset_name(self.state["graphic"]["gains"])
 
+    @staticmethod
+    def shown_name(name: str) -> str:
+        """A preset's name as the menu and the button show it: the built-in presets and
+        "Custom" translated, the user's own as they are named."""
+        return tr(name) if name in eq.PRESET_NAMES or name == eq.CUSTOM else name
+
     def _show_preset(self) -> None:
         name = self.preset_label()
         self.v_preset.set(name)
-        self.preset_btn.set(text=name)
+        self.preset_btn.set(text=self.shown_name(name))
 
     def build_preset_menu(self) -> tk.Menu:
         """Built-in presets, "My presets", and "Custom" when the gains match none."""
@@ -442,17 +449,18 @@ class EqualizerWindow:
         self.app.theme_menu(m)
         cur = self.preset_label()
         for name in eq.PRESET_NAMES:
-            m.add_radiobutton(label=name, value=name, variable=self.v_preset, command=lambda n=name: self._preset(n))
+            m.add_radiobutton(label=tr(name), value=name, variable=self.v_preset,
+                              command=lambda n=name: self._preset(n))
         mine = self.app.state.eq_presets
         if mine:
             m.add_separator()
-            m.add_command(label="My presets", state="disabled")
+            m.add_command(label=tr("My presets"), state="disabled")
             for p in mine:
                 m.add_radiobutton(label=p["name"], value=p["name"], variable=self.v_preset,
                                   command=lambda n=p["name"]: self.use_preset(n))
         if cur == eq.CUSTOM:
             m.add_separator()
-            m.add_radiobutton(label=eq.CUSTOM, value=eq.CUSTOM, variable=self.v_preset, state="disabled")
+            m.add_radiobutton(label=tr(eq.CUSTOM), value=eq.CUSTOM, variable=self.v_preset, state="disabled")
         self.v_preset.set(cur)
         self.preset_menu = m
         return m
@@ -492,24 +500,25 @@ class EqualizerWindow:
         name = self.app.state.save_eq_preset(name, self.state)
         self.app.save_state()
         self._show_preset()
-        self.note.configure(text=f"Saved as “{name}”.", fg=self.t.c("text2"))
+        self.note.configure(text=tr("Saved as “{name}”.", name=name), fg=self.t.c("text2"))
         return name
 
     def _save_as(self) -> None:
         from . import playerstate
 
-        name = ask_name(self.app, "Save as preset", "Name of the new preset", "My preset",
-                        check=self.app.state.check_preset_name, ok="Save", parent=self.win)
+        name = ask_name(self.app, tr("Save as preset"), tr("Name of the new preset"), tr("My preset"),
+                        check=self.app.state.check_preset_name, ok=tr("Save"), parent=self.win)
         if name:
             try:
                 self.save_preset(name)
             except playerstate.InvalidName as exc:
-                self.note.configure(text=str(exc), fg=self.t.c("error"))
+                self.note.configure(text=tr_text(str(exc)), fg=self.t.c("error"))
 
     def _mine(self) -> str:
         name = self.app.state.matching_eq_preset()
         if not name:
-            self.note.configure(text="Choose one of your own presets first (the menu lists them under My presets).",
+            self.note.configure(text=tr("Choose one of your own presets first (the menu lists them under My "
+                                        "presets)."),
                                 fg=self.t.c("error"))
         return name
 
@@ -522,8 +531,8 @@ class EqualizerWindow:
     def _rename(self) -> None:
         old = self._mine()
         if old:
-            new = ask_name(self.app, "Rename preset", "New name of the preset", old, parent=self.win,
-                           check=lambda n: self.app.state.check_preset_name(n, renaming=old), ok="Rename")
+            new = ask_name(self.app, tr("Rename preset"), tr("New name of the preset"), old, parent=self.win,
+                           check=lambda n: self.app.state.check_preset_name(n, renaming=old), ok=tr("Rename"))
             if new:
                 self.rename_preset(old, new)
 
@@ -531,11 +540,12 @@ class EqualizerWindow:
         from tkinter import messagebox
 
         name = self._mine()
-        if name and messagebox.askyesno("Delete preset", f"Delete your preset “{name}”?", parent=self.win):
+        if name and messagebox.askyesno(tr("Delete preset"), tr("Delete your preset “{name}”?", name=name),
+                                        parent=self.win):
             self.app.state.delete_eq_preset(name)
             self.app.save_state()
             self._show_preset()
-            self.note.configure(text=f"Deleted “{name}”.", fg=self.t.c("text2"))
+            self.note.configure(text=tr("Deleted “{name}”.", name=name), fg=self.t.c("text2"))
 
     def import_file(self, path: str) -> str:
         """Read a .json or Equalizer APO / AutoEQ .txt preset, apply it and save it under
@@ -557,19 +567,21 @@ class EqualizerWindow:
                 n += 1
         self.load_state(st)
         self.save_preset(name)
-        self.note.configure(text=" ".join([f"Imported “{name}”."] + notes), fg=self.t.c("text2"))
+        joiner = i18n.SENTENCE_JOIN.get(i18n.language(), " ")
+        self.note.configure(text=joiner.join([tr("Imported “{name}”.", name=name)] + [tr_text(x) for x in notes]),
+                            fg=self.t.c("text2"))
         return name
 
     def _import(self) -> None:
         from tkinter import filedialog
 
-        path = filedialog.askopenfilename(parent=self.win, title="Import an equalizer preset",
-                                          filetypes=[("Equalizer presets", "*.json *.txt"), ("All files", "*")])
+        path = filedialog.askopenfilename(parent=self.win, title=tr("Import an equalizer preset"),
+                                          filetypes=[(tr("Equalizer presets"), "*.json *.txt"), (tr("All files"), "*")])
         if path:
             try:
                 self.import_file(path)
             except (eq.EqFileError, OSError) as exc:
-                self.note.configure(text=str(exc), fg=self.t.c("error"))
+                self.note.configure(text=tr_text(str(exc)), fg=self.t.c("error"))
 
     def export_file(self, path: str) -> None:
         """.txt: Equalizer APO / AutoEQ text; anything else: Real-Hi-Res's own .json."""
@@ -577,20 +589,21 @@ class EqualizerWindow:
         text = eq.export_apo(name, self.state) if path.lower().endswith(".txt") else eq.export_json(name, self.state)
         with open(path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
-        self.note.configure(text=f"Exported “{name}” to {path}.", fg=self.t.c("text2"))
+        self.note.configure(text=tr("Exported “{name}” to {path}.", name=self.shown_name(name), path=path),
+                            fg=self.t.c("text2"))
 
     def _export(self) -> None:
         from tkinter import filedialog
 
         path = filedialog.asksaveasfilename(
-            parent=self.win, title="Export the equalizer", initialfile=f"{self.preset_label()}.json",
-            defaultextension=".json", filetypes=[("Real-Hi-Res preset", "*.json"),
-                                                 ("Equalizer APO / AutoEQ text", "*.txt")])
+            parent=self.win, title=tr("Export the equalizer"), initialfile=f"{self.preset_label()}.json",
+            defaultextension=".json", filetypes=[(tr("Real-Hi-Res preset"), "*.json"),
+                                                 (tr("Equalizer APO / AutoEQ text"), "*.txt")])
         if path:
             try:
                 self.export_file(path)
             except OSError as exc:
-                self.note.configure(text=f"Could not export: {exc}", fg=self.t.c("error"))
+                self.note.configure(text=tr("Could not export: {error}", error=exc), fg=self.t.c("error"))
 
 
     def draw_curve(self) -> None:
@@ -622,8 +635,8 @@ class EqualizerWindow:
             pts += [xf(f), yf(max(-12.0, min(12.0, db)))]
         c.create_line(*pts, fill=t.c("accent") if on else t.c("text2"), width=2.5, smooth=True)
         pre = eq.preamp_db(self.state)
-        self.pre_note.configure(text=(f"Pre-amp {fmt_db(pre)}" if on and abs(pre) >= 0.05 else
-                                      "" if on else "The equalizer is off"))
+        self.pre_note.configure(text=(tr("Pre-amp {db}", db=fmt_db(pre)) if on and abs(pre) >= 0.05 else
+                                      "" if on else tr("The equalizer is off")))
 
     def close(self) -> None:
         self.app.save_eq(self.state)
@@ -640,7 +653,7 @@ class EditInfoWindow:
     and refreshes the library; it closes when everything was saved without a note,
     else it shows tagedit.save_summary().  Results reach Tk through `self.q`."""
 
-    SEVERAL = "Several values: kept unless you type here"
+    SEVERAL = N_("Several values: kept unless you type here")  # shown as tr(SEVERAL)
 
     def __init__(self, app: "PlayerApp", tracks: list, heading: str = "", subheading: str = ""):
         from .settings import Settings
@@ -652,7 +665,7 @@ class EditInfoWindow:
         self.ready = self.saving = self.done = False
         self.initial: Dict[str, Optional[str]] = {}
         self.outcomes: list = []
-        self.win = _window(app, "Edit Info")
+        self.win = _window(app, tr("Edit Info"))
         self.win.protocol("WM_DELETE_WINDOW", self.cancel)
         self.win.bind("<<Close>>", lambda e: self.cancel())
         box = frame(self.win, t)
@@ -660,12 +673,13 @@ class EditInfoWindow:
         if not heading and len(tracks) == 1:
             heading = tracks[0].display_title
             subheading = " · ".join(x for x in (tracks[0].artist, tracks[0].album) if x)
-        label(box, t, heading or f"{len(tracks):,} songs", "h2", wraplength=520, justify="left").pack(anchor="w")
+        label(box, t, tr_name(heading) if heading else tr("{n} songs", n=f"{len(tracks):,}"), "h2",
+              wraplength=520, justify="left").pack(anchor="w")
         if subheading:
             label(box, t, subheading, "body", fg="text2", wraplength=520, justify="left").pack(anchor="w")
         n = len(self.paths)
-        self.status = label(box, t, f"Reading the information of {n:,} song{'s' if n != 1 else ''}…", "small",
-                            fg="text2")
+        self.status = label(box, t, tr("Reading the information of 1 song…") if n == 1 else
+                            tr("Reading the information of {n} songs…", n=f"{n:,}"), "small", fg="text2")
         self.status.pack(anchor="w", pady=(6, 0))
         grid = frame(box, t)
         grid.pack(fill="x", pady=(8, 0))
@@ -673,15 +687,16 @@ class EditInfoWindow:
         self.entries: Dict[str, ttk.Entry] = {}
         self.notes: Dict[str, tk.Label] = {}
         for i, f in enumerate(tagedit.FIELDS):
-            label(grid, t, tagedit.LABELS[f], "body", fg="text2").grid(row=2 * i, column=0, sticky="w",
-                                                                       padx=(0, 16), pady=(7, 0))
+            label(grid, t, tr(tagedit.LABELS[f]), "body", fg="text2").grid(row=2 * i, column=0, sticky="w",
+                                                                           padx=(0, 16), pady=(7, 0))
             var = tk.StringVar()
             e = ttk.Entry(grid, textvariable=var, width=44, style="P.TEntry", font=t.f("body"))
             e.grid(row=2 * i, column=1, sticky="we", pady=(7, 0))
             e.state(["disabled"])
             e.bind("<Return>", lambda ev: self.save())
             e.bind("<KP_Enter>", lambda ev: self.save())
-            note = label(grid, t, tagedit.HINTS.get(f, ""), "small", fg="text2", wraplength=440, justify="left")
+            note = label(grid, t, tr(tagedit.HINTS.get(f, "")) if tagedit.HINTS.get(f) else "", "small",
+                         fg="text2", wraplength=440, justify="left")
             note.grid(row=2 * i + 1, column=1, sticky="w")
             if not tagedit.HINTS.get(f):
                 note.grid_remove()
@@ -693,9 +708,9 @@ class EditInfoWindow:
         self.summary.pack(anchor="w")
         self.btns = frame(box, t)
         self.btns.pack(fill="x", pady=(12, 0))
-        self.save_b = PillButton(self.btns, t, "Save", command=self.save)
+        self.save_b = PillButton(self.btns, t, tr("Save"), command=self.save)
         self.save_b.pack(side="right")
-        self.cancel_b = PillButton(self.btns, t, "Cancel", kind="plain", command=self.cancel)
+        self.cancel_b = PillButton(self.btns, t, tr("Cancel"), kind="plain", command=self.cancel)
         self.cancel_b.pack(side="right", padx=(0, 8))
         self.win.minsize(560, 0)
         threading.Thread(target=self._read, daemon=True, name="realhires-edit-read").start()
@@ -718,7 +733,8 @@ class EditInfoWindow:
             out = tagedit.save_tags(self.paths, changes, self.cfg,
                                     progress=lambda i, n, p: self.q.put(("progress", i, n)))
         except Exception as exc:  # noqa: BLE001 (save_tags never raises; this is a last resort)
-            out = [tagedit.TagOutcome(p, False, f"Could not save the information: {exc}") for p in self.paths]
+            out = [tagedit.TagOutcome(p, False, tr("Could not save the information: {error}", error=exc))
+                   for p in self.paths]
         self.q.put(("saved", out))
 
     def _poll(self) -> None:
@@ -735,7 +751,7 @@ class EditInfoWindow:
                 elif kind == "progress":
                     i, n = rest
                     if i < n:
-                        self.status.configure(text=f"Saving {i + 1:,} of {n:,}…")
+                        self.status.configure(text=tr("Saving {i} of {n}…", i=f"{i + 1:,}", n=f"{n:,}"))
                 elif kind == "saved":
                     self._saved(rest[0])
                     return
@@ -750,9 +766,10 @@ class EditInfoWindow:
             value = self.initial[f]
             self.vars[f].set(value or "")
             self.entries[f].state(["!disabled"])
-            hint = tagedit.HINTS.get(f, "")
+            hint = tr(tagedit.HINTS[f]) if tagedit.HINTS.get(f) else ""
             if value is None:
-                self.notes[f].configure(text=self.SEVERAL + (f". {hint[0].upper()}{hint[1:]}" if hint else ""))
+                self.notes[f].configure(text=tr("{several}. {hint}", several=tr(self.SEVERAL),
+                                                hint=hint[0].upper() + hint[1:]) if hint else tr(self.SEVERAL))
                 self.notes[f].grid()
         self.status.configure(text="")
         self.ready = True
@@ -780,7 +797,7 @@ class EditInfoWindow:
         try:
             changes = tagedit.check_changes(changes)
         except tagedit.TagError as exc:
-            self.error.configure(text=str(exc))
+            self.error.configure(text=tr_text(str(exc)))
             return
         self.error.configure(text="")
         if not changes:
@@ -792,7 +809,7 @@ class EditInfoWindow:
         self.save_b.pack_forget()
         self.cancel_b.pack_forget()
         n = len(self.paths)
-        self.status.configure(text=f"Saving 1 of {n:,}…" if n > 1 else "Saving…")
+        self.status.configure(text=tr("Saving {i} of {n}…", i="1", n=f"{n:,}") if n > 1 else tr("Saving…"))
         threading.Thread(target=self._write, args=(changes,), daemon=True, name="realhires-edit-save").start()
 
     def _saved(self, outcomes: list) -> None:
@@ -804,8 +821,8 @@ class EditInfoWindow:
             self.close()
             return
         self.status.configure(text="")
-        self.summary.configure(text="\n\n".join([head] + lines))
-        PillButton(self.btns, self.app.theme, "Close", command=self.close).pack(side="right")
+        self.summary.configure(text="\n\n".join([tr_text(head)] + [tr_text(x) for x in lines]))
+        PillButton(self.btns, self.app.theme, tr("Close"), command=self.close).pack(side="right")
 
     def cancel(self) -> None:
         if not self.saving:

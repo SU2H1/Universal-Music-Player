@@ -1,30 +1,38 @@
 //! Colours, labels and small helpers shared by the windows of the desktop app.
 
 use egui::Color32;
+use realhires::n_;
 use realhires::verdict::Verdict;
 
 pub fn hex(c: u32) -> Color32 {
     Color32::from_rgb((c >> 16) as u8, (c >> 8) as u8, c as u8)
 }
 
-/// (label, colour, description) of each verdict, as in the Python app.
+/// (label, colour, description) of each verdict, as in the Python app.  The
+/// label and description are English (the label is also matched by code);
+/// show them with `realhires::i18n::tr()` or `verdict_label()`.
 pub fn verdict_style(v: Verdict) -> (&'static str, Color32, &'static str) {
     match v {
         Verdict::FakeLossless => {
-            ("Fake lossless", hex(0xa3122a), "Lossless file (FLAC/WAV/ALAC...) made from an MP3/AAC")
+            (n_!("Fake lossless"), hex(0xa3122a), n_!("Lossless file (FLAC/WAV/ALAC...) made from an MP3/AAC"))
         }
-        Verdict::Fake => ("Fake hi-res", hex(0xd32f2f), "Upsampled and/or 16-bit padded"),
-        Verdict::Suspect => ("Suspicious", hex(0xb26a00), "Could not be confirmed either way"),
-        Verdict::Real => ("Real hi-res", hex(0x2e7d32), "Genuine high resolution"),
-        Verdict::NotHires => ("CD quality", hex(0x1565c0), "Genuine lossless, not hi-res"),
-        Verdict::Lossy => ("Lossy format", hex(0x6a1b9a), "MP3/AAC/... file"),
-        Verdict::Error => ("Error", hex(0x616161), "Could not be analysed"),
+        Verdict::Fake => (n_!("Fake hi-res"), hex(0xd32f2f), n_!("Upsampled and/or 16-bit padded")),
+        Verdict::Suspect => (n_!("Suspicious"), hex(0xb26a00), n_!("Could not be confirmed either way")),
+        Verdict::Real => (n_!("Real hi-res"), hex(0x2e7d32), n_!("Genuine high resolution")),
+        Verdict::NotHires => (n_!("CD quality"), hex(0x1565c0), n_!("Genuine lossless, not hi-res")),
+        Verdict::Lossy => (n_!("Lossy format"), hex(0x6a1b9a), n_!("MP3/AAC/... file")),
+        Verdict::Error => (n_!("Error"), hex(0x616161), n_!("Could not be analysed")),
     }
 }
 
-pub const PENDING_LABEL: &str = "Not scanned";
+/// The verdict's label in the language in use ("Fake hi-res", "偽ハイレゾ").
+pub fn verdict_label(v: Verdict) -> &'static str {
+    realhires::i18n::tr(verdict_style(v).0)
+}
+
+pub const PENDING_LABEL: &str = n_!("Not scanned");
 pub const PENDING_COLOR: u32 = 0x808080;
-pub const RUNNING_LABEL: &str = "Analysing…";
+pub const RUNNING_LABEL: &str = n_!("Analysing…");
 pub const RUNNING_COLOR: u32 = 0x0b62c4;
 pub const RING_FAKE: u32 = 0xd32f2f;
 pub const RING_SUS: u32 = 0xef8f00;
@@ -32,8 +40,14 @@ pub const RING_OK: u32 = 0x43a047;
 pub const FOUND: u32 = 0xfff59d;
 pub const FOUND_CUR: u32 = 0xffb74d;
 
-pub fn plural(n: usize, word: &str) -> String {
-    format!("{n} {word}{}", if n == 1 { "" } else { "s" })
+/// A count in the language in use: `count(n, n_!("1 file"), n_!("{n} files"))`
+/// ("1 file", "3 files"; Japanese gives both forms the same text).
+pub fn count(n: usize, one: &'static str, many: &'static str) -> String {
+    if n == 1 {
+        realhires::i18n::tr(one).to_string()
+    } else {
+        realhires::i18n::fill(realhires::i18n::tr(many), &[("n", n.to_string())])
+    }
 }
 
 /// "3:07" or "1:02:03".

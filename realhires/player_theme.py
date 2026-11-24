@@ -19,10 +19,11 @@ import tkinter.font as tkfont
 from tkinter import ttk
 from typing import Callable, Dict, List, Optional, Tuple
 
+from .i18n import N_
 from .probe import external_env
 
 FONT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "fonts", "InterVariable.ttf")
-DEFAULT_FONT_LABEL = "SF Pro (macOS) / Inter"
+DEFAULT_FONT_LABEL = N_("SF Pro (macOS) / Inter")  # shown as tr(DEFAULT_FONT_LABEL)
 
 def mix(a: str, b: str, t: float) -> str:
     """The colour t of the way from a to b (#rrggbb)."""
