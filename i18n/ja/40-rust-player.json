@@ -38,8 +38,6 @@
   "Import theme": "テーマを読み込む",
   "“{theme}” comes from the file {file} in the themes folder. Change that file, or make a copy you can change here with New theme…": "「{theme}」はテーマフォルダのファイル {file} のテーマです。そのファイルを変更するか、「新規テーマ…」でここで変更できるコピーを作ってください。",
   "“{theme}” is a built-in theme and cannot be changed; “New theme…” makes a copy you can edit.": "「{theme}」は内蔵のテーマなので変更できません。「新規テーマ…」で、変更できるコピーを作れます。",
-  "Mono": "モノラル",
-  "Stereo": "ステレオ",
   "mono": "モノラル",
   "stereo": "ステレオ",
   "{n} channels": "{n}チャンネル",
@@ -50,10 +48,8 @@
   "On, no bands": "オン（バンドなし）",
   " (pre-amp {db})": "（プリアンプ {db}）",
   "{n}-bit": "{n}ビット",
-  "None: the device runs at the song's rate": "なし：デバイスは曲と同じサンプリング周波数で動作しています",
   "From {from} to {to} ({resampler})": "{from}から{to}へ（{resampler}）",
   "FFmpeg's resampler": "FFmpegのリサンプラー",
-  "Muted": "消音中",
   "Not open yet": "まだ開いていません",
   "Playback info": "再生情報",
   "Built-in": "内蔵",
@@ -82,8 +78,6 @@
   "Minutes": "再生時間（分）",
   "Plays": "再生回数",
   "Days with music": "音楽を聴いた日数",
-  "Longest streak": "最長連続日数",
-  "1 day": "1日",
   "By hour of the day (minutes)": "時間帯別の再生時間（分）",
   "By day of the week (minutes)": "曜日別の再生時間（分）",
   "By month (minutes)": "月別の再生時間（分）",
@@ -116,7 +110,10 @@
   "Forget every song played so far? Recently Played and Your Stats start again from nothing.": "これまでに再生したすべての曲の記録を消去しますか？「最近再生した項目」と「あなたの統計」は最初からになります。",
   "{app} cannot open its window: {e}\n\nThe desktop app needs a graphical desktop with OpenGL 2.0 or newer (on Linux X11 or Wayland); updating the graphics driver usually helps. The command-line tool `realhires` works without one.": "{app}のウィンドウを開けません：{e}\n\nデスクトップアプリには、OpenGL 2.0以降に対応したグラフィカルなデスクトップ（LinuxではX11またはWayland）が必要です。グラフィックドライバを更新すると、たいてい解決します。コマンドラインツール`realhires`は、グラフィカルなデスクトップがなくても動作します。",
   "{codec} (lossy)": "{codec}（ロッシー）",
-  "{codec} (lossless)": "{codec}（ロスレス）"
+  "{codec} (lossless)": "{codec}（ロスレス）",
+  "{rate}, {format}, {channels}": "{rate}、{format}、{channels}",
+  "{theme} ({current})": "{theme}（{current}）",
+  "{verdict}: {summary}": "{verdict}：{summary}"
  },
  "patterns": {}
 }

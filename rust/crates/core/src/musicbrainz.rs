@@ -125,6 +125,10 @@ pub fn recording_query(title: &str, artist: &str, album: &str) -> String {
 
 // ------------------------------------------------------------------- client ---
 
+/// The start of the last request of any client that uses the real clock, so
+/// the lookup window and the automatic lookup together keep one per second.
+static SHARED_LAST: std::sync::Mutex<Option<f64>> = std::sync::Mutex::new(None);
+
 /// Sequential MusicBrainz requests (one client per batch, used from one thread).
 pub struct MusicBrainzClient {
     pub server: String,
@@ -136,6 +140,8 @@ pub struct MusicBrainzClient {
     sleep: Box<dyn FnMut(f64) + Send>,
     last_start: Option<f64>,
     not_before: f64,
+    /// true while the real clock is used: requests are spaced with every other such client
+    shared: bool,
     pub requests: usize,
 }
 
@@ -153,6 +159,7 @@ impl MusicBrainzClient {
             sleep: Box::new(|s| std::thread::sleep(Duration::from_secs_f64(s))),
             last_start: None,
             not_before: 0.0,
+            shared: true,
             requests: 0,
         }
     }
@@ -174,6 +181,7 @@ impl MusicBrainzClient {
     ) -> Self {
         self.clock = Box::new(clock);
         self.sleep = Box::new(sleep);
+        self.shared = false;
         self
     }
 
@@ -224,8 +232,19 @@ impl MusicBrainzClient {
         if let Some(s) = self.last_start {
             due = due.max(s + self.min_interval);
         }
+        if !self.shared {
+            let now = (self.clock)();
+            return self.wait(due - now);
+        }
+        // one request at a time across the app: hold the gate while waiting
+        let mut last = SHARED_LAST.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(s) = *last {
+            due = due.max(s + self.min_interval);
+        }
         let now = (self.clock)();
-        self.wait(due - now)
+        self.wait(due - now)?;
+        *last = Some((self.clock)());
+        Ok(())
     }
 
     pub fn url(&self, path: &str, params: &[(String, String)]) -> String {
@@ -1058,6 +1077,22 @@ pub struct AutoOutcome {
     pub message: String,
 }
 
+/// The tags a library index entry knows, for `needs_lookup()`.
+pub fn index_tags(t: &crate::musiclib::Track) -> Vec<(String, String)> {
+    let num = |n: i64| if n != 0 { n.to_string() } else { String::new() };
+    vec![
+        ("title".into(), t.title.clone()),
+        ("artist".into(), t.artist.clone()),
+        ("album".into(), t.album.clone()),
+        ("album_artist".into(), t.album_artist.clone()),
+        ("genre".into(), t.genre.clone()),
+        ("date".into(), t.year.clone()),
+        ("track".into(), num(t.track)),
+        ("disc".into(), num(t.disc)),
+        ("composer".into(), t.composer.clone()),
+    ]
+}
+
 /// A song's tags as the file holds them now (ffprobe).
 pub fn read_song(path: &str, duration: f64) -> Result<Song, crate::probe::Error> {
     let info = crate::probe::probe(path)?;
@@ -1138,7 +1173,7 @@ pub fn run_auto(
     paths: &[String],
     cfg: Option<&Settings>,
     log: &LookupLog,
-    durations: &dyn Fn(&str) -> f64,
+    known: &dyn Fn(&str) -> Option<(Vec<(String, String)>, f64)>,
     mut progress: impl FnMut(usize, usize),
 ) -> Result<Vec<AutoOutcome>, MbError> {
     let mut outcomes = vec![];
@@ -1148,7 +1183,14 @@ pub fn run_auto(
         if log.done(p, size, mtime) {
             continue;
         }
-        let Ok(song) = read_song(p, durations(p)) else { continue };
+        let hint = known(p);
+        let song = match &hint {
+            Some((tags, d)) if !needs_lookup(tags) => Song { path: p.clone(), tags: tags.clone(), duration: *d },
+            _ => match read_song(p, hint.as_ref().map_or(0.0, |h| h.1)) {
+                Ok(s) => s,
+                Err(_) => continue,
+            },
+        };
         if !needs_lookup(&song.tags) {
             let searchable = !song.tag("title").is_empty() && !(song.tag("artist").is_empty() && song.tag("album_artist").is_empty());
             log.mark(p, if searchable { COMPLETE } else { NO_TAGS }, "");

@@ -133,6 +133,12 @@ def recording_query(title: str, artist: str = "", album: str = "") -> str:
 
 
 # ------------------------------------------------------------------- client ---
+# The start of the last request of every client that uses the real clock, so the lookup
+# window and the automatic lookup together keep to one request per second.
+_GATE = threading.Lock()
+_LAST: List[Optional[float]] = [None]
+
+
 class MusicBrainzClient:
     """Sequential MusicBrainz requests (one client per batch, used from one thread)."""
 
@@ -149,6 +155,7 @@ class MusicBrainzClient:
         self._sleep = sleep
         self._last_start: Optional[float] = None
         self._not_before = 0.0
+        self.shared = clock is time.monotonic  # tests with their own clock are not spaced with others
         self.requests = 0
 
     @property
@@ -170,7 +177,14 @@ class MusicBrainzClient:
         due = self._not_before
         if self._last_start is not None:
             due = max(due, self._last_start + self.min_interval)
-        self._wait(due - self.clock())
+        if not self.shared:
+            self._wait(due - self.clock())
+            return
+        with _GATE:  # one request at a time across the app: the gate is held while waiting
+            if _LAST[0] is not None:
+                due = max(due, _LAST[0] + self.min_interval)
+            self._wait(due - self.clock())
+            _LAST[0] = self.clock()
 
     def url(self, path: str, params: Sequence[Tuple[str, str]]) -> str:
         return f"{self.server}/ws/2/{path}?{urllib.parse.urlencode(list(params) + [('fmt', 'json')])}"
@@ -753,13 +767,21 @@ def save_changes(plans: Sequence[Tuple[str, Dict[str, str]]], cfg=None,
     return out
 
 
+def index_tags(t) -> Dict[str, str]:
+    """The tags a library index entry (musiclib.Track) knows, for needs_lookup()."""
+    return {"title": t.title, "artist": t.artist, "album": t.album, "album_artist": t.album_artist,
+            "genre": t.genre, "date": t.year, "track": str(t.track) if t.track else "",
+            "disc": str(t.disc) if t.disc else "", "composer": t.composer}
+
+
 def run_auto(client: MusicBrainzClient, paths: Sequence[str], cfg=None, log: Optional[LookupLog] = None,
-             durations: Optional[Dict[str, float]] = None,
+             known: Optional[Callable[[str], Optional[Tuple[Dict[str, str], float]]]] = None,
              progress: Optional[Callable[[int, int], None]] = None) -> List[AutoOutcome]:
     """The automatic lookup of these songs: those not looked up since they last changed and
     missing some information are grouped into albums, looked up and given the missing tags.
-    Raises MusicBrainzStopped when stopped; a failed lookup marks the songs FAILED (asked again
-    next time)."""
+    `known(path)` may give a song's tags and length from the library index, so a song that
+    needs nothing is not read again.  Raises MusicBrainzStopped when stopped; a failed lookup
+    marks the songs FAILED (asked again next time)."""
     own_log = log is None
     log = log or LookupLog()
     outcomes: List[AutoOutcome] = []
@@ -772,10 +794,14 @@ def run_auto(client: MusicBrainzClient, paths: Sequence[str], cfg=None, log: Opt
                 continue
             if log.done(p, st.st_size, st.st_mtime_ns):
                 continue
-            try:
-                song = read_song(p, (durations or {}).get(p, 0.0))
-            except Exception:  # noqa: BLE001 - an unreadable file is not looked up
-                continue
+            hint = known(p) if known is not None else None
+            if hint is not None and not needs_lookup(hint[0]):
+                song = Song(p, dict(hint[0]), hint[1])
+            else:
+                try:
+                    song = read_song(p, hint[1] if hint is not None else 0.0)
+                except Exception:  # noqa: BLE001 - an unreadable file is not looked up
+                    continue
             if not needs_lookup(song.tags):
                 searchable = song.tag("title") and (song.tag("artist") or song.tag("album_artist"))
                 log.mark(p, COMPLETE if searchable else NO_TAGS)

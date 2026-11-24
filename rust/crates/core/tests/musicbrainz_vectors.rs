@@ -278,7 +278,7 @@ fn automatic_lookup_writes_real_files_once() {
     let urls = Arc::new(Mutex::new(vec![]));
     let mut c = client(&all, urls.clone());
     let log = LookupLog::open(None).unwrap();
-    let out = run_auto(&mut c, &paths, None, &log, &|_| 0.0, |_, _| {}).unwrap();
+    let out = run_auto(&mut c, &paths, None, &log, &|_| None, |_, _| {}).unwrap();
     assert_eq!(out.iter().filter(|o| o.status == FILLED).count(), 4, "{out:?}");
     let tags = realhires::probe::probe(&paths[0]).unwrap().tags;
     let tag = |t: &realhires::probe::Tags, k: &str| realhires::probe::tag(t, k).unwrap_or("").to_string();
@@ -290,7 +290,7 @@ fn automatic_lookup_writes_real_files_once() {
     assert_eq!(log.status(&paths[0]), FILLED);
     assert_eq!(auto_summary(&out), "MusicBrainz filled in the information of 4 songs.");
     let n = urls.lock().unwrap().len();
-    assert!(run_auto(&mut c, &paths, None, &log, &|_| 0.0, |_, _| {}).unwrap().is_empty());
+    assert!(run_auto(&mut c, &paths, None, &log, &|_| None, |_, _| {}).unwrap().is_empty());
     assert_eq!(urls.lock().unwrap().len(), n);
     let _ = std::fs::remove_dir_all(&dir);
 }

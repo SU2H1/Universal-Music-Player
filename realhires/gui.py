@@ -47,7 +47,7 @@ except ImportError as exc:  # e.g. Debian/Ubuntu Python without python3-tk
     ) from exc
 
 from . import APP_NAME, PROJECT_URL, __version__, i18n
-from .i18n import tr, tr_name, tr_text
+from .i18n import N_, tr, tr_name, tr_text
 from . import settings as settings_mod
 from .eta import ScanEta, file_sizes, fmt_about
 from .fix import FIXABLE_VERDICTS, fix_advice, fix_outlook
@@ -61,20 +61,74 @@ from .store import default_path as store_default_path
 from .verdict import (ERROR, FAKE, FAKE_LOSSLESS, LOSSY, NOT_HIRES, PROBLEM_VERDICTS, REAL, SUSPECT,
                       VERDICT_ORDER, FileResult, analyze_file, saved_note, verdict_breakdown)
 
+# The labels are English (tests and other code read them); the GUI shows them through tr().
 VERDICT_STYLE = {
-    FAKE_LOSSLESS: ("Fake lossless", "#a3122a", "Lossless file (FLAC/WAV/ALAC...) made from an MP3/AAC"),
-    FAKE: ("Fake hi-res", "#d32f2f", "Upsampled and/or 16-bit padded"),
-    SUSPECT: ("Suspicious", "#b26a00", "Could not be confirmed either way"),
-    REAL: ("Real hi-res", "#2e7d32", "Genuine high resolution"),
-    NOT_HIRES: ("CD quality", "#1565c0", "Genuine lossless, not hi-res"),
-    LOSSY: ("Lossy format", "#6a1b9a", "MP3/AAC/... file"),
-    ERROR: ("Error", "#616161", "Could not be analysed"),
+    FAKE_LOSSLESS: (N_("Fake lossless"), "#a3122a", N_("Lossless file (FLAC/WAV/ALAC...) made from an MP3/AAC")),
+    FAKE: (N_("Fake hi-res"), "#d32f2f", N_("Upsampled and/or 16-bit padded")),
+    SUSPECT: (N_("Suspicious"), "#b26a00", N_("Could not be confirmed either way")),
+    REAL: (N_("Real hi-res"), "#2e7d32", N_("Genuine high resolution")),
+    NOT_HIRES: (N_("CD quality"), "#1565c0", N_("Genuine lossless, not hi-res")),
+    LOSSY: (N_("Lossy format"), "#6a1b9a", N_("MP3/AAC/... file")),
+    ERROR: (N_("Error"), "#616161", N_("Could not be analysed")),
 }
 PENDING = "PENDING"  # GUI-only state of a listed file that has not been scanned yet
-PENDING_STYLE = ("Not scanned", "#808080")
+PENDING_STYLE = (N_("Not scanned"), "#808080")
 RUNNING = "RUNNING"  # GUI-only: being analysed right now
-RUNNING_STYLE = ("Analysing…", "#0b62c4")
+RUNNING_STYLE = (N_("Analysing…"), "#0b62c4")
 SEARCH_DELAY_MS = 200  # the list is filtered once typing pauses, not on every key
+# The fixed rows of the dashboard's facts (keys of App.fact_vars; shown through tr()).
+FACTS = (N_("Claimed"), N_("Real (estimated)"), N_("Bandwidth"), N_("Bits used"), N_("Format"),
+         N_("Duration"), N_("After fix"))
+
+
+def verdict_label(verdict: str) -> str:
+    """A verdict as the GUI names it ("CD quality" for NOT HI-RES), in the language in use."""
+    return tr(VERDICT_STYLE[verdict][0]) if verdict in VERDICT_STYLE else tr(verdict)
+
+
+def text_width(text: str) -> int:
+    """The width of a text in average characters (CJK characters count twice), for widget widths."""
+    import unicodedata
+
+    return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1 for ch in text)
+
+
+def choice_box(parent, var: tk.StringVar, choices, width: Optional[int] = None,
+               translate: bool = True) -> ttk.Combobox:
+    """A read-only combobox that shows `choices` translated while `var` keeps holding the
+    English choice, as the settings store it (the code compares and saves `var`)."""
+    choices = list(choices)
+    shown = [tr(c) for c in choices] if translate else list(choices)
+
+    def display(value: str) -> str:
+        return shown[choices.index(value)] if value in choices else value
+
+    disp = tk.StringVar(master=parent, value=display(var.get()))
+    longest = max((text_width(s) for s in shown), default=0) + 2  # long choices must not be cut off
+    width = max(18 if width is None else width, longest)
+    box = ttk.Combobox(parent, textvariable=disp, values=shown, state="readonly", width=width)
+
+    def picked(*_):
+        d = disp.get()
+        value = choices[shown.index(d)] if d in shown else d
+        if var.get() != value:
+            var.set(value)
+
+    def follow(*_):
+        d = display(var.get())
+        if disp.get() != d:
+            disp.set(d)
+
+    disp.trace_add("write", picked)
+    var.trace_add("write", follow)
+    box.display_var = disp  # keeps the Tk variable alive as long as the box
+    return box
+
+
+def group_names(g, mode: str):
+    """An album's or artist's names as the cards and the chip show them: real names stay as
+    they are; the placeholders for missing tags and the artist view's "N albums" are translated."""
+    return tr_name(g.title), (tr_name(g.subtitle) if mode == "album" else tr_text(g.subtitle))
 
 
 def _work(path: str, max_seconds: Optional[float], cfg) -> FileResult:
@@ -284,12 +338,12 @@ class SpectrogramCanvas(_PlotBase):
             return
         sg = (self.plot or {}).get("spectrogram") if self.plot else None
         if self.result is None:
-            self.create_text(w / 2, h / 2, text="Select a scanned file to see its spectrogram", fill="#aaa")
+            self.create_text(w / 2, h / 2, text=tr("Select a scanned file to see its spectrogram"), fill="#aaa")
             return
         if not sg:
             self.create_text(w / 2, h / 2, fill="#aaa",
-                             text="Drawing the spectrogram…" if self.waiting else
-                             "No spectrogram (silent or unreadable file)")
+                             text=tr("Drawing the spectrogram…") if self.waiting else
+                             tr("No spectrogram (silent or unreadable file)"))
             return
         L, R, T, B = self.L, self.R, self.T, self.B
         pw, ph = w - L - R, h - T - B
@@ -316,9 +370,11 @@ class SpectrogramCanvas(_PlotBase):
         marks = []
         if r.upsampled_from:
             marks.append((r.upsampled_from / 2.0, "#4fc3f7",
-                          f"{r.upsampled_from / 2000:g} kHz: limit of a {r.upsampled_from / 1000:g} kHz master"))
+                          tr("{khz} kHz: limit of a {rate} kHz master", khz=f"{r.upsampled_from / 2000:g}",
+                             rate=f"{r.upsampled_from / 1000:g}")))
         if r.lossy_cutoff_hz:
-            marks.append((r.lossy_cutoff_hz, "#ff6e6e", f"{r.lossy_cutoff_hz / 1000:.1f} kHz: lossy encoder cut-off"))
+            marks.append((r.lossy_cutoff_hz, "#ff6e6e",
+                          tr("{khz} kHz: lossy encoder cut-off", khz=f"{r.lossy_cutoff_hz / 1000:.1f}")))
         for hz, color, label in marks:
             if 0 < hz < nyq:
                 y = Y(hz)
@@ -326,7 +382,7 @@ class SpectrogramCanvas(_PlotBase):
                 self.create_text(L + pw - 4, y - 8, text=label, anchor="e", fill=color,
                                  font=("TkDefaultFont", 9, "bold"))
         self.create_text(L, 12, anchor="w", fill="#eee", font=("TkDefaultFont", 9, "bold"),
-                         text="Spectrogram (time →, frequency ↑)")
+                         text=tr("Spectrogram (time →, frequency ↑)"))
 
 
 class SpectrumCanvas(_PlotBase):
@@ -339,8 +395,8 @@ class SpectrumCanvas(_PlotBase):
             return
         p = self.plot
         if self.result is None or not p or not p.get("freqs"):
-            self._message("Select a scanned file to see its spectrum" if self.result is None
-                          else "Drawing the spectrum…" if self.waiting else "No spectrum available")
+            self._message(tr("Select a scanned file to see its spectrum") if self.result is None
+                          else tr("Drawing the spectrum…") if self.waiting else tr("No spectrum available"))
             return
         L, R, T, B = self.L, self.R, self.T, self.B
         pw, ph = w - L - R, h - T - B
@@ -378,7 +434,7 @@ class SpectrumCanvas(_PlotBase):
             x = X(p["bandwidth_hz"])
             self.create_line(x, T, x, T + ph, fill=color, dash=(6, 4), width=2)
             anchor, dx = ("e", -4) if x > L + pw - 130 else ("w", 4)
-            self.create_text(x + dx, T + 10, text=f"bandwidth {p['bandwidth_hz'] / 1000:.1f} kHz",
+            self.create_text(x + dx, T + 10, text=tr("bandwidth {khz} kHz", khz=f"{p['bandwidth_hz'] / 1000:.1f}"),
                              anchor=anchor, fill=color)
         self.create_line(L, Y(p["floor_db"]), L + pw, Y(p["floor_db"]), fill="#8250df", dash=(4, 4))
         pts = []
@@ -388,7 +444,7 @@ class SpectrumCanvas(_PlotBase):
             self.create_line(*pts, fill="#1f2328", width=1)
         self.create_rectangle(L, T, L + pw, T + ph, outline="#999")
         self.create_text(L, 12, anchor="w", font=("TkDefaultFont", 9, "bold"), fill="#333",
-                         text="Average spectrum (dB per bin)")
+                         text=tr("Average spectrum (dB per bin)"))
 
 
 # ---------------------------------------------------------------- dialogs ---
@@ -402,18 +458,25 @@ class SummaryDialog(tk.Toplevel):
     def __init__(self, app: "App", results: List[FileResult], elapsed: Optional[float]):
         super().__init__(app.root)
         self.app = app
-        self.title("Scan summary")
+        self.title(tr("Scan summary"))
         self.transient(app.root)
         self.resizable(False, False)
         frm = ttk.Frame(self, padding=16)
         frm.grid(sticky="nsew")
         n = len(results)
         problems = sum(1 for r in results if r.verdict in PROBLEM_VERDICTS)
-        head = f"Scanned {n} file{'s' if n != 1 else ''}" + (f" in {elapsed:.1f} s" if elapsed else "")
+        if elapsed:
+            secs = f"{elapsed:.1f}"
+            head = (tr("Scanned 1 file in {seconds} s", seconds=secs) if n == 1
+                    else tr("Scanned {n} files in {seconds} s", n=n, seconds=secs))
+        else:
+            head = tr("Scanned 1 file") if n == 1 else tr("Scanned {n} files", n=n)
         ttk.Label(frm, text=head, font=("TkDefaultFont", 12, "bold")).grid(row=0, column=0, columnspan=2, sticky="w")
         pct_problems = 100.0 * problems / n if n else 0.0
-        ttk.Label(frm, text=f"{problems} file{'s' if problems != 1 else ''} ({pct_problems:.1f} %) are fake or "
-                            "suspicious." if problems else "No fake or suspicious files found.",
+        pct = f"{pct_problems:.1f}"
+        ttk.Label(frm, text=(tr("1 file ({pct} %) is fake or suspicious.", pct=pct) if problems == 1 else
+                             tr("{n} files ({pct} %) are fake or suspicious.", n=problems, pct=pct))
+                  if problems else tr("No fake or suspicious files found."),
                   foreground="#a3122a" if problems else "#2e7d32").grid(row=1, column=0, columnspan=2,
                                                                          sticky="w", pady=(2, 10))
         breakdown = verdict_breakdown(results)
@@ -426,6 +489,7 @@ class SummaryDialog(tk.Toplevel):
         legend.grid(row=2, column=1, sticky="nw")
         for i, (v, count, pct) in enumerate(breakdown):
             label, color, desc = VERDICT_STYLE[v]
+            label, desc = tr(label), tr(desc)
             sw = tk.Canvas(legend, width=14, height=14, highlightthickness=0, background=self._bg())
             sw.create_rectangle(0, 0, 14, 14, fill=color, outline="")
             sw.grid(row=2 * i, column=0, padx=(0, 6), pady=(4, 0), sticky="w")
@@ -434,23 +498,23 @@ class SummaryDialog(tk.Toplevel):
             name.grid(row=2 * i, column=1, sticky="w", pady=(4, 0))
             ttk.Label(legend, text=f"{pct:5.1f} %", width=7, anchor="e",
                       font=("TkDefaultFont", 10, "bold")).grid(row=2 * i, column=2, sticky="e", pady=(4, 0))
-            ttk.Label(legend, text=f"{count} file{'s' if count != 1 else ''}", foreground="#555").grid(
+            ttk.Label(legend, text=tr("1 file") if count == 1 else tr("{n} files", n=count), foreground="#555").grid(
                 row=2 * i, column=3, sticky="w", padx=(8, 0), pady=(4, 0))
             ttk.Label(legend, text=desc, foreground="#777", font=("TkDefaultFont", 8)).grid(
                 row=2 * i + 1, column=1, columnspan=3, sticky="w")
             for w in (sw, name):
                 w.bind("<Button-1>", lambda e, v=v: self._close(only=v))
-        ttk.Label(frm, text="Click a slice or a name to list only those files.", foreground="#777",
+        ttk.Label(frm, text=tr("Click a slice or a name to list only those files."), foreground="#777",
                   font=("TkDefaultFont", 8)).grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.again = tk.BooleanVar(value=app.cfg.show_summary_popup)
-        ttk.Checkbutton(frm, text="Show this summary after every scan", variable=self.again).grid(
+        ttk.Checkbutton(frm, text=tr("Show this summary after every scan"), variable=self.again).grid(
             row=4, column=0, columnspan=2, sticky="w", pady=(6, 8))
         btns = ttk.Frame(frm)
         btns.grid(row=5, column=0, columnspan=2, sticky="e")
-        ttk.Button(btns, text="Show problem files", command=lambda: self._close(problems_only=True)).pack(side="left")
-        ttk.Button(btns, text="Show all files", command=lambda: self._close(show_all=True)).pack(side="left", padx=4)
-        ttk.Button(btns, text="Export CSV…", command=lambda: app.export("csv", all_results=True)).pack(side="left")
-        close = ttk.Button(btns, text="Close", command=self._close)
+        ttk.Button(btns, text=tr("Show problem files"), command=lambda: self._close(problems_only=True)).pack(side="left")
+        ttk.Button(btns, text=tr("Show all files"), command=lambda: self._close(show_all=True)).pack(side="left", padx=4)
+        ttk.Button(btns, text=tr("Export CSV…"), command=lambda: app.export("csv", all_results=True)).pack(side="left")
+        close = ttk.Button(btns, text=tr("Close"), command=self._close)
         close.pack(side="left", padx=(4, 0))
         close.focus_set()
         self.bind("<Escape>", lambda e: self._close())
@@ -496,7 +560,7 @@ class SummaryDialog(tk.Toplevel):
         c.create_text(size / 2, size / 2 - 12, text=f"{pct_problems:.0f}%",
                       font=("TkDefaultFont", 20, "bold"),
                       fill="#a3122a" if pct_problems else "#2e7d32")
-        c.create_text(size / 2, size / 2 + 16, text="fake or suspicious", fill="#555",
+        c.create_text(size / 2, size / 2 + 16, text=tr("fake or suspicious"), fill="#555",
                       font=("TkDefaultFont", 8))
 
     def _close(self, problems_only: bool = False, show_all: bool = False, only: Optional[str] = None) -> None:
@@ -518,7 +582,7 @@ class SettingsDialog(tk.Toplevel):
     def __init__(self, app: "App"):
         super().__init__(app.root)
         self.app = app
-        self.title("Settings")
+        self.title(tr("Settings"))
         self.transient(app.root)
         self.vars: Dict[str, object] = {}
         self.path_fields: set = set()
@@ -530,43 +594,50 @@ class SettingsDialog(tk.Toplevel):
         outer.rowconfigure(0, weight=1)
         nb = ttk.Notebook(outer)
         nb.grid(row=0, column=0, sticky="nsew")
-        self.help_var = tk.StringVar(value="Point at a setting to see what it does.")
+        self.help_var = tk.StringVar(value=tr("Point at a setting to see what it does."))
+        self.language_note: Optional[ttk.Label] = None
         infos = settings_mod.Settings.field_info()
         for group in settings_mod.GROUPS:
             tab = ttk.Frame(nb, padding=10)
             tab.columnconfigure(1, weight=1)
-            nb.add(tab, text=group)
+            nb.add(tab, text=tr(group))
             row = 0
             if group == "Detection":
-                ttk.Label(tab, text="Changes apply to the next scan.", foreground="#666").grid(
+                ttk.Label(tab, text=tr("Changes apply to the next scan."), foreground="#666").grid(
                     row=row, column=0, columnspan=2, sticky="w", pady=(0, 6))
                 row += 1
             for info in [i for i in infos if i["group"] == group]:
                 widget = self._widget(tab, info)
-                lab = ttk.Label(tab, text=info["label"])
+                lab = ttk.Label(tab, text=tr(info["label"]))
                 lab.grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=3)
                 widget.grid(row=row, column=1, sticky="w", pady=3)
                 for wdg in (lab, widget):
-                    wdg.bind("<Enter>", lambda e, h=info["help"]: self.help_var.set(h))
-                    wdg.bind("<FocusIn>", lambda e, h=info["help"]: self.help_var.set(h), add="+")
+                    wdg.bind("<Enter>", lambda e, h=tr_text(info["help"]): self.help_var.set(h))
+                    wdg.bind("<FocusIn>", lambda e, h=tr_text(info["help"]): self.help_var.set(h), add="+")
                 row += 1
+                if info["name"] == "language":  # shown when another language is chosen
+                    self.language_note = ttk.Label(tab, text="", foreground="#9a6700")
+                    self.language_note.grid(row=row, column=1, sticky="w", pady=(0, 3))
+                    self.vars["language"].trace_add("write", lambda *a: self._language_changed())
+                    row += 1
             if group == "Saved results":
                 st = app.store.stats() if app.store is not None else None
-                where = (f"{st['files']} file(s), {st['disk_bytes'] / 1e6:.1f} MB, in {st['path']}" if st
-                         else f"Saving is turned off. Results are kept in {store_default_path()}")
+                where = (tr("{n} file(s), {mb} MB, in {path}", n=st["files"], mb=f"{st['disk_bytes'] / 1e6:.1f}",
+                            path=st["path"]) if st
+                         else tr("Saving is turned off. Results are kept in {path}", path=store_default_path()))
                 ttk.Label(tab, text=where, foreground="#666", wraplength=520, justify="left").grid(
                     row=row, column=0, columnspan=2, sticky="w", pady=(12, 4))
-                ttk.Button(tab, text="Delete all saved results…", command=app.forget_saved).grid(
+                ttk.Button(tab, text=tr("Delete all saved results…"), command=app.forget_saved).grid(
                     row=row + 1, column=0, sticky="w")
         ttk.Label(outer, textvariable=self.help_var, wraplength=520, foreground="#444",
                   justify="left").grid(row=1, column=0, sticky="ew", pady=(8, 4))
-        ttk.Label(outer, text=f"Saved in {settings_mod.default_path()}", foreground="#888",
+        ttk.Label(outer, text=tr("Saved in {path}", path=settings_mod.default_path()), foreground="#888",
                   font=("TkDefaultFont", 8)).grid(row=2, column=0, sticky="w")
         btns = ttk.Frame(outer)
         btns.grid(row=3, column=0, sticky="ew", pady=(10, 0))
-        ttk.Button(btns, text="Restore defaults", command=self._defaults).pack(side="left")
-        ttk.Button(btns, text="Save", command=self._save).pack(side="right")
-        ttk.Button(btns, text="Cancel", command=self.destroy).pack(side="right", padx=4)
+        ttk.Button(btns, text=tr("Restore defaults"), command=self._defaults).pack(side="left")
+        ttk.Button(btns, text=tr("Save"), command=self._save).pack(side="right")
+        ttk.Button(btns, text=tr("Cancel"), command=self.destroy).pack(side="right", padx=4)
         self.bind("<Escape>", lambda e: self.destroy())
         self._load(app.cfg)
         self.update_idletasks()
@@ -582,15 +653,16 @@ class SettingsDialog(tk.Toplevel):
         if kind == "choice":
             v = tk.StringVar()
             self.vars[name] = v
-            width = max(18, max(len(c) for c in info["choices"]) + 2)  # long choices must not be cut off
-            return ttk.Combobox(parent, textvariable=v, values=info["choices"], state="readonly", width=width)
+            # shown translated, saved in English; long choices must not be cut off.  The languages
+            # are shown by their own names, and so are the colour maps.
+            return choice_box(parent, v, info["choices"], translate=name not in ("language", "colormap"))
         if kind == "multi":
             frame = ttk.Frame(parent)
             sub = {}
             for i, choice in enumerate(info["choices"]):
                 b = tk.BooleanVar()
                 sub[choice] = b
-                label = VERDICT_STYLE.get(choice, (choice,))[0]
+                label = verdict_label(choice) if choice in VERDICT_STYLE else tr(choice)
                 ttk.Checkbutton(frame, text=label, variable=b).grid(row=i // 4, column=i % 4, sticky="w", padx=(0, 8))
             self.vars[name] = sub
             return frame
@@ -621,6 +693,14 @@ class SettingsDialog(tk.Toplevel):
     def _defaults(self) -> None:
         self._load(settings_mod.Settings())
 
+    def _language_changed(self) -> None:
+        """Another language is used only from the next start (the player's Settings page restarts)."""
+        if self.language_note is None:
+            return
+        chosen = i18n.code_of(str(self.vars["language"].get()))
+        self.language_note.configure(
+            text=tr("The new language is used when the app starts again.") if chosen != i18n.language() else "")
+
     def _save(self) -> None:
         data, bad = {}, []
         infos = {i["name"]: i for i in settings_mod.Settings.field_info()}
@@ -640,9 +720,10 @@ class SettingsDialog(tk.Toplevel):
                     ok = False
                 if not ok:
                     lo, hi = infos[name].get("min"), infos[name].get("max")
-                    bad.append(f"{infos[name]['label']}: '{raw}' (allowed {lo:g} – {hi:g})")
+                    bad.append(tr("{setting}: '{value}' (allowed {low} – {high})", setting=tr(infos[name]["label"]),
+                                  value=raw, low=f"{lo:g}", high=f"{hi:g}"))
         if bad:
-            messagebox.showerror("Invalid settings", "Please fix:\n\n" + "\n".join(bad), parent=self)
+            messagebox.showerror(tr("Invalid settings"), tr("Please fix:") + "\n\n" + "\n".join(bad), parent=self)
             return
         self.app.apply_settings(new)
         self.destroy()
@@ -655,7 +736,7 @@ class FixDialog(tk.Toplevel):
     def __init__(self, app: "App", results: List[FileResult], autostart: bool = False):
         super().__init__(app.root)
         self.app = app
-        self.title("Fix to real resolution")
+        self.title(tr("Fix to real resolution"))
         self.transient(app.root)
         self.results = results
         self.plans: list = []
@@ -676,18 +757,18 @@ class FixDialog(tk.Toplevel):
         self.head = ttk.Label(frm, font=("TkDefaultFont", 11, "bold"))
         self.head.grid(row=0, column=0, columnspan=3, sticky="w")
         ttk.Label(frm, foreground="#555", wraplength=760, justify="left",
-                  text="Each file is rewritten at the sample rate and bit depth it really contains, so "
-                       "its properties show the actual values (e.g. a fake 24/96 upsampled from a CD "
-                       "becomes a genuine 16/44.1 file). It keeps its name, tags and cover art, nothing "
-                       "audible is lost and it gets smaller. (Only editing the numbers in the file "
-                       "would make it play at the wrong speed, so the audio itself is converted.)").grid(
+                  text=tr("Each file is rewritten at the sample rate and bit depth it really contains, so "
+                          "its properties show the actual values (e.g. a fake 24/96 upsampled from a CD "
+                          "becomes a genuine 16/44.1 file). It keeps its name, tags and cover art, nothing "
+                          "audible is lost and it gets smaller. (Only editing the numbers in the file "
+                          "would make it play at the wrong speed, so the audio itself is converted.)")).grid(
             row=1, column=0, columnspan=3, sticky="w", pady=(2, 8))
         cols = ("change", "status", "output")
         self.tv = ttk.Treeview(frm, columns=cols, show="tree headings", height=min(max(len(results), 3), 10))
-        self.tv.heading("#0", text="File", anchor="w")
-        self.tv.heading("change", text="Claimed → real")
-        self.tv.heading("status", text="Status")
-        self.tv.heading("output", text="Result", anchor="w")
+        self.tv.heading("#0", text=tr("File"), anchor="w")
+        self.tv.heading("change", text=tr("Claimed → real"))
+        self.tv.heading("status", text=tr("Status"))
+        self.tv.heading("output", text=tr("Result"), anchor="w")
         self.tv.column("#0", width=230)
         self.tv.column("change", width=140, anchor="center", stretch=False)
         self.tv.column("status", width=230)
@@ -700,7 +781,7 @@ class FixDialog(tk.Toplevel):
         self.tv.grid(row=2, column=0, columnspan=2, sticky="nsew")
         ys.grid(row=2, column=2, sticky="ns")
 
-        opts = ttk.LabelFrame(frm, text="Options", padding=8)
+        opts = ttk.LabelFrame(frm, text=tr("Options"), padding=8)
         opts.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         opts.columnconfigure(1, weight=1)
         info = {i["name"]: i for i in settings_mod.Settings.field_info()}
@@ -712,10 +793,9 @@ class FixDialog(tk.Toplevel):
         self.v_bits = tk.StringVar(value=cfg.fix_bits)
         self.v_verify = tk.BooleanVar(value=cfg.fix_verify)
 
-        def combo(row, label, var, key):
+        def combo(row, label, var, key):  # the choices are shown translated, `var` keeps the English one
             ttk.Label(opts, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8))
-            ttk.Combobox(opts, textvariable=var, values=info[key]["choices"], state="readonly",
-                         width=40).grid(row=row, column=1, sticky="w", pady=2)
+            choice_box(opts, var, info[key]["choices"], width=40).grid(row=row, column=1, sticky="w", pady=2)
 
         def folder_row(row, label, var, title):
             ttk.Label(opts, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8))
@@ -724,21 +804,22 @@ class FixDialog(tk.Toplevel):
             fr.columnconfigure(0, weight=1)
             e = ttk.Entry(fr, textvariable=var)
             e.grid(row=0, column=0, sticky="ew")
-            b = ttk.Button(fr, text="Browse…", command=lambda: self._browse(var, title))
+            b = ttk.Button(fr, text=tr("Browse…"), command=lambda: self._browse(var, title))
             b.grid(row=0, column=1, padx=(4, 0))
             return e, b
 
-        combo(0, "Fix files by:", self.v_output, "fix_output")
-        combo(1, "Original file:", self.v_backup, "fix_backup")
-        self.backup_widgets = folder_row(2, "Backup folder:", self.v_backup_dir, "Folder for backups of originals")
-        self.copy_widgets = folder_row(3, "Copies folder:", self.v_folder, "Folder for corrected copies")
-        combo(4, "Output format:", self.v_format, "fix_format")
-        combo(5, "Target bit depth:", self.v_bits, "fix_bits")
-        ttk.Checkbutton(opts, text="Re-check each fixed file", variable=self.v_verify).grid(
+        combo(0, tr("Fix files by:"), self.v_output, "fix_output")
+        combo(1, tr("Original file:"), self.v_backup, "fix_backup")
+        self.backup_widgets = folder_row(2, tr("Backup folder:"), self.v_backup_dir,
+                                         tr("Folder for backups of originals"))
+        self.copy_widgets = folder_row(3, tr("Copies folder:"), self.v_folder, tr("Folder for corrected copies"))
+        combo(4, tr("Output format:"), self.v_format, "fix_format")
+        combo(5, tr("Target bit depth:"), self.v_bits, "fix_bits")
+        ttk.Checkbutton(opts, text=tr("Re-check each fixed file"), variable=self.v_verify).grid(
             row=6, column=1, sticky="w", pady=(2, 0))
         ttk.Label(opts, foreground="#777", font=("TkDefaultFont", 8),
-                  text="Empty backup folder = a 'Real-Hi-Res backups' folder next to each file (never "
-                       "scanned).").grid(row=7, column=1, sticky="w")
+                  text=tr("Empty backup folder = a 'Real-Hi-Res backups' folder next to each file (never "
+                          "scanned).")).grid(row=7, column=1, sticky="w")
         for v in (self.v_backup, self.v_backup_dir):
             v.trace_add("write", lambda *a: self._replan())
         for v in (self.v_output, self.v_folder, self.v_format, self.v_bits):
@@ -752,11 +833,11 @@ class FixDialog(tk.Toplevel):
         self.pb.grid(row=0, column=0, padx=(0, 8))
         self.status = ttk.Label(bottom, text="")
         self.status.grid(row=0, column=1, sticky="w")
-        self.open_btn = ttk.Button(bottom, text="Show in folder", command=self._open_folder, state="disabled")
+        self.open_btn = ttk.Button(bottom, text=tr("Show in folder"), command=self._open_folder, state="disabled")
         self.open_btn.grid(row=0, column=2, padx=4)
-        self.start_btn = ttk.Button(bottom, text="Fix files", command=self._start)
+        self.start_btn = ttk.Button(bottom, text=tr("Fix files"), command=self._start)
         self.start_btn.grid(row=0, column=3)
-        ttk.Button(bottom, text="Close", command=self._close).grid(row=0, column=4, padx=(4, 0))
+        ttk.Button(bottom, text=tr("Close"), command=self._close).grid(row=0, column=4, padx=(4, 0))
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Escape>", lambda e: self._close())
         self._replan()
@@ -799,23 +880,31 @@ class FixDialog(tk.Toplevel):
                 notes.update(plan.notes)
                 if plan.replace_original:
                     same = os.path.abspath(plan.output) == os.path.abspath(plan.source)
-                    out = "Same file" if same else f"Replaced by {os.path.basename(plan.output)}"
-                    out += {"folder": " (original → backup folder)", "bak": " (original → .bak)",
-                            "none": " (original deleted)"}[plan.backup]
+                    out = tr("Same file") if same else tr("Replaced by {name}", name=os.path.basename(plan.output))
+                    out = {"folder": tr("{result} (original → backup folder)", result=out),
+                           "bak": tr("{result} (original → .bak)", result=out),
+                           "none": tr("{result} (original deleted)", result=out)}[plan.backup]
                 else:
-                    out = plan.output if into else f"Copy: {os.path.basename(plan.output)}"
-                self.tv.insert("", "end", iid=r.path, text=name, values=(plan.description, "Ready", out))
+                    out = plan.output if into else tr("Copy: {name}", name=os.path.basename(plan.output))
+                self.tv.insert("", "end", iid=r.path, text=name, values=(plan.description, tr("Ready"), out))
         # files that are not changed come last, in grey, with their reason
         for r, why in skipped:
-            self.tv.insert("", "end", iid=r.path, text=os.path.basename(r.path), values=(r.claimed, why, ""),
-                           tags=("skip",))
+            self.tv.insert("", "end", iid=r.path, text=os.path.basename(r.path),
+                           values=(r.claimed, tr_text(why), ""), tags=("skip",))
         n = len(self.plans)
         self.skipped = len(skipped)
-        verb = "Fix" if replace else "Save corrected copies of"
-        self.head.configure(text=f"{verb} {n} file{'s' if n != 1 else ''}: real resolution"
-                            if n else "Nothing to fix")
-        why_not = skip_summary(skipped) + (" They are listed last, in grey." if skipped else "")
-        self.note.configure(text="\n".join([why_not] * bool(why_not) + sorted(notes)))
+        if not n:
+            head = tr("Nothing to fix")
+        elif replace:
+            head = tr("Fix 1 file: real resolution") if n == 1 else tr("Fix {n} files: real resolution", n=n)
+        else:
+            head = (tr("Save corrected copies of 1 file: real resolution") if n == 1
+                    else tr("Save corrected copies of {n} files: real resolution", n=n))
+        self.head.configure(text=head)
+        why_not = tr_text(skip_summary(skipped))
+        if why_not and skipped:
+            why_not = tr("{summary} They are listed last, in grey.", summary=why_not)
+        self.note.configure(text="\n".join([why_not] * bool(why_not) + sorted(tr_text(x) for x in notes)))
         self.start_btn.configure(state="normal" if n else "disabled")
         self.pb.configure(maximum=max(n, 1), value=0)
         self.status.configure(text="")
@@ -832,9 +921,10 @@ class FixDialog(tk.Toplevel):
             return
         cfg = self._cfg()
         if cfg.fix_output.startswith("Replace") and cfg.fix_backup.startswith("Delete") and not messagebox.askyesno(
-                "Delete originals?", f"Replace {len(self.plans)} file(s) and delete the originals?\n\n"
-                "There will be no backup. The converted files contain everything the originals really "
-                "had, but the originals cannot be restored.", parent=self, icon="warning"):
+                tr("Delete originals?"), tr("Replace {n} file(s) and delete the originals?\n\n"
+                                            "There will be no backup. The converted files contain everything the "
+                                            "originals really had, but the originals cannot be restored.",
+                                            n=len(self.plans)), parent=self, icon="warning"):
             return
         # remember the chosen options
         for k in ("fix_output", "fix_folder", "fix_backup", "fix_backup_folder", "fix_format", "fix_bits",
@@ -844,17 +934,17 @@ class FixDialog(tk.Toplevel):
         self.running = True
         self.outcomes = []
         self.start_btn.configure(state="disabled")
-        self.status.configure(text="Fixing…")
+        self.status.configure(text=tr("Fixing…"))
         for p in self.plans:
-            self.tv.set(p.source, "status", "Waiting…")
+            self.tv.set(p.source, "status", tr("Waiting…"))
         plans = list(self.plans)
 
         def worker():
             # Read the joins between album neighbours before any file is replaced.
             everything = list(self.app.results.values()) + list(self.results)
-            joins = prepare_gapless(plans, everything, progress=lambda m: self.q.put(("status", m)))
+            joins = prepare_gapless(plans, everything, progress=lambda m: self.q.put(("status", tr_text(m))))
             if joins:
-                self.q.put(("status", f"Fixing… ({joins} gapless join(s) kept seamless)"))
+                self.q.put(("status", tr("Fixing… ({n} gapless join(s) kept seamless)", n=joins)))
             with ThreadPoolExecutor(max_workers=max(1, min(effective_jobs(cfg.jobs), 8))) as ex:
                 futs = {}
                 for p in plans:
@@ -873,31 +963,38 @@ class FixDialog(tk.Toplevel):
                 if kind == "status":
                     self.status.configure(text=payload)
                 elif kind == "start":
-                    self.tv.set(payload, "status", "Fixing…")
+                    self.tv.set(payload, "status", tr("Fixing…"))
                 elif kind == "done":
                     o = payload
                     self.outcomes.append(o)
                     self.pb["value"] = self.pb["value"] + 1
                     src = o.plan.source
                     if o.ok:
-                        txt = "Fixed" if o.plan.replace_original else "Copy saved"
+                        size = f"{o.bytes_after / max(o.bytes_before, 1):.0%}"
+                        fixed = o.plan.replace_original
                         if o.new_result is not None:
-                            txt += f": now {o.new_result.claimed} ({VERDICT_STYLE[o.new_result.verdict][0]})"
-                        txt += f", {o.bytes_after / max(o.bytes_before, 1):.0%} of the size"
+                            now = dict(claimed=o.new_result.claimed, verdict=verdict_label(o.new_result.verdict),
+                                       size=size)
+                            txt = (tr("Fixed: now {claimed} ({verdict}), {size} of the size", **now) if fixed
+                                   else tr("Copy saved: now {claimed} ({verdict}), {size} of the size", **now))
+                        else:
+                            txt = (tr("Fixed, {size} of the size", size=size) if fixed
+                                   else tr("Copy saved, {size} of the size", size=size))
                         self.tv.item(src, tags=("ok",))
                         if not o.plan.replace_original:
                             self.tv.set(src, "output", o.output)
                         self.done_paths[src] = o.output
                         self.app.add_fixed_result(o)
                     else:
-                        txt = o.message
+                        txt = tr_text(o.message)
                         self.tv.item(src, tags=("fail",))
                     self.tv.set(src, "status", txt)
                 elif kind == "finished":
                     self.running = False
                     ok = sum(1 for i in self.tv.get_children() if "ok" in self.tv.item(i, "tags"))
                     bad = sum(1 for i in self.tv.get_children() if "fail" in self.tv.item(i, "tags"))
-                    self.status.configure(text=f"{ok} fixed" + (f", {bad} failed" if bad else "") + ".")
+                    self.status.configure(text=tr("{ok} fixed, {bad} failed.", ok=ok, bad=bad) if bad
+                                          else tr("{ok} fixed.", ok=ok))
                     self.open_btn.configure(state="normal" if ok else "disabled")
                     # A pop-up says it is done. It is not modal (a deferred modal box blocks the
                     # whole window on macOS), and it stays when the Fix window is closed.
@@ -922,9 +1019,9 @@ class FixDialog(tk.Toplevel):
     def _close(self) -> None:
         if self.running:
             if not messagebox.askyesno(
-                    "Conversion running", "Conversions are still running. Close anyway? "
-                    "The files are finished in the background, and a pop-up tells you when "
-                    "they are done.", parent=self):
+                    tr("Conversion running"), tr("Conversions are still running. Close anyway? "
+                                                 "The files are finished in the background, and a pop-up tells "
+                                                 "you when they are done."), parent=self):
                 return
             # keep polling while hidden, so the list is updated and the pop-up appears
             self.hidden = True
@@ -943,16 +1040,19 @@ class FixDoneDialog(tk.Toplevel):
 
         super().__init__(app.root)
         self.app = app
-        self.title("Fixing finished")
+        self.title(tr("Fixing finished"))
         self.transient(over or app.root)
         self.resizable(False, False)
 
         def label(v: str) -> str:
+            if i18n.language() != "en":  # the verdict names inside the sentences, translated
+                return verdict_label(v)
             name = VERDICT_STYLE.get(v, (v,))[0]
             return name[0].lower() + name[1:] if name[1:2].islower() else name
 
         head, lines = done_summary(outcomes, skipped, label)
-        self.headline, self.lines = head, lines
+        self.headline, self.lines = head, lines  # as the core wrote them
+        head, lines = tr_text(head), [tr_text(line) for line in lines]
         failed = any(not o.ok for o in outcomes)
         self.outputs = [o.output for o in outcomes if o.ok and o.output]
         frm = ttk.Frame(self, padding=16)
@@ -965,9 +1065,9 @@ class FixDoneDialog(tk.Toplevel):
                 row=i + 1, column=0, sticky="w", pady=(8 if i == 0 else 4, 0))
         btns = ttk.Frame(frm)
         btns.grid(row=len(lines) + 1, column=0, sticky="e", pady=(14, 0))
-        ttk.Button(btns, text="Show in folder", command=self._show,
+        ttk.Button(btns, text=tr("Show in folder"), command=self._show,
                    state="normal" if self.outputs else "disabled").pack(side="left")
-        close = ttk.Button(btns, text="Close", command=self.destroy)
+        close = ttk.Button(btns, text=tr("Close"), command=self.destroy)
         close.pack(side="left", padx=(4, 0))
         close.focus_set()
         self.bind("<Escape>", lambda e: self.destroy())
@@ -993,7 +1093,7 @@ class LyricsDialog(tk.Toplevel):
     def __init__(self, app: "App", paths: List[str], autostart: bool = False):
         super().__init__(app.root)
         self.app = app
-        self.title("Download synced lyrics")
+        self.title(tr("Download synced lyrics"))
         self.transient(app.root)
         self.paths = list(dict.fromkeys(paths))
         self.todo: List[str] = []
@@ -1015,18 +1115,18 @@ class LyricsDialog(tk.Toplevel):
         self.head = ttk.Label(frm, font=("TkDefaultFont", 11, "bold"))
         self.head.grid(row=0, column=0, columnspan=2, sticky="w")
         ttk.Label(frm, foreground="#555", wraplength=760, justify="left",
-                  text="Each song is looked up by the title, artist, album and length in its tags on LRCLIB "
-                       "(lrclib.net), a free, open lyrics database, and its synced lyrics are saved as an .lrc "
-                       "file with the same name next to it. Most music players find that file and show the "
-                       "lyrics line by line in time with the music. The audio files themselves are not "
-                       "changed.").grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 8))
+                  text=tr("Each song is looked up by the title, artist, album and length in its tags on LRCLIB "
+                          "(lrclib.net), a free, open lyrics database, and its synced lyrics are saved as an .lrc "
+                          "file with the same name next to it. Most music players find that file and show the "
+                          "lyrics line by line in time with the music. The audio files themselves are not "
+                          "changed.")).grid(row=1, column=0, columnspan=2, sticky="w", pady=(2, 8))
         cols = ("song", "status", "saved")
         self.tv = ttk.Treeview(frm, columns=cols, show="tree headings",
                                height=min(max(len(self.paths), 3), 12))
-        self.tv.heading("#0", text="File", anchor="w")
-        self.tv.heading("song", text="Artist – title", anchor="w")
-        self.tv.heading("status", text="Status", anchor="w")
-        self.tv.heading("saved", text="Saved as", anchor="w")
+        self.tv.heading("#0", text=tr("File"), anchor="w")
+        self.tv.heading("song", text=tr("Artist – title"), anchor="w")
+        self.tv.heading("status", text=tr("Status"), anchor="w")
+        self.tv.heading("saved", text=tr("Saved as"), anchor="w")
         self.tv.column("#0", width=210)
         self.tv.column("song", width=210)
         self.tv.column("status", width=260)
@@ -1039,24 +1139,25 @@ class LyricsDialog(tk.Toplevel):
         self.tv.grid(row=2, column=0, sticky="nsew")
         ys.grid(row=2, column=1, sticky="ns")
         self.detail = ttk.Label(frm, foreground="#444", wraplength=760, justify="left",
-                                text="Select a song to see the details.")
+                                text=tr("Select a song to see the details."))
         self.detail.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
         self.tv.bind("<<TreeviewSelect>>", lambda e: self._show_detail())
 
-        opts = ttk.LabelFrame(frm, text="Options", padding=8)
+        opts = ttk.LabelFrame(frm, text=tr("Options"), padding=8)
         opts.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(10, 0))
         opts.columnconfigure(1, weight=1)
         self.v_existing = tk.StringVar(value=cfg.lyrics_existing)
         self.v_plain = tk.BooleanVar(value=cfg.lyrics_plain)
         self.v_instrumental = tk.BooleanVar(value=cfg.lyrics_instrumental)
         self.v_search = tk.BooleanVar(value=cfg.lyrics_search)
-        ttk.Label(opts, text="Songs that already have lyrics:").grid(row=0, column=0, sticky="w", padx=(0, 8))
-        ttk.Combobox(opts, textvariable=self.v_existing, values=lyrics_mod.EXISTING_CHOICES, state="readonly",
-                     width=36).grid(row=0, column=1, sticky="w", pady=2)
+        ttk.Label(opts, text=tr("Songs that already have lyrics:")).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        choice_box(opts, self.v_existing, lyrics_mod.EXISTING_CHOICES, width=36).grid(
+            row=0, column=1, sticky="w", pady=2)
         for row, (text, var) in enumerate((
-                ("Save plain lyrics as .txt when a song has no synced lyrics", self.v_plain),
-                ("Mark instrumental songs with an .lrc holding [au: instrumental]", self.v_instrumental),
-                ("Search by title and artist when there is no exact match (same length ±2 s)", self.v_search)), 1):
+                (tr("Save plain lyrics as .txt when a song has no synced lyrics"), self.v_plain),
+                (tr("Mark instrumental songs with an .lrc holding [au: instrumental]"), self.v_instrumental),
+                (tr("Search by title and artist when there is no exact match (same length ±2 s)"),
+                 self.v_search)), 1):
             ttk.Checkbutton(opts, text=text, variable=var).grid(row=row, column=0, columnspan=2, sticky="w")
         for v in (self.v_existing, self.v_plain, self.v_instrumental, self.v_search):
             v.trace_add("write", lambda *a: self._replan())
@@ -1069,13 +1170,13 @@ class LyricsDialog(tk.Toplevel):
         self.pb.grid(row=0, column=0, padx=(0, 8))
         self.status = ttk.Label(bottom, text="", wraplength=420, justify="left")
         self.status.grid(row=0, column=1, sticky="w")
-        self.open_btn = ttk.Button(bottom, text="Show in folder", command=self._open_folder, state="disabled")
+        self.open_btn = ttk.Button(bottom, text=tr("Show in folder"), command=self._open_folder, state="disabled")
         self.open_btn.grid(row=0, column=2, padx=4)
-        self.start_btn = ttk.Button(bottom, text="Download lyrics", command=self._start)
+        self.start_btn = ttk.Button(bottom, text=tr("Download lyrics"), command=self._start)
         self.start_btn.grid(row=0, column=3)
-        self.stop_btn = ttk.Button(bottom, text="Stop", command=self._stop, state="disabled")
+        self.stop_btn = ttk.Button(bottom, text=tr("Stop"), command=self._stop, state="disabled")
         self.stop_btn.grid(row=0, column=4, padx=(4, 0))
-        ttk.Button(bottom, text="Close", command=self._close).grid(row=0, column=5, padx=(4, 0))
+        ttk.Button(bottom, text=tr("Close"), command=self._close).grid(row=0, column=5, padx=(4, 0))
         self.protocol("WM_DELETE_WINDOW", self._close)
         self.bind("<Escape>", lambda e: self._close())
         self._replan()
@@ -1106,29 +1207,34 @@ class LyricsDialog(tk.Toplevel):
             why = lyrics_mod.skip_reason(p, cfg)
             (skipped if why else self.todo).append((p, why))
         for p, _ in self.todo:
-            self.tv.insert("", "end", iid=p, text=os.path.basename(p), values=(self._song(p), "Ready", ""))
-            self.messages[p] = f"{p}\nWill be looked up on LRCLIB by its tags."
+            self.tv.insert("", "end", iid=p, text=os.path.basename(p), values=(self._song(p), tr("Ready"), ""))
+            self.messages[p] = f"{p}\n" + tr("Will be looked up on LRCLIB by its tags.")
         for p, why in skipped:  # listed last, in grey, as in the Fix window
             lrc, txt = lyrics_mod.existing_lyrics(p)
             self.tv.insert("", "end", iid=p, text=os.path.basename(p), tags=("skip",),
-                           values=(self._song(p), lyrics_mod.short_skip(why), os.path.basename(lrc or txt or "")))
-            self.messages[p] = f"{p}\n{why}"
+                           values=(self._song(p), tr_text(lyrics_mod.short_skip(why)),
+                                   os.path.basename(lrc or txt or "")))
+            self.messages[p] = f"{p}\n{tr_text(why)}"
         self.todo = [p for p, _ in self.todo]
         n = len(self.todo)
-        self.head.configure(text=f"Download synced lyrics for {n} song{'s' if n != 1 else ''}" if n
-                            else "Nothing to look up")
+        if n:
+            head = tr("Download synced lyrics for 1 song") if n == 1 else tr("Download synced lyrics for {n} songs", n=n)
+        else:
+            head = tr("Nothing to look up")
+        self.head.configure(text=head)
         client_interval = lyrics_mod.default_interval(cfg.lyrics_server)
         lines = []
         if n:
-            lines.append(f"LRCLIB asks programs to send one request at a time, so this takes "
-                         f"{fmt_about(n * (client_interval + 0.35) * (1.3 if cfg.lyrics_search else 1.0))}.")
+            about = fmt_about(n * (client_interval + 0.35) * (1.3 if cfg.lyrics_search else 1.0))
+            lines.append(tr("LRCLIB asks programs to send one request at a time, so this takes {about}.",
+                            about=tr_text(about)))
         if skipped:
-            one = len(skipped) == 1
-            lines.append(f"{len(skipped)} song{'' if one else 's'} already {'has' if one else 'have'} lyrics and "
-                         f"{'is' if one else 'are'} skipped (listed last, in grey); choose 'Download again and "
-                         "replace them' to look them up again.")
-        lines.append("Songs without title and artist tags cannot be looked up. Lyrics files are never deleted.")
-        lines.append(lyrics_mod.CREDIT)
+            lines.append(tr("1 song already has lyrics and is skipped (listed last, in grey); choose 'Download "
+                            "again and replace them' to look them up again.") if len(skipped) == 1 else
+                         tr("{n} songs already have lyrics and are skipped (listed last, in grey); choose "
+                            "'Download again and replace them' to look them up again.", n=len(skipped)))
+        lines.append(tr("Songs without title and artist tags cannot be looked up. Lyrics files are never deleted."))
+        lines.append(tr_text(lyrics_mod.CREDIT))
         self.note.configure(text="\n".join(lines))
         self.start_btn.configure(state="normal" if n else "disabled")
         self.pb.configure(maximum=max(n, 1), value=0)
@@ -1148,7 +1254,7 @@ class LyricsDialog(tk.Toplevel):
         self.stop_btn.configure(state="normal")
         todo = list(self.todo)
         for p in todo:
-            self.tv.set(p, "status", "Waiting…")
+            self.tv.set(p, "status", tr("Waiting…"))
         self.eta = ScanEta({p: 1 for p in todo})
         self._update_status()
         results = dict(self.app.results)  # read by the worker thread, never changed by it
@@ -1174,8 +1280,8 @@ class LyricsDialog(tk.Toplevel):
     def _update_status(self) -> None:
         done, n = len(self.outcomes), len(self.todo)
         self._status_time = time.time()
-        self.status.configure(text=f"Looking up {min(done + 1, n)} of {n}… "
-                                   f"{self.eta.text() if self.eta else ''}")
+        self.status.configure(text=tr("Looking up {n} of {total}…", n=min(done + 1, n), total=n) + " "
+                              + (tr_text(self.eta.text()) if self.eta else ""))
 
     def _poll(self) -> None:
         tags = {lyrics_mod.SYNCED: "ok", lyrics_mod.INSTRUMENTAL: "ok", lyrics_mod.PLAIN: "plain",
@@ -1186,7 +1292,7 @@ class LyricsDialog(tk.Toplevel):
                 kind, payload = self.q.get_nowait()
                 if kind == "start":
                     if self.tv.exists(payload):
-                        self.tv.set(payload, "status", "Looking up…")
+                        self.tv.set(payload, "status", tr("Looking up…"))
                         self.tv.item(payload, tags=("busy",))
                         self.tv.see(payload)
                 elif kind == "done":
@@ -1198,10 +1304,10 @@ class LyricsDialog(tk.Toplevel):
                     if self.tv.exists(o.path):
                         if o.track is not None:
                             self.tv.set(o.path, "song", o.track.label)
-                        self.tv.set(o.path, "status", lyrics_mod.short_status(o))
+                        self.tv.set(o.path, "status", tr_text(lyrics_mod.short_status(o)))
                         self.tv.set(o.path, "saved", os.path.basename(o.written[0]) if o.written else "")
                         self.tv.item(o.path, tags=(tags.get(o.status, ""),))
-                        self.messages[o.path] = f"{o.path}\n{o.message}"
+                        self.messages[o.path] = f"{o.path}\n{tr_text(o.message)}"
                         if o.path in self.tv.selection():
                             self._show_detail()
                     if o.saved:
@@ -1212,11 +1318,13 @@ class LyricsDialog(tk.Toplevel):
                 elif kind == "finished":
                     self.running = False
                     self.stop_btn.configure(state="disabled")
-                    text = lyrics_mod.lyrics_summary(self.outcomes)
-                    self.status.configure(text=("Stopped. " if payload else "") + text[:1].upper() + text[1:])
+                    text = tr_text(lyrics_mod.lyrics_summary(self.outcomes))
+                    text = text[:1].upper() + text[1:]
+                    self.status.configure(text=tr("Stopped. {summary}", summary=text) if payload else text)
                     self.open_btn.configure(state="normal" if self.saved_paths else "disabled")
-                    n = len(self.todo)
-                    self.head.configure(text=f"Lyrics saved for {len(self.saved_paths)} of {n} song{'s' if n != 1 else ''}")
+                    n, saved = len(self.todo), len(self.saved_paths)
+                    self.head.configure(text=tr("Lyrics saved for {saved} of 1 song", saved=saved) if n == 1
+                                        else tr("Lyrics saved for {saved} of {n} songs", saved=saved, n=n))
         except queue.Empty:
             pass
         if self.running and time.time() - self._status_time > 1.0:
@@ -1226,13 +1334,13 @@ class LyricsDialog(tk.Toplevel):
 
     def _show_detail(self) -> None:
         sel = self.tv.selection()
-        self.detail.configure(text=self.messages.get(sel[0], "") if sel else "Select a song to see the details.")
+        self.detail.configure(text=self.messages.get(sel[0], "") if sel else tr("Select a song to see the details."))
 
     def _stop(self) -> None:
         if self.running:
             self.stop_event.set()
             self.stop_btn.configure(state="disabled")
-            self.status.configure(text="Stopping after the current song…")
+            self.status.configure(text=tr("Stopping after the current song…"))
 
     def _open_folder(self) -> None:
         if self.saved_paths:
@@ -1240,8 +1348,9 @@ class LyricsDialog(tk.Toplevel):
 
     def _close(self) -> None:
         if self.running:
-            if not messagebox.askyesno("Downloading lyrics", "Lyrics are still being downloaded. Stop and close? "
-                                       "Lyrics saved so far are kept.", parent=self):
+            if not messagebox.askyesno(tr("Downloading lyrics"), tr("Lyrics are still being downloaded. Stop and "
+                                                                    "close? Lyrics saved so far are kept."),
+                                       parent=self):
                 return
             self.stop_event.set()
         self.destroy()
@@ -1362,9 +1471,9 @@ class CardGrid(ttk.Frame):
         w = max(c.winfo_width(), self.CW + self.PAD)
         self._cols = cols = max(1, (w - self.PAD) // self.CW)
         if not self.groups:
-            msg = ("Scan some files first: albums and artists are read from the files' tags "
-                   "(untagged files are grouped by folder)." if not self.app.results else
-                   "No album or artist matches the search.")
+            msg = (tr("Scan some files first: albums and artists are read from the files' tags "
+                      "(untagged files are grouped by folder).") if not self.app.results else
+                   tr("No album or artist matches the search."))
             c.create_text(w / 2, 60, text=msg, fill="#888", width=w - 40)
             c.configure(scrollregion=(0, 0, w, 120))
             return
@@ -1424,20 +1533,24 @@ class CardGrid(ttk.Frame):
                       fill=self.RING_FAKE if g.fake else (self.RING_SUS if g.suspicious else self.RING_OK),
                       tags=(tag,))
         tw = self.CW - 28
-        c.create_text(x, y + S + 10, anchor="nw", text=self._fit(g.title, self.f_title, tw),
+        title, subtitle = group_names(g, self.mode)
+        c.create_text(x, y + S + 10, anchor="nw", text=self._fit(title, self.f_title, tw),
                       font=self.f_title, fill="#1f2328", tags=(tag,))
-        c.create_text(x, y + S + 29, anchor="nw", text=self._fit(g.subtitle, self.f_sub, tw),
+        c.create_text(x, y + S + 29, anchor="nw", text=self._fit(subtitle, self.f_sub, tw),
                       font=self.f_sub, fill="#666", tags=(tag,))
         if g.problems:
             parts = []
             if g.fake:
-                parts.append(f"{g.fake} fake")
+                parts.append(tr("{n} fake", n=g.fake))
             if g.suspicious:
-                parts.append(f"{g.suspicious} suspicious")
-            line = f"{' + '.join(parts)} of {g.total} song{'s' if g.total != 1 else ''}"
+                parts.append(tr("{n} suspicious", n=g.suspicious))
+            parts = " + ".join(parts)
+            line = (tr("{parts} of 1 song", parts=parts) if g.total == 1
+                    else tr("{parts} of {total} songs", parts=parts, total=g.total))
             col = self.RING_FAKE if g.fake else self.RING_SUS
         else:
-            line, col = f"All {g.total} song{'s' if g.total != 1 else ''} fine", self.RING_OK
+            line = tr("All 1 song fine") if g.total == 1 else tr("All {n} songs fine", n=g.total)
+            col = self.RING_OK
         c.create_text(x, y + S + 46, anchor="nw", text=self._fit(line, self.f_sub, tw), font=self.f_sub,
                       fill=col, tags=(tag,))
         c.tag_bind(tag, "<Button-1>", lambda e, g=g: self.app.open_group(g, self.mode))
@@ -1486,8 +1599,8 @@ class CardGrid(ttk.Frame):
 # -------------------------------------------------------------------- app ---
 class App(ttk.Frame):
     COLUMNS = ("verdict", "why", "claimed", "estimated", "bandwidth", "fix", "name", "folder")
-    HEADINGS = {"verdict": "Verdict", "why": "Why", "claimed": "Claimed", "estimated": "Real (est.)",
-                "bandwidth": "Bandwidth", "fix": "After fix", "name": "File", "folder": "Folder"}
+    HEADINGS = {"verdict": N_("Verdict"), "why": N_("Why"), "claimed": N_("Claimed"), "estimated": N_("Real (est.)"),
+                "bandwidth": N_("Bandwidth"), "fix": N_("After fix"), "name": N_("File"), "folder": N_("Folder")}
 
     def __init__(self, root: tk.Tk, initial: Optional[List[str]] = None, cfg=None, parent=None):
         # `parent`: the 2.0 player shows this app as its "Quality check" page inside its own
@@ -1542,7 +1655,7 @@ class App(ttk.Frame):
         self._search_job: Optional[str] = None
         self._values_cache: Dict[str, tuple] = {}  # path -> (result, row values)
         self.quick_var = tk.BooleanVar(value=False)
-        self.status_var = tk.StringVar(value="Add a folder or files, then press Scan.")
+        self.status_var = tk.StringVar(value=tr("Add a folder or files, then press Scan."))
         self.scan_lyrics: Optional[ScanLyrics] = None  # lyrics while scanning (Settings → Library)
         self._last_stopped = False
         self._build_menu()
@@ -1566,50 +1679,49 @@ class App(ttk.Frame):
         acc = "Cmd" if sys.platform == "darwin" else "Ctrl"
         m = tk.Menu(self.root)
         f = tk.Menu(m, tearoff=False)
-        f.add_command(label="Add Folder…", accelerator=f"{acc}+O", command=self.add_folder)
-        f.add_command(label="Add Files…", command=self.add_files)
+        f.add_command(label=tr("Add Folder…"), accelerator=f"{acc}+O", command=self.add_folder)
+        f.add_command(label=tr("Add Files…"), command=self.add_files)
         f.add_separator()
-        f.add_command(label="Export listed files as CSV…", command=lambda: self.export("csv"))
-        f.add_command(label="Export listed files as JSON…", command=lambda: self.export("json"))
+        f.add_command(label=tr("Export listed files as CSV…"), command=lambda: self.export("csv"))
+        f.add_command(label=tr("Export listed files as JSON…"), command=lambda: self.export("json"))
         f.add_separator()
-        f.add_command(label="Delete all saved results…", command=self.forget_saved)
+        f.add_command(label=tr("Delete all saved results…"), command=self.forget_saved)
         f.add_separator()
-        f.add_command(label="Quit", accelerator=f"{acc}+Q", command=self.quit_app)
-        m.add_cascade(label="File", menu=f)
+        f.add_command(label=tr("Quit"), accelerator=f"{acc}+Q", command=self.quit_app)
+        m.add_cascade(label=tr("File"), menu=f)
         e = tk.Menu(m, tearoff=False)
-        e.add_command(label="Open file location", accelerator="Enter", command=self.reveal)
-        e.add_command(label="Open file", accelerator=f"{acc}+Enter", command=self.open_file)
-        e.add_command(label="Select all listed files", accelerator=f"{acc}+A", command=self.select_all)
-        e.add_command(label="Copy path", accelerator=f"{acc}+C", command=self.copy_path)
+        e.add_command(label=tr("Open file location"), accelerator="Enter", command=self.reveal)
+        e.add_command(label=tr("Open file"), accelerator=f"{acc}+Enter", command=self.open_file)
+        e.add_command(label=tr("Select all listed files"), accelerator=f"{acc}+A", command=self.select_all)
+        e.add_command(label=tr("Copy path"), accelerator=f"{acc}+C", command=self.copy_path)
         e.add_separator()
-        e.add_command(label="Find…", accelerator=f"{acc}+F", command=self.open_find)
+        e.add_command(label=tr("Find…"), accelerator=f"{acc}+F", command=self.open_find)
         e.add_separator()
-        e.add_command(label="Fix selected files to real resolution…", accelerator=f"{acc}+Shift+F",
+        e.add_command(label=tr("Fix selected files to real resolution…"), accelerator=f"{acc}+Shift+F",
                       command=self.fix_selected)
-        e.add_command(label="Fix all fake files to real resolution…", command=self.fix_all)
+        e.add_command(label=tr("Fix all fake files to real resolution…"), command=self.fix_all)
         e.add_separator()
-        e.add_command(label="Download synced lyrics for selected songs…", accelerator=f"{acc}+L",
+        e.add_command(label=tr("Download synced lyrics for selected songs…"), accelerator=f"{acc}+L",
                       command=self.lyrics_selected)
-        e.add_command(label="Download synced lyrics for all songs…", command=self.lyrics_all)
+        e.add_command(label=tr("Download synced lyrics for all songs…"), command=self.lyrics_all)
         e.add_separator()
-        e.add_command(label="Re-scan selected files", command=self.rescan_selected)
-        e.add_command(label="Re-scan files checked by older rules", command=self.rescan_outdated)
+        e.add_command(label=tr("Re-scan selected files"), command=self.rescan_selected)
+        e.add_command(label=tr("Re-scan files checked by older rules"), command=self.rescan_outdated)
         e.add_separator()
-        e.add_command(label="Settings…", accelerator=f"{acc}+,", command=self.open_settings)
-        m.add_cascade(label="Edit", menu=e)
+        e.add_command(label=tr("Settings…"), accelerator=f"{acc}+,", command=self.open_settings)
+        m.add_cascade(label=tr("Edit"), menu=e)
         v = tk.Menu(m, tearoff=False)
-        v.add_command(label="Files", command=lambda: self.set_view("Files"))
-        v.add_command(label="By album", command=lambda: self.set_view("By album"))
-        v.add_command(label="By artist", command=lambda: self.set_view("By artist"))
+        for mode in (N_("Files"), N_("By album"), N_("By artist")):  # the view_mode values, shown translated
+            v.add_command(label=tr(mode), command=lambda mode=mode: self.set_view(mode))
         v.add_separator()
-        v.add_command(label="Scan summary…", command=self.show_summary)
-        v.add_command(label="Show problem files only", command=lambda: self.set_filters(PROBLEM_VERDICTS))
-        v.add_command(label="Show all files", command=lambda: self.set_filters(VERDICT_ORDER))
-        m.add_cascade(label="View", menu=v)
+        v.add_command(label=tr("Scan summary…"), command=self.show_summary)
+        v.add_command(label=tr("Show problem files only"), command=lambda: self.set_filters(PROBLEM_VERDICTS))
+        v.add_command(label=tr("Show all files"), command=lambda: self.set_filters(VERDICT_ORDER))
+        m.add_cascade(label=tr("View"), menu=v)
         self.view_menu = v
         h = tk.Menu(m, tearoff=False)
-        h.add_command(label=f"About {APP_NAME}", command=self.about)
-        m.add_cascade(label="Help", menu=h)
+        h.add_command(label=tr("About {name}", name=APP_NAME), command=self.about)
+        m.add_cascade(label=tr("Help"), menu=h)
         self.menubar = m
         if not self.embedded:
             self.root.configure(menu=m)
@@ -1631,27 +1743,27 @@ class App(ttk.Frame):
         self.columnconfigure(0, weight=1)
         bar = ttk.Frame(self)
         bar.grid(row=0, column=0, sticky="ew")
-        ttk.Button(bar, text="Add Folder…", command=self.add_folder).pack(side="left")
-        ttk.Button(bar, text="Add Files…", command=self.add_files).pack(side="left", padx=(4, 0))
-        ttk.Button(bar, text="Clear", command=self.clear).pack(side="left", padx=(4, 12))
+        ttk.Button(bar, text=tr("Add Folder…"), command=self.add_folder).pack(side="left")
+        ttk.Button(bar, text=tr("Add Files…"), command=self.add_files).pack(side="left", padx=(4, 0))
+        ttk.Button(bar, text=tr("Clear"), command=self.clear).pack(side="left", padx=(4, 12))
         self.quick_cb = ttk.Checkbutton(bar, variable=self.quick_var)
         self.quick_cb.pack(side="left")
         self._update_quick_label()
-        ttk.Button(bar, text="⚙ Settings…", command=self.open_settings).pack(side="right")
-        self.stop_btn = ttk.Button(bar, text="Stop", command=self.stop_scan, state="disabled")
+        ttk.Button(bar, text="⚙ " + tr("Settings…"), command=self.open_settings).pack(side="right")
+        self.stop_btn = ttk.Button(bar, text=tr("Stop"), command=self.stop_scan, state="disabled")
         self.stop_btn.pack(side="right", padx=(0, 12))
-        self.scan_btn = ttk.Button(bar, text="Scan", command=self.start_scan)
+        self.scan_btn = ttk.Button(bar, text=tr("Scan"), command=self.start_scan)
         self.scan_btn.pack(side="right", padx=(0, 4))
 
-        src = ttk.LabelFrame(self, text="Sources to scan", padding=(6, 4))
+        src = ttk.LabelFrame(self, text=tr("Sources to scan"), padding=(6, 4))
         src.grid(row=1, column=0, sticky="ew", pady=(6, 4))
         src.columnconfigure(0, weight=1)
         self.src_tree = ttk.Treeview(src, columns=("kind", "files", "problems"), height=3,
                                      show="tree headings", selectmode="extended")
-        self.src_tree.heading("#0", text="Folder / file", anchor="w")
-        self.src_tree.heading("kind", text="Type")
-        self.src_tree.heading("files", text="Audio files")
-        self.src_tree.heading("problems", text="Fake / suspicious")
+        self.src_tree.heading("#0", text=tr("Folder / file"), anchor="w")
+        self.src_tree.heading("kind", text=tr("Type"))
+        self.src_tree.heading("files", text=tr("Audio files"))
+        self.src_tree.heading("problems", text=tr("Fake / suspicious"))
         self.src_tree.column("#0", width=560, stretch=True)
         self.src_tree.column("kind", width=70, anchor="center", stretch=False)
         self.src_tree.column("files", width=150, anchor="center", stretch=False)
@@ -1664,30 +1776,30 @@ class App(ttk.Frame):
         sys_.grid(row=0, column=1, sticky="ns")
         side = ttk.Frame(src)
         side.grid(row=0, column=2, sticky="n", padx=(6, 0))
-        self.remove_btn = ttk.Button(side, text="Remove", command=self.remove_sources)
+        self.remove_btn = ttk.Button(side, text=tr("Remove"), command=self.remove_sources)
         self.remove_btn.pack(fill="x")
         self.src_hint = ttk.Label(src, foreground="#666",
-                                  text="Nothing added yet. Click “Add Folder…” or “Add Files…”: the files "
-                                       "found are listed below straight away, then press Scan.")
+                                  text=tr("Nothing added yet. Click “Add Folder…” or “Add Files…”: the files "
+                                          "found are listed below straight away, then press Scan."))
         self.src_hint.grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
         self.src_tree.bind("<Delete>", lambda e: self.remove_sources())
         self.src_tree.bind("<BackSpace>", lambda e: self.remove_sources())
 
         vbar = ttk.Frame(self)
         vbar.grid(row=2, column=0, sticky="ew", pady=(0, 4))
-        ttk.Label(vbar, text="View:").pack(side="left")
-        for label in ("Files", "By album", "By artist"):
-            ttk.Radiobutton(vbar, text=label, value=label, variable=self.view_var, style="Toolbutton",
+        ttk.Label(vbar, text=tr("View:")).pack(side="left")
+        for label in ("Files", "By album", "By artist"):  # the value stays English (view_mode)
+            ttk.Radiobutton(vbar, text=tr(label), value=label, variable=self.view_var, style="Toolbutton",
                             command=self.switch_view).pack(side="left", padx=(4, 0))
         self.grid_opts = ttk.Frame(vbar)
-        ttk.Label(self.grid_opts, text="Rings show:").pack(side="left", padx=(16, 4))
+        ttk.Label(self.grid_opts, text=tr("Rings show:")).pack(side="left", padx=(16, 4))
         self.card_label_var = tk.StringVar(value=self.cfg.card_label)
-        ttk.Combobox(self.grid_opts, textvariable=self.card_label_var, values=["Percentage", "Songs (x of n)"],
-                     state="readonly", width=14).pack(side="left")
-        ttk.Label(self.grid_opts, text="Sort:").pack(side="left", padx=(12, 4))
+        choice_box(self.grid_opts, self.card_label_var, [N_("Percentage"), N_("Songs (x of n)")],
+                   width=14).pack(side="left")
+        ttk.Label(self.grid_opts, text=tr("Sort:")).pack(side="left", padx=(12, 4))
         self.group_sort_var = tk.StringVar(value=self.cfg.group_sort)
-        ttk.Combobox(self.grid_opts, textvariable=self.group_sort_var, values=["Most fake first", "Name"],
-                     state="readonly", width=14).pack(side="left")
+        choice_box(self.grid_opts, self.group_sort_var, [N_("Most fake first"), N_("Name")],
+                   width=14).pack(side="left")
         self.card_label_var.trace_add("write", lambda *a: self._grid_option_changed())
         self.group_sort_var.trace_add("write", lambda *a: self._grid_option_changed())
         self.chip = ttk.Frame(vbar)
@@ -1698,22 +1810,22 @@ class App(ttk.Frame):
 
         filt = ttk.Frame(self)
         filt.grid(row=3, column=0, sticky="ew", pady=(0, 4))
-        ttk.Label(filt, text="Show:").pack(side="left")
+        ttk.Label(filt, text=tr("Show:")).pack(side="left")
         self.filter_checks: Dict[str, ttk.Checkbutton] = {}
         for v in VERDICT_ORDER:
-            cb = ttk.Checkbutton(filt, text=VERDICT_STYLE[v][0], variable=self.show_vars[v],
+            cb = ttk.Checkbutton(filt, text=verdict_label(v), variable=self.show_vars[v],
                                  command=self.refresh)
             cb.pack(side="left", padx=(6, 0))
             self.filter_checks[v] = cb
         entry = ttk.Entry(filt, textvariable=self.search_var, width=24)
         entry.pack(side="right")
-        ttk.Label(filt, text="Search:").pack(side="right", padx=(0, 4))
+        ttk.Label(filt, text=tr("Search:")).pack(side="right", padx=(0, 4))
         self.search_var.trace_add("write", lambda *a: self._search_changed())
 
         # browser-style find bar (Ctrl/Cmd+F)
         self.find_frame = ttk.Frame(self, padding=(4, 3))
         self.find_frame.grid(row=4, column=0, sticky="ew", pady=(0, 4))
-        ttk.Label(self.find_frame, text="Find:").pack(side="left")
+        ttk.Label(self.find_frame, text=tr("Find:")).pack(side="left")
         self.find_entry = ttk.Entry(self.find_frame, textvariable=self.find_var, width=34)
         self.find_entry.pack(side="left", padx=(4, 4))
         ttk.Button(self.find_frame, text="▲", width=3, command=lambda: self.find_step(-1)).pack(side="left")
@@ -1721,7 +1833,7 @@ class App(ttk.Frame):
         self.find_count = ttk.Label(self.find_frame, text="", foreground="#555")
         self.find_count.pack(side="left", padx=(8, 0))
         ttk.Button(self.find_frame, text="✕", width=3, command=self.close_find).pack(side="right")
-        ttk.Label(self.find_frame, text="Enter = next, Shift+Enter = previous, Esc = close",
+        ttk.Label(self.find_frame, text=tr("Enter = next, Shift+Enter = previous, Esc = close"),
                   foreground="#888", font=("TkDefaultFont", 8)).pack(side="right", padx=8)
         self.find_entry.bind("<Return>", lambda e: self.find_step(1))
         self.find_entry.bind("<KP_Enter>", lambda e: self.find_step(1))
@@ -1743,7 +1855,7 @@ class App(ttk.Frame):
         widths = {"verdict": 105, "why": 400, "claimed": 70, "estimated": 85, "bandwidth": 82,
                   "fix": 262, "name": 230, "folder": 220}
         for c in self.COLUMNS:
-            self.tree.heading(c, text=self.HEADINGS[c], command=lambda c=c: self.sort_by(c))
+            self.tree.heading(c, text=tr(self.HEADINGS[c]), command=lambda c=c: self.sort_by(c))
             self.tree.column(c, width=widths[c], stretch=c in ("why", "name", "folder"),
                              anchor="w" if c in ("name", "folder", "verdict", "why", "fix") else "center")
         for v, (_, color, _) in VERDICT_STYLE.items():
@@ -1780,7 +1892,7 @@ class App(ttk.Frame):
         self.badge = tk.Label(info, text="", fg="white", bg="#9e9e9e", padx=10, pady=3,
                               font=("TkDefaultFont", 11, "bold"))
         self.badge.grid(row=0, column=0, sticky="w")
-        self.name_var = tk.StringVar(value="Select a file in the list")
+        self.name_var = tk.StringVar(value=tr("Select a file in the list"))
         ttk.Label(info, textvariable=self.name_var, font=("TkDefaultFont", 10, "bold")).grid(
             row=0, column=1, sticky="w", padx=(8, 0))
         self.why_var = tk.StringVar(value="")
@@ -1790,10 +1902,9 @@ class App(ttk.Frame):
         facts = ttk.Frame(info)
         facts.grid(row=2, column=0, columnspan=2, sticky="ew")
         self.fact_vars: Dict[str, tk.StringVar] = {}
-        for i, key in enumerate(("Claimed", "Real (estimated)", "Bandwidth", "Bits used", "Format",
-                                 "Duration", "After fix")):
-            ttk.Label(facts, text=key + ":", foreground="#666").grid(row=i // 2, column=(i % 2) * 2,
-                                                                       sticky="w", padx=(0, 4))
+        for i, key in enumerate(FACTS):  # the keys stay English (fact_vars), the labels are translated
+            ttk.Label(facts, text=tr("{fact}:", fact=tr(key)), foreground="#666").grid(
+                row=i // 2, column=(i % 2) * 2, sticky="w", padx=(0, 4))
             var = tk.StringVar(value="–")
             self.fact_vars[key] = var
             # "After fix" is the last and longest: it spans the second pair of columns too
@@ -1801,17 +1912,18 @@ class App(ttk.Frame):
                                                     padx=(0, 18), columnspan=3 if key == "After fix" else 1)
         btns = ttk.Frame(info)
         btns.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 6))
-        self.open_folder_btn = ttk.Button(btns, text="Open Folder", command=self.reveal, state="disabled")
+        self.open_folder_btn = ttk.Button(btns, text=tr("Open Folder"), command=self.reveal, state="disabled")
         self.open_folder_btn.pack(side="left")
-        self.open_file_btn = ttk.Button(btns, text="Open File", command=self.open_file, state="disabled")
+        self.open_file_btn = ttk.Button(btns, text=tr("Open File"), command=self.open_file, state="disabled")
         self.open_file_btn.pack(side="left", padx=4)
-        self.copy_btn = ttk.Button(btns, text="Copy Path", command=self.copy_path, state="disabled")
+        self.copy_btn = ttk.Button(btns, text=tr("Copy Path"), command=self.copy_path, state="disabled")
         self.copy_btn.pack(side="left")
-        self.fix_btn = ttk.Button(btns, text="Fix to real resolution…", command=self.fix_selected, state="disabled")
+        self.fix_btn = ttk.Button(btns, text=tr("Fix to real resolution…"), command=self.fix_selected,
+                                  state="disabled")
         self.fix_btn.pack(side="left", padx=(12, 0))
-        self.lyrics_btn = ttk.Button(btns, text="Get lyrics…", command=self.lyrics_selected, state="disabled")
+        self.lyrics_btn = ttk.Button(btns, text=tr("Get lyrics…"), command=self.lyrics_selected, state="disabled")
         self.lyrics_btn.pack(side="left", padx=(4, 0))
-        ttk.Label(info, text="Details", foreground="#666").grid(row=4, column=0, columnspan=2, sticky="w")
+        ttk.Label(info, text=tr("Details"), foreground="#666").grid(row=4, column=0, columnspan=2, sticky="w")
         txt_frame = ttk.Frame(info)
         txt_frame.grid(row=5, column=0, columnspan=2, sticky="nsew")
         txt_frame.rowconfigure(0, weight=1)
@@ -1828,8 +1940,8 @@ class App(ttk.Frame):
         plots = ttk.Notebook(dash)
         self.spectrogram = SpectrogramCanvas(plots, self, height=200)
         self.spectrum = SpectrumCanvas(plots, height=200)
-        plots.add(self.spectrogram, text="Spectrogram")
-        plots.add(self.spectrum, text="Average spectrum")
+        plots.add(self.spectrogram, text=tr("Spectrogram"))
+        plots.add(self.spectrum, text=tr("Average spectrum"))
         lyr = ttk.Frame(plots)
         lyr.rowconfigure(0, weight=1)
         lyr.columnconfigure(0, weight=1)
@@ -1841,7 +1953,7 @@ class App(ttk.Frame):
         self.lyrics_text.tag_configure("muted", foreground="#666", font=("TkDefaultFont", 9))
         self.lyrics_text.grid(row=0, column=0, sticky="nsew")
         lys.grid(row=0, column=1, sticky="ns")
-        plots.add(lyr, text="Lyrics")
+        plots.add(lyr, text=tr("Lyrics"))
         self.plots = plots
         dash.add(plots, weight=3)
         panes.add(dash, weight=2)
@@ -1855,19 +1967,19 @@ class App(ttk.Frame):
         ttk.Label(status, textvariable=self.status_var).grid(row=0, column=1, sticky="w")
         self.outdated_var = tk.StringVar(value="")
         self.outdated_label = ttk.Label(status, textvariable=self.outdated_var, foreground="#8a5a00")
-        self.outdated_btn = ttk.Button(status, text="Re-scan them", command=self.rescan_outdated)
+        self.outdated_btn = ttk.Button(status, text=tr("Re-scan them"), command=self.rescan_outdated)
 
         self.menu = tk.Menu(self.root, tearoff=False)
-        self.menu.add_command(label="Open file location", command=self.reveal)
-        self.menu.add_command(label="Open file", command=self.open_file)
-        self.menu.add_command(label="Copy path", command=self.copy_path)
+        self.menu.add_command(label=tr("Open file location"), command=self.reveal)
+        self.menu.add_command(label=tr("Open file"), command=self.open_file)
+        self.menu.add_command(label=tr("Copy path"), command=self.copy_path)
         self.menu.add_separator()
-        self.menu.add_command(label="Fix to real resolution…", command=self.fix_selected)
-        self.menu.add_command(label="Download synced lyrics…", command=self.lyrics_selected)
-        self.menu.add_command(label="Re-scan", command=self.rescan_selected)
+        self.menu.add_command(label=tr("Fix to real resolution…"), command=self.fix_selected)
+        self.menu.add_command(label=tr("Download synced lyrics…"), command=self.lyrics_selected)
+        self.menu.add_command(label=tr("Re-scan"), command=self.rescan_selected)
 
     def _update_quick_label(self) -> None:
-        self.quick_cb.configure(text=f"Quick scan (first {self.cfg.quick_scan_seconds:g} s)")
+        self.quick_cb.configure(text=tr("Quick scan (first {seconds} s)", seconds=f"{self.cfg.quick_scan_seconds:g}"))
 
     # ---------- settings -------------------------------------------------
     def open_settings(self) -> None:
@@ -1877,7 +1989,7 @@ class App(ttk.Frame):
         try:
             settings_mod.save(self.cfg)
         except OSError as exc:
-            messagebox.showwarning("Settings", f"Could not save settings: {exc}")
+            messagebox.showwarning(tr("Settings"), tr("Could not save settings: {error}", error=tr_text(str(exc))))
 
     def apply_settings(self, new) -> None:
         old_shown = set(self.cfg.shown_verdicts)
@@ -1914,8 +2026,8 @@ class App(ttk.Frame):
             self.set_filters(new.shown_verdicts)
         self._update_quick_label()
         self.spectrogram.redraw()
-        self.status_var.set("Settings saved. Files without a result for the new detection settings are "
-                            "analysed when you press Scan." if detection else "Settings saved.")
+        self.status_var.set(tr("Settings saved. Files without a result for the new detection settings are "
+                               "analysed when you press Scan.") if detection else tr("Settings saved."))
 
     # ---------- sources --------------------------------------------------
     def _add_source(self, path: str) -> None:
@@ -1925,14 +2037,14 @@ class App(ttk.Frame):
             return
         path = os.path.abspath(path)
         if path in self.sources:
-            self.status_var.set(f"Already added: {path}")
+            self.status_var.set(tr("Already added: {path}", path=path))
             if self.src_tree.exists(path):
                 self.src_tree.selection_set(path)
                 self.src_tree.see(path)
             return
         self.sources.append(path)
-        kind = "Folder" if os.path.isdir(path) else "File"
-        self.src_tree.insert("", "end", iid=path, text=path, values=(kind, "counting…", ""),
+        kind = tr("Folder") if os.path.isdir(path) else tr("File")
+        self.src_tree.insert("", "end", iid=path, text=path, values=(kind, tr("counting…"), ""),
                              tags=("busy",))
         self.src_tree.see(path)
         self.src_hint.grid_remove()
@@ -1940,7 +2052,7 @@ class App(ttk.Frame):
         cancel = threading.Event()
         self.listing[path] = cancel
         self.source_files[path] = []
-        self.status_var.set(f"Looking for audio files in {path} …")
+        self.status_var.set(tr("Looking for audio files in {path} …", path=path))
         threading.Thread(target=list_source, args=(path, self.cfg, self.queue, cancel), daemon=True).start()
 
     def _on_listing(self, source: str, batch: List[str]) -> None:
@@ -1951,13 +2063,13 @@ class App(ttk.Frame):
         self.source_files[source].extend(batch)
         n = len(self.source_files[source])
         if self.src_tree.exists(source):
-            self.src_tree.set(source, "files", f"{n} so far…")
+            self.src_tree.set(source, "files", tr("{n} so far…", n=n))
         q = self._filter_state()[1]
         for path in batch:
             if path not in known and not self.tree.exists(path) and (not q or q in path.lower()):
                 self.tree.insert("", "end", iid=path, values=self._pending_values(path), tags=(PENDING,))
         self._request_lookup([p for p in batch if p not in known])
-        self.status_var.set(f"Looking for audio files… {len(known) + len(batch)} found so far")
+        self.status_var.set(tr("Looking for audio files… {n} found so far", n=len(known) + len(batch)))
 
     def _on_listed(self, source: str, files: Optional[List[str]] = None) -> None:
         self.listing.pop(source, None)
@@ -1971,10 +2083,10 @@ class App(ttk.Frame):
             n = len(files)
             if n:
                 self.src_tree.item(source, values=(self.src_tree.set(source, "kind"),
-                                                   f"{n} file{'s' if n != 1 else ''}", ""), tags=())
+                                                   tr("1 file") if n == 1 else tr("{n} files", n=n), ""), tags=())
             else:
-                why = ("not an audio file (check Settings → Scanning → File extensions)"
-                       if os.path.isfile(source) else "no audio files found")
+                why = (tr("not an audio file (check Settings → Scanning → File extensions)")
+                       if os.path.isfile(source) else tr("no audio files found"))
                 self.src_tree.item(source, values=(self.src_tree.set(source, "kind"), why, ""),
                                    tags=("empty",))
         self.refresh()
@@ -1991,18 +2103,21 @@ class App(ttk.Frame):
         empty = [s for s in self.sources if not self.source_files.get(s)]
         saved = sum(1 for f in files if f in self.results)
         if self.lookup_busy:
-            msg = (f"{total} audio file{'s' if total != 1 else ''} found; looking up saved results "
-                   f"({saved} so far)…")
+            msg = (tr("1 audio file found; looking up saved results ({saved} so far)…", saved=saved) if total == 1
+                   else tr("{n} audio files found; looking up saved results ({saved} so far)…", n=total, saved=saved))
         elif saved:
             rest = total - saved
-            msg = (f"{saved} of {total} files were checked before and have not changed: their saved results "
-                   "are shown. " + (f"Press Scan to analyse the other {rest}." if rest else
-                                    "Nothing new to scan."))
+            msg = tr("{saved} of {total} files were checked before and have not changed: their saved results "
+                     "are shown.", saved=saved, total=total)
+            msg = tr("{sentence} {next}", sentence=msg,
+                     next=tr("Press Scan to analyse the other {n}.", n=rest) if rest else tr("Nothing new to scan."))
         else:
-            msg = (f"{total} audio file{'s' if total != 1 else ''} ready in {len(self.sources)} "
-                   f"source{'s' if len(self.sources) != 1 else ''}. Press Scan.")
+            n, ns = total, len(self.sources)
+            files = tr("1 audio file") if n == 1 else tr("{n} audio files", n=n)
+            msg = (tr("{files} ready in 1 source. Press Scan.", files=files) if ns == 1
+                   else tr("{files} ready in {n} sources. Press Scan.", files=files, n=ns))
         if empty:
-            msg += f"  ({len(empty)} source(s) contain no audio files.)"
+            msg += "  " + tr("({n} source(s) contain no audio files.)", n=len(empty))
         return msg
 
     # ---------- saved results --------------------------------------------
@@ -2043,7 +2158,8 @@ class App(ttk.Frame):
     def _update_outdated_notice(self) -> None:
         n = sum(1 for r in self.results.values() if r.saved and r.saved.get("outdated"))
         if n and not self.scanning:
-            self.outdated_var.set(f"{n} saved result{'s were' if n != 1 else ' was'} made by older detection rules.")
+            self.outdated_var.set(tr("1 saved result was made by older detection rules.") if n == 1 else
+                                  tr("{n} saved results were made by older detection rules.", n=n))
             self.outdated_label.grid(row=0, column=2, sticky="e", padx=(8, 4))
             self.outdated_btn.grid(row=0, column=3, sticky="e")
         else:
@@ -2053,37 +2169,38 @@ class App(ttk.Frame):
     def rescan_selected(self) -> None:
         paths = [p for p in self.tree.selection() if p in set(self.all_files())]
         if not paths:
-            self.status_var.set("Select the files to analyse again.")
+            self.status_var.set(tr("Select the files to analyse again."))
             return
         self.start_scan(files=paths, force=True)
 
     def rescan_outdated(self) -> None:
         paths = [p for p, r in self.results.items() if r.saved and r.saved.get("outdated")]
         if not paths:
-            self.status_var.set("No saved results from older detection rules are listed.")
+            self.status_var.set(tr("No saved results from older detection rules are listed."))
             return
         self.start_scan(files=paths, force=True)
 
     def forget_saved(self) -> None:
         if self.store is None:
-            messagebox.showinfo("Saved results", "Saving results is turned off (Settings → Saved results).")
+            messagebox.showinfo(tr("Saved results"), tr("Saving results is turned off (Settings → Saved results)."))
             return
         st = self.store.stats()
         if not messagebox.askyesno(
-                "Delete all saved results",
-                f"Delete the saved results of {st['files']} file(s) ({st['disk_bytes'] / 1e6:.0f} MB in "
-                f"{st['path']})?\n\nThe files themselves are not touched; they are simply analysed again "
-                "the next time they are scanned.", icon="warning"):
+                tr("Delete all saved results"),
+                tr("Delete the saved results of {n} file(s) ({mb} MB in {path})?\n\nThe files themselves are "
+                   "not touched; they are simply analysed again the next time they are scanned.",
+                   n=st["files"], mb=f"{st['disk_bytes'] / 1e6:.0f}", path=st["path"]), icon="warning"):
             return
         try:
             n = self.store.forget()
         except StoreError as exc:
-            messagebox.showerror("Saved results", f"Could not delete the saved results: {exc}")
+            messagebox.showerror(tr("Saved results"),
+                                 tr("Could not delete the saved results: {error}", error=tr_text(str(exc))))
             return
         for r in self.results.values():
             r.saved = None
         self._update_outdated_notice()
-        self.status_var.set(f"Deleted {n} saved result(s). The results on screen stay until you scan again.")
+        self.status_var.set(tr("Deleted {n} saved result(s). The results on screen stay until you scan again.", n=n))
 
     def _want_graphs(self, r: FileResult) -> bool:
         """Draw the graphs of a saved result whose graphs were not saved (one at
@@ -2128,11 +2245,11 @@ class App(ttk.Frame):
 
     def remove_sources(self) -> None:
         if self.scanning:
-            self.status_var.set("Stop the scan before removing sources.")
+            self.status_var.set(tr("Stop the scan before removing sources."))
             return
         sel = list(self.src_tree.selection())
         if not sel:
-            self.status_var.set("Select a source in the “Sources to scan” list to remove it.")
+            self.status_var.set(tr("Select a source in the “Sources to scan” list to remove it."))
             return
         for src in sel:
             if src in self.sources:
@@ -2150,7 +2267,8 @@ class App(ttk.Frame):
         self.refresh()
         self.show_details()
         n = len(keep)
-        self.status_var.set(f"Removed {len(sel)} source(s). {n} audio file{'s' if n != 1 else ''} left to scan.")
+        self.status_var.set(tr("Removed {n} source(s). 1 audio file left to scan.", n=len(sel)) if n == 1 else
+                            tr("Removed {n} source(s). {files} audio files left to scan.", n=len(sel), files=n))
 
     def _update_source_counts(self) -> None:
         for src in self.sources:
@@ -2159,17 +2277,17 @@ class App(ttk.Frame):
             files = self.source_files.get(src, [])
             done = [self.results[f] for f in files if f in self.results]
             probs = sum(1 for r in done if r.is_problem)
-            self.src_tree.set(src, "problems", f"{probs} of {len(done)}" if done else "")
+            self.src_tree.set(src, "problems", tr("{n} of {total}", n=probs, total=len(done)) if done else "")
 
     def add_folder(self) -> None:
-        d = filedialog.askdirectory(title="Choose a music folder")
+        d = filedialog.askdirectory(title=tr("Choose a music folder"))
         if d:
             self._add_source(d)
 
     def add_files(self) -> None:
         pattern = " ".join(f"*{e}" for e in sorted(self.cfg.extension_set()))
-        files = filedialog.askopenfilenames(title="Choose audio files",
-                                            filetypes=[("Audio files", pattern), ("All files", "*")])
+        files = filedialog.askopenfilenames(title=tr("Choose audio files"),
+                                            filetypes=[(tr("Audio files"), pattern), (tr("All files"), "*")])
         for f in files:
             self._add_source(f)
 
@@ -2191,8 +2309,8 @@ class App(ttk.Frame):
         self.show_details()
         self.progress["value"] = 0
         for v, cb in self.filter_checks.items():
-            cb.configure(text=VERDICT_STYLE[v][0])
-        self.status_var.set("Add a folder or files, then press Scan.")
+            cb.configure(text=verdict_label(v))
+        self.status_var.set(tr("Add a folder or files, then press Scan."))
 
     # ---------- scanning -------------------------------------------------
     def start_scan(self, files: Optional[List[str]] = None, force: bool = False) -> None:
@@ -2202,23 +2320,23 @@ class App(ttk.Frame):
         if self.scanning:
             return
         if not self.sources:
-            messagebox.showinfo("Real-Hi-Res", "Add a folder or some files first.")
+            messagebox.showinfo("Real-Hi-Res", tr("Add a folder or some files first."))
             return
         if self.listing:
             self.scan_when_listed = True
-            self.status_var.set("Still looking for audio files… the scan starts as soon as the list is complete.")
+            self.status_var.set(tr("Still looking for audio files… the scan starts as soon as the list is complete."))
             return
         subset = files is not None
         files = list(files) if subset else self.all_files()
         self.last_scan_files = list(files)
         if not files:
-            messagebox.showinfo("Real-Hi-Res", "The added folders/files contain no audio files.\n\n"
-                                "Check the file extensions under Settings → Scanning.")
+            messagebox.showinfo("Real-Hi-Res", tr("The added folders/files contain no audio files.\n\n"
+                                                  "Check the file extensions under Settings → Scanning."))
             return
         try:
             require_tools()
         except ToolMissingError as exc:
-            messagebox.showerror("FFmpeg not found", str(exc))
+            messagebox.showerror(tr("FFmpeg not found"), tr_text(str(exc)))
             return
         if subset:
             for f in files:
@@ -2241,7 +2359,7 @@ class App(ttk.Frame):
         self._update_source_counts()
         self.scan_started = time.time()
         self.progress.configure(mode="determinate", maximum=max(len(files), 1), value=0)
-        self.status_var.set(f"Scanning {len(files)} files…")
+        self.status_var.set(tr("Scanning {n} files…", n=len(files)))
         self.scan_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
         max_seconds = self.cfg.quick_scan_seconds if self.quick_var.get() else (self.cfg.max_seconds or None)
@@ -2260,7 +2378,7 @@ class App(ttk.Frame):
             if path not in self.results:
                 shown += 1
                 if self.tree.exists(path) and PENDING in self.tree.item(path, "tags"):
-                    self.tree.item(path, values=(RUNNING_STYLE[0], "Analysing…", "", "", "", "",
+                    self.tree.item(path, values=(tr(RUNNING_STYLE[0]), tr("Analysing…"), "", "", "", "",
                                                  os.path.basename(path), os.path.dirname(path)),
                                    tags=(RUNNING,))
             i += 1
@@ -2268,7 +2386,7 @@ class App(ttk.Frame):
     def stop_scan(self) -> None:
         if self.scanner:
             self.scanner.stop_event.set()
-            self.status_var.set("Stopping after the files already in progress…")
+            self.status_var.set(tr("Stopping after the files already in progress…"))
             self.stop_btn.configure(state="disabled")
         if self.scan_lyrics is not None:
             self.scan_lyrics.stop()  # after the song it is looking up now
@@ -2292,7 +2410,8 @@ class App(ttk.Frame):
 
     def _lyrics_tail(self) -> str:
         w = self.scan_lyrics
-        return f"  ·  Lyrics: {w.saved} saved, {w.not_found} not found" if w is not None else ""
+        return ("  ·  " + tr("Lyrics: {saved} saved, {not_found} not found", saved=w.saved, not_found=w.not_found)
+                if w is not None else "")
 
     def _poll(self) -> None:
         dirty = False
@@ -2304,7 +2423,7 @@ class App(ttk.Frame):
                     self.progress.stop()
                     self.progress.configure(mode="determinate", maximum=max(payload, 1), value=0)
                     if payload == 0:
-                        self.status_var.set("No audio files found in the selected sources.")
+                        self.status_var.set(tr("No audio files found in the selected sources."))
                 elif kind == "cover":
                     self.cards.set_cover(payload, rest[0])
                 elif kind == "listing":
@@ -2340,7 +2459,7 @@ class App(ttk.Frame):
                     self._finish(stopped=payload == "stopped")
                 elif kind == "error":
                     self._finish(stopped=True)
-                    messagebox.showerror("Scan failed", payload)
+                    messagebox.showerror(tr("Scan failed"), tr_text(payload))
         except queue.Empty:
             pass
         if dirty:
@@ -2387,11 +2506,13 @@ class App(ttk.Frame):
         if not plans:
             return
         if mode.startswith("Ask"):
-            extra = f"\n\n{len(skipped)} other fake file(s) cannot be changed; the Fix window says why." if skipped else ""
+            text = tr("{n} fake file(s) can be fixed to the resolution they really have. Fix them now?", n=len(plans))
+            if skipped:
+                text += "\n\n" + tr("{n} other fake file(s) cannot be changed; the Fix window says why.",
+                                     n=len(skipped))
             if not messagebox.askyesno(
-                    "Fix to real resolution",
-                    f"{len(plans)} fake file(s) can be fixed to the resolution they really have. Fix them now?"
-                    f"{extra}\n\n(Settings → Fixing → After a scan)"):
+                    tr("Fix to real resolution"),
+                    text + "\n\n" + tr("(Settings → Fixing → After a scan)")):
                 return
         FixDialog(self, [r for r in scanned if r.verdict in FIXABLE_VERDICTS], autostart=True)
 
@@ -2404,7 +2525,7 @@ class App(ttk.Frame):
 
     def show_summary(self) -> None:
         if not self.results:
-            messagebox.showinfo("Scan summary", "Nothing scanned yet.")
+            messagebox.showinfo(tr("Scan summary"), tr("Nothing scanned yet."))
             return
         SummaryDialog(self, list(self.results.values()), self.last_elapsed)
 
@@ -2417,28 +2538,32 @@ class App(ttk.Frame):
     def _update_filter_counts(self) -> Dict[str, int]:
         c = self._counts()
         for v, cb in self.filter_checks.items():
-            cb.configure(text=f"{VERDICT_STYLE[v][0]} ({c[v]})")
+            cb.configure(text=f"{verdict_label(v)} ({c[v]})")
         return c
 
     def _update_status(self, final: bool = False, stopped: bool = False) -> None:
         c = self._update_filter_counts()
         fakes = c[FAKE] + c[FAKE_LOSSLESS]
         n = max(len(self.results), 1)
-        tail = f"{fakes} fake ({100 * fakes / n:.0f} %), {c[SUSPECT]} suspicious, {c[REAL]} real hi-res"
+        tail = tr("{fake} fake ({pct} %), {suspicious} suspicious, {real} real hi-res", fake=fakes,
+                  pct=f"{100 * fakes / n:.0f}", suspicious=c[SUSPECT], real=c[REAL])
         reused = sum(1 for r in self.results.values() if r.saved)
         if final:
-            head = "Stopped" if stopped else "Finished" if self.last_elapsed is not None else "Saved results"
-            extra = (f" ({reused} unchanged, from saved results)"
-                     if reused and self.last_elapsed is not None else "")
-            self.status_var.set(f"{head}: {len(self.results)} files{extra}  ·  {tail}{self._lyrics_tail()}")
+            head = (tr("Stopped") if stopped else tr("Finished") if self.last_elapsed is not None
+                    else tr("Saved results"))
+            files = (tr("{head}: {n} files ({reused} unchanged, from saved results)", head=head, n=len(self.results),
+                        reused=reused) if reused and self.last_elapsed is not None
+                     else tr("{head}: {n} files", head=head, n=len(self.results)))
+            self.status_var.set(f"{files}  ·  {tail}{self._lyrics_tail()}")
         else:
-            busy = (f"analysing {len(self.scan_order)} ({self.scan_workers} at a time)" if self.scan_order
-                    else "looking up saved results")
+            busy = (tr("analysing {n} ({workers} at a time)", n=len(self.scan_order), workers=self.scan_workers)
+                    if self.scan_order else tr("looking up saved results"))
             if self.eta is not None:
-                busy += f", {self.eta.text()}"
+                busy = tr("{busy}, {time_left}", busy=busy, time_left=tr_text(self.eta.text()))
             self._status_time = time.time()
-            self.status_var.set(f"Scanning: {self.done}/{self.total} files, {reused} from saved results, "
-                                f"{busy}  ·  {tail}{self._lyrics_tail()}")
+            busy = tr("Scanning: {done}/{total} files, {reused} from saved results, {busy}", done=self.done,
+                      total=self.total, reused=reused, busy=busy)
+            self.status_var.set(f"{busy}  ·  {tail}{self._lyrics_tail()}")
 
     # ---------- views: files / by album / by artist ----------------------
     def set_view(self, mode: str) -> None:
@@ -2525,8 +2650,10 @@ class App(ttk.Frame):
         """Clicking a card: list that album's/artist's songs (all verdicts)."""
         back = self.view_var.get()
         filters = {v: var.get() for v, var in self.show_vars.items()}
-        label = f"Album: {g.title} — {g.subtitle}" if mode == "album" else f"Artist: {g.title}"
-        label += f"  ({g.problems} of {g.total} fake/suspicious)"
+        title, subtitle = group_names(g, mode)
+        label = (tr("Album: {title} — {artist}", title=title, artist=subtitle) if mode == "album"
+                 else tr("Artist: {name}", name=title))
+        label += "  " + tr("({n} of {total} fake/suspicious)", n=g.problems, total=g.total)
         self.group_filter = {"mode": mode, "key": g.key, "paths": set(g.paths), "back": back,
                              "filters": filters, "order": list(g.paths)}
         for var in self.show_vars.values():
@@ -2534,7 +2661,7 @@ class App(ttk.Frame):
         self.view_var.set("Files")
         self.switch_view()
         self.chip_label.configure(text=label)
-        self.chip_back.configure(text=f"◀ Back to {'albums' if mode == 'album' else 'artists'}")
+        self.chip_back.configure(text="◀ " + (tr("Back to albums") if mode == "album" else tr("Back to artists")))
         self.chip.pack(side="left")
         self.sort_col, self.sort_rev = "track", False
         self.refresh()
@@ -2615,7 +2742,7 @@ class App(ttk.Frame):
         n = len(self.find_matches)
         if self.find_open:
             self.find_count.configure(
-                text=(f"{self.find_index + 1} of {n}" if n else ("No matches" if q else "")),
+                text=(tr("{n} of {total}", n=self.find_index + 1, total=n) if n else (tr("No matches") if q else "")),
                 foreground="#555" if n or not q else "#c62828")
         current = self.find_matches[self.find_index] if 0 <= self.find_index < n else None
         if self.view_var.get() == "Files":
@@ -2665,15 +2792,16 @@ class App(ttk.Frame):
         shown, q = state or self._filter_state()
         if r.verdict not in shown and r.verdict in self.show_vars:
             return False
-        return not q or q in r.path.lower() or q in r.summary.lower()
+        return (not q or q in r.path.lower() or q in r.summary.lower()
+                or (i18n.language() != "en" and q in self._values(r)[1].lower()))  # the "Why" as shown
 
     def _values(self, r: FileResult):
         cached = self._values_cache.get(r.path)
         if cached is not None and cached[0] is r:
             return cached[1]
         bw = f"{r.bandwidth_hz / 1000:.1f} kHz" if r.bandwidth_hz else "-"
-        values = (VERDICT_STYLE[r.verdict][0], r.summary, r.claimed, r.estimated, bw,
-                  fix_outlook(r, self.cfg), os.path.basename(r.path), os.path.dirname(r.path))
+        values = (verdict_label(r.verdict), tr_text(r.summary), r.claimed, tr_text(r.estimated), bw,
+                  tr_text(fix_outlook(r, self.cfg)), os.path.basename(r.path), os.path.dirname(r.path))
         self._values_cache[r.path] = (r, values)
         return values
 
@@ -2683,8 +2811,8 @@ class App(ttk.Frame):
         self.tree.tk.call(self.tree._w, "insert", "", "end", "-id", iid, "-values", values, "-tags", (tag,))
 
     def _pending_values(self, path: str):
-        why = "Waiting in the scan queue…" if self.scanning else "Not scanned yet: press Scan"
-        return (PENDING_STYLE[0], why, "", "", "", "", os.path.basename(path), os.path.dirname(path))
+        why = tr("Waiting in the scan queue…") if self.scanning else tr("Not scanned yet: press Scan")
+        return (tr(PENDING_STYLE[0]), why, "", "", "", "", os.path.basename(path), os.path.dirname(path))
 
     def _search_ok(self, path: str, summary: str = "") -> bool:
         q = self.search_var.get().strip().lower()
@@ -2714,7 +2842,7 @@ class App(ttk.Frame):
         if c == "bandwidth":
             return (r.bandwidth_hz or 0.0, r.path.lower())
         if c == "fix":
-            return (fix_outlook(r, self.cfg).lower(), r.path.lower())
+            return (self._values(r)[5].lower(), r.path.lower())  # as shown
         if c == "claimed":
             return (r.sample_rate, r.claimed_bits or 0, r.path.lower())
         if c == "estimated":
@@ -2722,7 +2850,7 @@ class App(ttk.Frame):
         if c == "name":
             return os.path.basename(r.path).lower()
         if c == "why":
-            return (r.summary.lower(), r.path.lower())
+            return (self._values(r)[1].lower(), r.path.lower())  # as shown
         if c == "track" and self.group_filter:
             order = self.group_filter["order"]
             return order.index(r.path) if r.path in order else len(order)
@@ -2762,7 +2890,7 @@ class App(ttk.Frame):
             self.tree.selection_set(keep)
         for c in self.COLUMNS:
             arrow = (" ▼" if self.sort_rev else " ▲") if c == self.sort_col else ""
-            self.tree.heading(c, text=self.HEADINGS[c] + arrow)
+            self.tree.heading(c, text=tr(self.HEADINGS[c]) + arrow)
         if self.results:
             self._update_status(final=not self.scanning)
         if self.view_var.get() != "Files":
@@ -2798,10 +2926,10 @@ class App(ttk.Frame):
                       for i in self.tree.selection())
         self.fix_btn.configure(state="normal" if fixable and not self.scanning else "disabled")
         if r is None and path:  # listed but not scanned yet
-            self.badge.configure(text=PENDING_STYLE[0].upper(), bg=PENDING_STYLE[1])
+            self.badge.configure(text=tr(PENDING_STYLE[0]).upper(), bg=PENDING_STYLE[1])
             self.name_var.set(os.path.basename(path))
-            self.why_var.set("Waiting in the scan queue…" if self.scanning else
-                             "This file will be analysed when you press Scan.")
+            self.why_var.set(tr("Waiting in the scan queue…") if self.scanning else
+                             tr("This file will be analysed when you press Scan."))
             for v in self.fact_vars.values():
                 v.set("–")
             self._set_text([path + "\n"])
@@ -2810,7 +2938,7 @@ class App(ttk.Frame):
             return
         if r is None:
             self.badge.configure(text="", bg="#9e9e9e")
-            self.name_var.set("Select a file in the list")
+            self.name_var.set(tr("Select a file in the list"))
             self.why_var.set("")
             for v in self.fact_vars.values():
                 v.set("–")
@@ -2818,37 +2946,40 @@ class App(ttk.Frame):
             self.spectrogram.show(None, None)
             self.spectrum.show(None, None)
             return
-        label, color, _ = VERDICT_STYLE[r.verdict]
-        self.badge.configure(text=label.upper(), bg=color)
+        color = VERDICT_STYLE[r.verdict][1]
+        self.badge.configure(text=verdict_label(r.verdict).upper(), bg=color)
         self.name_var.set(os.path.basename(r.path))
-        self.why_var.set(r.summary or (r.reasons[0] if r.reasons else ""))
+        self.why_var.set(tr_text(r.summary or (r.reasons[0] if r.reasons else "")))
         bits = r.effective_bits
         if bits is not None and r.is_float and bits > 24:
             bits = 24
         self.fact_vars["Claimed"].set(r.claimed)
-        self.fact_vars["Real (estimated)"].set(r.estimated)
+        self.fact_vars["Real (estimated)"].set(tr_text(r.estimated))
         self.fact_vars["Bandwidth"].set(f"{r.bandwidth_hz / 1000:.1f} kHz" if r.bandwidth_hz else "–")
-        self.fact_vars["Bits used"].set(f"{bits} of {r.claimed_bits}" if bits and r.claimed_bits else
-                                        (str(bits) if bits else "–"))
-        self.fact_vars["Format"].set(f"{r.codec}, {r.channels} ch" if r.codec else "–")
+        self.fact_vars["Bits used"].set(tr("{bits} of {claimed}", bits=bits, claimed=r.claimed_bits)
+                                        if bits and r.claimed_bits else (str(bits) if bits else "–"))
+        self.fact_vars["Format"].set(tr("{codec}, {channels} ch", codec=r.codec, channels=r.channels)
+                                     if r.codec else "–")
         self.fact_vars["Duration"].set(fmt_duration(r.duration) if r.duration else "?")
-        self.fact_vars["After fix"].set(fix_outlook(r, self.cfg) or "–")
-        parts = [f"• {x}\n" for x in r.reasons] + [f"• {x}\n" for x in r.notes]
+        self.fact_vars["After fix"].set(tr_text(fix_outlook(r, self.cfg)) or "–")
+        # the reasons, notes and advice come finished from the shared core: tr_text() translates them
+        parts = [f"• {tr_text(x)}\n" for x in r.reasons] + [f"• {tr_text(x)}\n" for x in r.notes]
         advice = fix_advice(r, self.cfg)  # what Fix does with it, and whether it stays fake afterwards
         if advice:
-            parts.append(f"• {advice}\n")
+            parts.append(f"• {tr_text(advice)}\n")
         if r.saved:
-            parts.insert(0, f"• {saved_note(r)}\n")
+            parts.insert(0, f"• {tr_text(saved_note(r))}\n")
         if r.cliffs_db:
             deep = r.deep_cliffs_db or {}
-            parts.append("• Drop at source Nyquists (narrow/deep): " + ", ".join(
+            parts.append("• " + tr("Drop at source Nyquists (narrow/deep): {values}", values=", ".join(
                 f"{k / 2000:g} kHz {v:.0f}/{deep.get(k, float('nan')):.0f} dB"
-                for k, v in r.cliffs_db.items() if v == v) + "\n")
+                for k, v in r.cliffs_db.items() if v == v)) + "\n")
         if r.converter_floor_db is not None and r.converter_floor_db == r.converter_floor_db:
-            parts.append(f"• 26-40 kHz band: {r.converter_floor_db:+.0f} dB relative to the rounding noise\n")
+            parts.append("• " + tr("26-40 kHz band: {db} dB relative to the rounding noise",
+                                   db=f"{r.converter_floor_db:+.0f}") + "\n")
         if r.grid_step:
-            parts.append(f"• Value grid: step {r.grid_step:.1f} (24-bit LSBs), {r.grid_bits}-bit master, "
-                         f"gain {r.grid_gain_db:+.1f} dB\n")
+            parts.append("• " + tr("Value grid: step {step} (24-bit LSBs), {bits}-bit master, gain {gain} dB",
+                                   step=f"{r.grid_step:.1f}", bits=r.grid_bits, gain=f"{r.grid_gain_db:+.1f}") + "\n")
         parts.append(f"\n{r.path}\n")
         self._set_text(parts)
         plot = self.cache.get(r.path)
@@ -2876,13 +3007,13 @@ class App(ttk.Frame):
                 self.src_tree.selection_set(self.src_tree.get_children())
                 return "break"
         if self.view_var.get() != "Files":
-            self.status_var.set("Open an album or artist, or switch to the Files view, to select files.")
+            self.status_var.set(tr("Open an album or artist, or switch to the Files view, to select files."))
             return "break"
         items = self.tree.get_children()
         if items:
             self.tree.selection_set(items)
             self.tree.focus_set()
-            self.status_var.set(f"Selected {len(items)} listed file(s).")
+            self.status_var.set(tr("Selected {n} listed file(s).", n=len(items)))
         return "break"
 
     def _show_lyrics(self, path: Optional[str]) -> None:
@@ -2893,16 +3024,17 @@ class App(ttk.Frame):
         found = lyrics_mod.read_lyrics_file(path) if path else None
         if path and found is None:
             acc = "Cmd" if sys.platform == "darwin" else "Ctrl"
-            t.insert("end", "No lyrics next to this song yet.\n\n", "muted")
-            t.insert("end", f"Get lyrics… ({acc}+L) looks the song up on LRCLIB and saves its synced lyrics "
-                            f"as {os.path.basename(lyrics_mod.sidecar(path, '.lrc'))} next to it.", "muted")
+            t.insert("end", tr("No lyrics next to this song yet.") + "\n\n", "muted")
+            t.insert("end", tr("Get lyrics… ({key}) looks the song up on LRCLIB and saves its synced lyrics "
+                               "as {file} next to it.", key=f"{acc}+L",
+                               file=os.path.basename(lyrics_mod.sidecar(path, '.lrc'))), "muted")
         elif found is not None:
             kind, text, file = found
-            head = {lyrics_mod.SYNCED: "Synced lyrics", lyrics_mod.PLAIN: "Plain lyrics (no timing)",
-                    lyrics_mod.INSTRUMENTAL: "Instrumental"}[kind]
+            head = {lyrics_mod.SYNCED: tr("Synced lyrics"), lyrics_mod.PLAIN: tr("Plain lyrics (no timing)"),
+                    lyrics_mod.INSTRUMENTAL: tr("Instrumental")}[kind]
             t.insert("end", f"{head} · {os.path.basename(file)}\n\n", "muted")
             if kind == lyrics_mod.INSTRUMENTAL:
-                t.insert("end", "LRCLIB lists this song as instrumental: it has no lyrics.", "muted")
+                t.insert("end", tr("LRCLIB lists this song as instrumental: it has no lyrics."), "muted")
             for line in ([] if kind == lyrics_mod.INSTRUMENTAL else text.splitlines()):
                 m = re.match(r"^((?:\s*\[[^\]]*\])+)\s?(.*)$", line) if kind == lyrics_mod.SYNCED else None
                 if m and re.match(r"\s*\[\d", m.group(1)):
@@ -2922,7 +3054,7 @@ class App(ttk.Frame):
         if d is not None and d.winfo_exists():
             if d.running:
                 d.lift()
-                self.status_var.set("Lyrics are being downloaded already; wait for them or press Stop first.")
+                self.status_var.set(tr("Lyrics are being downloaded already; wait for them or press Stop first."))
                 return
             d.destroy()
         self.lyrics_dialog = LyricsDialog(self, paths)
@@ -2938,8 +3070,8 @@ class App(ttk.Frame):
                 return None  # another window has the keyboard
         paths = list(self.tree.selection()) if self.view_var.get() == "Files" else []
         if not paths:
-            self.status_var.set("Select one or more songs in the Files view (Ctrl/Cmd+A selects all listed), "
-                                "or use Edit → Download synced lyrics for all songs.")
+            self.status_var.set(tr("Select one or more songs in the Files view (Ctrl/Cmd+A selects all listed), "
+                                   "or use Edit → Download synced lyrics for all songs."))
             return "break"
         self.download_lyrics(paths)
         return "break"
@@ -2947,17 +3079,17 @@ class App(ttk.Frame):
     def lyrics_all(self) -> None:
         files = self.all_files()
         if not files:
-            messagebox.showinfo("Download synced lyrics", "Add a folder or files first.")
+            messagebox.showinfo(tr("Download synced lyrics"), tr("Add a folder or files first."))
             return
         self.download_lyrics(files)
 
     def fix_selected(self) -> None:
         if self.scanning:
-            self.status_var.set("Wait for the scan to finish before fixing files.")
+            self.status_var.set(tr("Wait for the scan to finish before fixing files."))
             return
         rs = [self.results[i] for i in self.tree.selection() if i in self.results]
         if not rs:
-            self.status_var.set("Select one or more scanned fake files to fix.")
+            self.status_var.set(tr("Select one or more scanned fake files to fix."))
             return
         FixDialog(self, rs)
 
@@ -2965,11 +3097,11 @@ class App(ttk.Frame):
         from .fix import FIXABLE_VERDICTS
 
         if self.scanning:
-            self.status_var.set("Wait for the scan to finish before fixing files.")
+            self.status_var.set(tr("Wait for the scan to finish before fixing files."))
             return
         rs = [r for r in self.results.values() if r.verdict in FIXABLE_VERDICTS]
         if not rs:
-            messagebox.showinfo("Fix to real resolution", "No fake hi-res or fake lossless files to fix.")
+            messagebox.showinfo(tr("Fix to real resolution"), tr("No fake hi-res or fake lossless files to fix."))
             return
         FixDialog(self, rs)
 
@@ -3002,7 +3134,7 @@ class App(ttk.Frame):
             try:
                 reveal_in_file_manager(path)
             except OSError as exc:
-                messagebox.showerror("Real-Hi-Res", f"Could not open the folder: {exc}")
+                messagebox.showerror("Real-Hi-Res", tr("Could not open the folder: {error}", error=tr_text(str(exc))))
 
     def open_file(self) -> None:
         path = self._current_path()
@@ -3010,14 +3142,14 @@ class App(ttk.Frame):
             try:
                 open_with_default_app(path)
             except OSError as exc:
-                messagebox.showerror("Real-Hi-Res", f"Could not open the file: {exc}")
+                messagebox.showerror("Real-Hi-Res", tr("Could not open the file: {error}", error=tr_text(str(exc))))
 
     def copy_path(self) -> None:
         paths = list(self.tree.selection())
         if paths:
             self.root.clipboard_clear()
             self.root.clipboard_append("\n".join(paths))
-            self.status_var.set(f"Copied {len(paths)} path(s) to the clipboard.")
+            self.status_var.set(tr("Copied {n} path(s) to the clipboard.", n=len(paths)))
 
     def _context_menu(self, event) -> None:
         row = self.tree.identify_row(event.y)
@@ -3028,24 +3160,25 @@ class App(ttk.Frame):
 
     def export(self, kind: str, all_results: bool = False) -> None:
         if not self.results:
-            messagebox.showinfo("Real-Hi-Res", "Nothing to export yet; run a scan first.")
+            messagebox.showinfo("Real-Hi-Res", tr("Nothing to export yet; run a scan first."))
             return
         path = filedialog.asksaveasfilename(
-            title=f"Export {kind.upper()}", defaultextension=f".{kind}",
+            title=tr("Export {format}", format=kind.upper()), defaultextension=f".{kind}",
             initialfile=f"realhires-report.{kind}", filetypes=[(kind.upper(), f"*.{kind}")])
         if not path:
             return
         visible = [self.results[i] for i in self.tree.get_children()]
         rows = list(self.results.values()) if all_results or not visible else visible
         (write_csv if kind == "csv" else write_json)(rows, path)
-        self.status_var.set(f"Exported {len(rows)} row(s) to {path}")
+        self.status_var.set(tr("Exported {n} row(s) to {path}", n=len(rows), path=path))
 
     def about(self) -> None:
         messagebox.showinfo(
-            f"About {APP_NAME}",
-            f"{APP_NAME} {__version__}: the Real-Hi-Res quality checker\n\nFinds fake hi-res audio (upsampled or 16-bit padded) and fake "
-            "lossless files (FLAC/WAV/ALAC made from MP3/AAC) by analysing the audio itself.\n\n"
-            f"{lyrics_mod.ABOUT_CREDIT}\n\n" + PROJECT_URL)
+            tr("About {name}", name=APP_NAME),
+            tr("{name} {version}: the Real-Hi-Res quality checker", name=APP_NAME, version=__version__) + "\n\n"
+            + tr("Finds fake hi-res audio (upsampled or 16-bit padded) and fake lossless files (FLAC/WAV/ALAC "
+                 "made from MP3/AAC) by analysing the audio itself.") + "\n\n"
+            + f"{tr_text(lyrics_mod.ABOUT_CREDIT)}\n\n" + PROJECT_URL)
 
     def quit_app(self) -> None:
         if self.embedded and self.quit_callback is not None:
@@ -3090,7 +3223,9 @@ def scanner_main(argv=None) -> int:
               "On a server or over SSH use the command-line tool instead "
               "(realhires / realhires-cli).", file=sys.stderr)
         return 1
-    root.title(f"Real-Hi-Res {__version__} — fake hi-res & fake lossless detector")
+    cfg = settings_mod.load()
+    i18n.set_language(cfg.language)
+    root.title(tr("Real-Hi-Res {version} — fake hi-res & fake lossless detector", version=__version__))
     root.geometry("1280x820")
     root.minsize(900, 600)
     icon = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "icon.png")
@@ -3104,8 +3239,6 @@ def scanner_main(argv=None) -> int:
         # clam paints the bar in the window colour, which makes it invisible.
         style.configure("Horizontal.TProgressbar", background="#4a90d9")
     style.configure("Treeview", rowheight=22)
-    cfg = settings_mod.load()
-    i18n.set_language(cfg.language)
     App(root, initial=[a for a in args if not a.startswith("-")], cfg=cfg)
     root.mainloop()
     return 0

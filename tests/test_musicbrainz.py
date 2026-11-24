@@ -280,3 +280,125 @@ def test_settings_default_to_no_automatic_lookup():
 
 def test_catalogue_is_invented():
     assert all(r["id"].startswith("rel-") for r in RELEASES.values())
+
+
+# ------------------------------------------------- the Tk window (2.1) ---
+def _gui_ok():
+    try:
+        from test_player_gui import _gui_available, _has_miniaudio
+    except Exception:  # noqa: BLE001
+        return False
+    return _gui_available() and _has_miniaudio()
+
+
+@pytest.mark.skipif(not _gui_ok(), reason="needs Tkinter, miniaudio and a display")
+def test_musicbrainz_window_in_the_player(tmp_path, fake_mb):
+    """Get album info from MusicBrainz… lists the releases, previews the changes and saves
+    them; Get info from MusicBrainz… does the same for one song; Settings → Library's
+    button runs the automatic lookup."""
+    import json
+
+    from test_player_gui import run_script
+
+    from realhires import settings
+
+    music = tmp_path / "music"
+    album = music / "Night Drive"
+    album.mkdir(parents=True)
+    for i, (title, secs) in enumerate([("Neon Streets", 201), ("Midnight Signal", 245), ("Harbour Lights", 187),
+                                       ("Last Train Home", 263)]):
+        _flac(album / f"0{i + 1}.flac", {"title": title, "artist": "The Example Band", "album": "Night Drive",
+                                         "_s": secs})
+    road = _flac(music / "road.flac", {"title": "Lonely Road", "artist": "Solo Artist", "_s": 222})
+    cfg = settings.Settings()
+    cfg.library_folders = [str(music)]
+    cfg.musicbrainz_server = fake_mb.url
+    settings.save(cfg, str(tmp_path / "settings.json"))
+    env = dict(os.environ, REALHIRES_SETTINGS=str(tmp_path / "settings.json"),
+               REALHIRES_PLAYER=str(tmp_path / "player.json"), REALHIRES_LIBRARY=str(tmp_path / "library.sqlite"),
+               REALHIRES_RESULTS=str(tmp_path / "results.sqlite"), REALHIRES_THEMES=str(tmp_path / "themes.json"),
+               REALHIRES_AUDIO_BACKEND="null")
+    body = f"""
+ROAD = {road!r}
+ALBUM = {str(album)!r}
+import tkinter as tk
+from realhires import player_gui, player_mb
+from realhires.probe import probe
+
+def fail(exc, val, tb):
+    import traceback
+    traceback.print_exception(exc, val, tb)
+    os._exit(1)
+
+def wait(cond, then, timeout=60.0, what="", start=None):
+    start = start or time.monotonic()
+    if cond():
+        return root.after(50, then)
+    assert time.monotonic() - start < timeout, "timed out: " + what
+    root.after(100, lambda: wait(cond, then, timeout, what, start))
+
+root = tk.Tk()
+root.geometry("1280x800")
+root.report_callback_exception = fail
+app = player_gui.PlayerApp(root)
+
+def loaded():
+    alb = next(a for a in app.albums if a["title"] == "Night Drive")
+    app.open_album(alb)
+    root.update()
+    w = app.page("album").musicbrainz()
+    assert w is app.mb_window and w.album
+    wait(lambda: w.detail is not None and not w.busy, lambda: album_ready(w), what="album release")
+
+def album_ready(w):
+    assert w.v_title.get() == "Night Drive" and w.v_artist.get() == "The Example Band"
+    assert w.list.get(0).startswith("Night Drive — The Example Band") and "4 tracks" in w.list.get(0)
+    assert w.detail.release.id == "rel-night-2001"
+    text = w.text.get("1.0", "end")
+    assert "01.flac → 1. Neon Streets" in text and "Album artist: (empty) → The Example Band" in text
+    assert "Track: (empty) → 1/4" in text
+    w.field_vars["genre"].set(False)
+    w._update_preview()
+    assert "Genre:" not in w.text.get("1.0", "end")
+    w.save()
+    wait(lambda: app.mb_window is None and not app.library_busy(), album_saved, what="album saved")
+
+def album_saved():
+    tags = probe(os.path.join(ALBUM, "02.flac")).tags
+    assert tags["album_artist"] == "The Example Band" and tags["date"] == "1999-05-28"
+    assert tags["track"].split("/")[0] == "2" and tags["composer"] == "Kai Example, Mio Example"
+    assert not tags.get("genre"), tags
+    song = app.track(ROAD)
+    m = app.song_menu(song)
+    labels = [m.entrycget(i, "label") for i in range(m.index("end") + 1) if m.type(i) != "separator"]
+    assert "Get info from MusicBrainz…" in labels, labels
+    w = app.musicbrainz([song])
+    assert not w.album
+    wait(lambda: w.detail is not None and not w.busy, lambda: song_ready(w), what="song release")
+
+def song_ready(w):
+    assert w.v_title.get() == "Lonely Road" and w.detail.release.id == "rel-road-album"
+    w.v_empty.set(True)
+    w._update_preview()
+    assert "Title:" not in w.text.get("1.0", "end")
+    w.save()
+    wait(lambda: app.mb_window is None and not app.library_busy(), song_saved, what="song saved")
+
+def song_saved():
+    tags = probe(ROAD).tags
+    assert tags["album"] == "Open Country" and tags["genre"] == "Country" and tags["title"] == "Lonely Road"
+    assert app.lookup_library(force=True)
+    wait(lambda: not app.musicbrainz_busy() and app.mb_last is not None, auto_done, what="automatic lookup")
+
+def auto_done():
+    status = app.sidebar.status.cget("text")
+    print("status:", status, [(os.path.basename(o.path), o.status, o.message) for o in app.mb_last])
+    assert status in ("Every song already has its information.", "MusicBrainz had nothing to add."), status
+    print("OK")
+    app.quit()
+
+wait(lambda: len(app.tracks) == 5 and not app.library_busy(), loaded, what="library")
+root.mainloop()
+"""
+    run_script(tmp_path, body, env)
+    assert any("/ws/2/release/rel-night-2001" in r for r in fake_mb.requests)

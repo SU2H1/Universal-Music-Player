@@ -21,6 +21,7 @@ import multiprocessing
 import os
 import queue
 import random
+import subprocess
 import sys
 import threading
 import time
@@ -28,8 +29,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Callable, Dict, List, Optional
 
-from . import APP_NAME, PROJECT_URL, __version__, gui, i18n, musiclib, playerstate, stats, themes
-from .i18n import tr, tr_name, tr_text
+from . import APP_NAME, PROJECT_URL, __version__, gui, i18n, musiclib, playerstate, probe, stats, themes
+from .i18n import N_, tr, tr_name, tr_text
 from . import lyrics as lyrics_mod
 from . import settings as settings_mod
 from .musiclib import Track
@@ -38,11 +39,13 @@ from . import player as player_mod
 from .player_collections import (FoldersPage, LibraryPage, PlaylistPage, PlaylistsPage, RecentlyPlayedPage,
                                  StatsDetailsPage, StatsPage, missing_track)
 from .player_pages import (AlbumPage, AlbumsPage, GroupPage, NowPlayingPage, Page, SearchPage, SettingsPage,
-                           SongsPage, album_order, frame, label)
+                           SongsPage, album_order, frame, label, plural)
 from .player_theme import (IconButton, Slider, Theme, draw_icon, fit_text, load_bundled_font, round_rect,
                            system_is_dark)
 from .player_widgets import Column, CoverCache, SongList, bind_wheel, draw_cover, fmt_time
 from .player_windows import EditInfoWindow, EqualizerWindow, PlaybackInfoWindow, ask_name
+from .player_mb import MusicBrainzWindow
+from . import musicbrainz
 from .playqueue import REPEAT_LABELS, REPEAT_MODES, SHUFFLE_LABELS, SHUFFLE_MODES, PlayQueue, SplitMix64
 
 SEARCH_DELAY_MS = 200
@@ -65,7 +68,7 @@ class QualityCheck(gui.App):
         super().__init__(root, initial=initial, cfg=cfg, parent=parent)
         self.quit_callback = player.quit
         self.view_menu.add_separator()
-        self.view_menu.add_command(label="Back to the music library", command=lambda: player.show_page("library"))
+        self.view_menu.add_command(label=tr("Back to the music library"), command=lambda: player.show_page("library"))
 
     def lyrics_saved(self, path: str) -> None:
         super().lyrics_saved(path)
@@ -97,11 +100,12 @@ class Sidebar(tk.Frame):
 
     WIDTH = 220
     ROW, HEAD = 28, 26
-    LIBRARY = [("songs", "All Songs", "note"), ("folders", "Folders", "folder"), ("albums", "Albums", "album"),
-               ("artists", "Artists", "artist"), ("album_artists", "Album Artists", "mic"),
-               ("genres", "Genres", "genre"), ("years", "Years", "calendar"), ("composers", "Composers", "piano")]
-    HISTORY = [("played", "Recently Played", "history"), ("recent", "Recently Added", "clock"),
-               ("stats", "Your Stats", "stats")]
+    LIBRARY = [("songs", N_("All Songs"), "note"), ("folders", N_("Folders"), "folder"),
+               ("albums", N_("Albums"), "album"), ("artists", N_("Artists"), "artist"),
+               ("album_artists", N_("Album Artists"), "mic"), ("genres", N_("Genres"), "genre"),
+               ("years", N_("Years"), "calendar"), ("composers", N_("Composers"), "piano")]
+    HISTORY = [("played", N_("Recently Played"), "history"), ("recent", N_("Recently Added"), "clock"),
+               ("stats", N_("Your Stats"), "stats")]
     PAGES = {"library"} | {k for k, _, _ in LIBRARY + HISTORY} | {"liked", "disliked", "settings"}
 
     def __init__(self, master, app: "PlayerApp"):
@@ -167,7 +171,7 @@ class Sidebar(tk.Frame):
     def _show_placeholder(self) -> None:
         self.placeholder = True
         self.entry.delete(0, "end")
-        self.entry.insert(0, "Search")
+        self.entry.insert(0, tr("Search"))
         self.entry.configure(fg=self.app.theme.c("text2"))
 
     def _focus(self, on: bool) -> None:
@@ -188,10 +192,12 @@ class Sidebar(tk.Frame):
     # ---- items ----------------------------------------------------------
     def items(self) -> List[tuple]:
         lists = [(f"playlist:{p['id']}", p["name"], "playlist") for p in self.app.state.playlists]
-        return ([("library", "Library", "library"), ("head", "Library", "")] + self.LIBRARY
-                + [("head", "Playlists", ""), ("liked", "Liked Songs", "heart"),
-                   ("disliked", "Disliked Songs", "thumbs_down")] + lists
-                + [("new_playlist", "New Playlist…", "plus"), ("head", "History", "")] + self.HISTORY)
+        library = [(k, tr(text), icon) for k, text, icon in self.LIBRARY]
+        history = [(k, tr(text), icon) for k, text, icon in self.HISTORY]
+        return ([("library", tr("Library"), "library"), ("head", tr("Library"), "")] + library
+                + [("head", tr("Playlists"), ""), ("liked", tr("Liked Songs"), "heart"),
+                   ("disliked", tr("Disliked Songs"), "thumbs_down")] + lists
+                + [("new_playlist", tr("New Playlist…"), "plus"), ("head", tr("History"), "")] + history)
 
     def _rows(self):
         rows, y = [], 2
@@ -252,7 +258,7 @@ class Sidebar(tk.Frame):
         f = self.foot
         f.delete("all")
         if f.winfo_width() > 1:
-            self._item(f, "settings", "Settings", "gear", 1, 30, f.winfo_width())
+            self._item(f, "settings", tr("Settings"), "gear", 1, 30, f.winfo_width())
 
     def set_status(self, text: str) -> None:
         self.status.configure(text=text)
@@ -307,19 +313,19 @@ class Lcd(tk.Canvas):
         x0, y0, x1, y1 = self._panel()
         round_rect(self, x0, y0, x1, y1, 9, fill=t.c("lcd"), outline="")
         self.geo = {}
-        tr = self.track
-        if tr is None:
+        trk = self.track
+        if trk is None:
             self.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=APP_NAME, fill=t.c("text2"),
                              font=t.f("lcd_title"))
             return
         cy = (y0 + y1) / 2
         cx0 = x0 + 6
-        album = self.app.album_of(tr)
-        key = album["key"] if album else tr.path
-        img = self.app.covers.get(key, [x.path for x in album["tracks"]] if album else [tr.path], self.COVER)
+        album = self.app.album_of(trk)
+        key = album["key"] if album else trk.path
+        img = self.app.covers.get(key, [x.path for x in album["tracks"]] if album else [trk.path], self.COVER)
         draw_cover(self, t, img, cx0, cy - self.COVER / 2, self.COVER)
         self.geo["cover"] = (cx0, cy - self.COVER / 2, cx0 + self.COVER, cy + self.COVER / 2)
-        badge = musiclib.quality(tr)
+        badge = tr_text(musiclib.quality(trk))
         bf = t.f("badge")
         bw = bf.measure(badge) + 14
         bx1 = x1 - 10
@@ -330,12 +336,12 @@ class Lcd(tk.Canvas):
         tx0, tx1 = cx0 + self.COVER + 14, bx0 - 14
         mid = (tx0 + tx1) / 2
         width = max(40, int(tx1 - tx0))
-        self.create_text(mid, y0 + 14, text=fit_text(t.f("lcd_title"), tr.display_title, width, self._fit),
+        self.create_text(mid, y0 + 14, text=fit_text(t.f("lcd_title"), trk.display_title, width, self._fit),
                          fill=t.c("text"), font=t.f("lcd_title"))
         if self.error:
-            sub, color = self.error, t.c("error")
+            sub, color = tr_text(self.error), t.c("error")
         else:
-            sub, color = f"{tr.display_artist} — {tr.display_album}", t.c("text2")
+            sub, color = f"{tr_name(trk.display_artist)} — {tr_name(trk.display_album)}", t.c("text2")
         self.create_text(mid, y0 + 30, text=fit_text(t.f("lcd_sub"), sub, width, self._fit), fill=color,
                          font=t.f("lcd_sub"))
         self.geo["text"] = (tx0, tx1)
@@ -421,35 +427,35 @@ class PlaybackBar(tk.Frame):
         left = frame(self, t)
         left.pack(side="left", padx=(16, 8))
         self.shuffle = IconButton(left, t, "shuffle", command=app.shuffle_menu, size=32, icon_size=17,
-                                  tooltip=lambda: f"Shuffle: {SHUFFLE_LABELS[app.state.shuffle]}")
+                                  tooltip=lambda: tr("Shuffle: {mode}", mode=tr(SHUFFLE_LABELS[app.state.shuffle])))
         self.prev = IconButton(left, t, "prev", command=app.previous, size=36, icon_size=17, primary=True,
-                               tooltip=lambda: "Previous")
+                               tooltip=lambda: tr("Previous"))
         self.play = IconButton(left, t, "play", command=app.play_pause, size=40, icon_size=22, primary=True,
-                               tooltip=lambda: "Pause" if app.engine.playing else "Play")
+                               tooltip=lambda: tr("Pause") if app.engine.playing else tr("Play"))
         self.next = IconButton(left, t, "next", command=app.next, size=36, icon_size=17, primary=True,
-                               tooltip=lambda: "Next")
+                               tooltip=lambda: tr("Next"))
         self.repeat = IconButton(left, t, "repeat", command=app.repeat_menu, size=32, icon_size=17,
-                                 tooltip=lambda: f"Repeat: {REPEAT_LABELS[app.repeat_mode()]}")
+                                 tooltip=lambda: tr("Repeat: {mode}", mode=tr(REPEAT_LABELS[app.repeat_mode()])))
         for b in (self.shuffle, self.prev, self.play, self.next, self.repeat):
             b.pack(side="left", padx=1)
         right = frame(self, t)
         right.pack(side="right", padx=(8, 16))
         self.heart = IconButton(right, t, "heart", command=app.toggle_like_current, size=32, icon_size=16,
-                                tooltip=lambda: "Unlike this song" if app.current and app.is_liked(app.current)
-                                else "Like this song")
+                                tooltip=lambda: tr("Unlike this song") if app.current and app.is_liked(app.current)
+                                else tr("Like this song"))
         self.dislike = IconButton(right, t, "thumbs_down", command=app.toggle_dislike_current, size=32,
-                                  icon_size=16, tooltip=lambda: "Remove dislike" if app.current and
-                                  app.is_disliked(app.current) else "Dislike this song")
+                                  icon_size=16, tooltip=lambda: tr("Remove dislike") if app.current and
+                                  app.is_disliked(app.current) else tr("Dislike this song"))
         self.more = IconButton(right, t, "dots", command=app.more_menu, size=32, icon_size=17,
-                               tooltip=lambda: "More for this song")
+                               tooltip=lambda: tr("More for this song"))
         self.lyrics = IconButton(right, t, "lyrics", command=app.toggle_now_playing, size=32, icon_size=17,
-                                 tooltip=lambda: "Lyrics and cover")
+                                 tooltip=lambda: tr("Lyrics and cover"))
         self.queue = IconButton(right, t, "queue", command=app.toggle_up_next, size=32, icon_size=17,
-                                tooltip=lambda: "Up Next")
+                                tooltip=lambda: tr("Up Next"))
         self.eq = IconButton(right, t, "eq", command=app.open_eq, size=32, icon_size=17,
-                             tooltip=lambda: "Equalizer")
+                             tooltip=lambda: tr("Equalizer"))
         self.speaker = IconButton(right, t, "speaker", command=app.toggle_mute, size=30, icon_size=16,
-                                  tooltip=lambda: "Unmute" if app.state.muted else "Mute")
+                                  tooltip=lambda: tr("Unmute") if app.state.muted else tr("Mute"))
         self.volume = Slider(right, t, 0.0, 1.0, app.state.volume, command=app.volume_changed, length=90)
         for b in (self.heart, self.dislike, self.more, self.lyrics, self.queue, self.eq):
             b.pack(side="left", padx=0)
@@ -488,21 +494,21 @@ class UpNextPanel(tk.Frame):
         self.app, t = app, app.theme
         t.reg(self, bg="sidebar")
         self.pack_propagate(False)
-        label(self, t, "Up Next", "h2", bg="sidebar").pack(anchor="w", padx=18, pady=(16, 0))
+        label(self, t, tr("Up Next"), "h2", bg="sidebar").pack(anchor="w", padx=18, pady=(16, 0))
         self.source = label(self, t, "", "small", fg="text2", bg="sidebar", wraplength=self.WIDTH - 36,
                             justify="left")
         self.source.pack(anchor="w", padx=18, pady=(2, 8))
         self.list = SongList(self, t, [Column("title", "", 200, True, kind="two", key2="artist")],
-                             lambda r, k: r.display_title if k == "title" else r.display_artist, header=False,
-                             zebra=False, row_height=48, bg_role="sidebar", on_activate=app.jump_to,
-                             empty_text="Nothing is queued.")
+                             lambda r, k: r.display_title if k == "title" else tr_name(r.display_artist),
+                             header=False, zebra=False, row_height=48, bg_role="sidebar", on_activate=app.jump_to,
+                             empty_text=tr("Nothing is queued."))
         self.list.pack(fill="both", expand=True, padx=(4, 0))
 
     def refresh(self) -> None:
         app = self.app
         q = app.queue
-        self.source.configure(text=f"Playing from {app.context_name}" if q is not None and app.context_name
-                              else "")
+        self.source.configure(text=tr("Playing from {name}", name=app.context_name)
+                              if q is not None and app.context_name else "")
         rows = [app.by_path[p] for p in (q.up_next(50) if q is not None else []) if p in app.by_path]
         self.list.set_rows(rows)
 
@@ -549,6 +555,11 @@ class PlayerApp:
         self.eq_window: Optional[EqualizerWindow] = None
         self.info_window: Optional[PlaybackInfoWindow] = None
         self.edit_window: Optional[EditInfoWindow] = None  # one Edit Info window at a time
+        self.mb_window: Optional[MusicBrainzWindow] = None  # one MusicBrainz window at a time (2.1)
+        self.mb_thread: Optional[threading.Thread] = None   # the automatic MusicBrainz lookup
+        self.mb_stop = threading.Event()
+        self.mb_last: Optional[list] = None
+        self.mb_forced = False
         self._info_time = 0.0
         self._search_job: Optional[str] = None
         self._search_from: Optional[tuple] = None
@@ -565,6 +576,8 @@ class PlayerApp:
         self.last_menu: Optional[tk.Menu] = None    # the song menu shown last
         self.lib = musiclib.Library()                # the main thread's connection (index, play history)
         self.lib_pending = False
+        self.argv: List[str] = list(initial or [])  # the command line, for restart()
+        self.start_process: Callable = subprocess.Popen  # how restart() starts the app again (tests replace it)
         self._build()
         self.qc = QualityCheck(root, self, parent=self.pages["quality"], initial=initial, cfg=cfg)
         self.qc.pack(fill="both", expand=True)
@@ -574,7 +587,7 @@ class PlayerApp:
         try:
             self.set_tracks(self.lib.tracks())
         except Exception as exc:  # noqa: BLE001 - a broken index must not stop the app
-            self.sidebar.set_status(f"The library index could not be read: {exc}")
+            self.sidebar.set_status(tr("The library index could not be read: {error}", error=exc))
         self.show_page("quality" if initial else "library")
         if self.cfg.library_folders:
             self.refresh_library(then_check=self.cfg.scan_library_on_start)
@@ -607,9 +620,9 @@ class PlayerApp:
         self.pages["quality"] = quality
         self.factories: Dict[str, Callable[[], Page]] = {
             "library": lambda: LibraryPage(self),
-            "songs": lambda: SongsPage(self, "All Songs"),
+            "songs": lambda: SongsPage(self, tr("All Songs")),
             "folders": lambda: FoldersPage(self),
-            "albums": lambda: AlbumsPage(self, "Albums"),
+            "albums": lambda: AlbumsPage(self, tr("Albums")),
             "album": lambda: AlbumPage(self),
             "artists": lambda: GroupPage(self, "artists"),
             "album_artists": lambda: GroupPage(self, "album_artists"),
@@ -618,10 +631,10 @@ class PlayerApp:
             "composers": lambda: GroupPage(self, "composers"),
             "playlists": lambda: PlaylistsPage(self),
             "playlist": lambda: PlaylistPage(self),
-            "liked": lambda: SongsPage(self, "Liked Songs", "liked"),
-            "disliked": lambda: SongsPage(self, "Disliked Songs", "disliked"),
+            "liked": lambda: SongsPage(self, tr("Liked Songs"), "liked"),
+            "disliked": lambda: SongsPage(self, tr("Disliked Songs"), "disliked"),
             "played": lambda: RecentlyPlayedPage(self),
-            "recent": lambda: AlbumsPage(self, "Recently Added", recent=True),
+            "recent": lambda: AlbumsPage(self, tr("Recently Added"), recent=True),
             "stats": lambda: StatsPage(self),
             "stats_details": lambda: StatsDetailsPage(self),
             "search": lambda: SearchPage(self),
@@ -632,49 +645,49 @@ class PlayerApp:
     def _build_menu(self) -> None:
         m = tk.Menu(self.root)
         f = tk.Menu(m, tearoff=False)
-        f.add_command(label="New Playlist…", command=lambda: self.new_playlist())
+        f.add_command(label=tr("New Playlist…"), command=lambda: self.new_playlist())
         f.add_separator()
-        f.add_command(label="Add Music Folder…", command=self.choose_music_folder)
-        f.add_command(label="Update the Library Now", command=self.refresh_library)
-        f.add_command(label="Scan Library", command=lambda: self.check_library(switch=True))
-        f.add_command(label="Download Lyrics for the Whole Library…", command=self.lyrics_for_library)
-        f.add_command(label="Clear the Play History…", command=self.clear_history)
+        f.add_command(label=tr("Add Music Folder…"), command=self.choose_music_folder)
+        f.add_command(label=tr("Update the Library Now"), command=self.refresh_library)
+        f.add_command(label=tr("Scan Library"), command=lambda: self.check_library(switch=True))
+        f.add_command(label=tr("Download Lyrics for the Whole Library…"), command=self.lyrics_for_library)
+        f.add_command(label=tr("Clear the Play History…"), command=self.clear_history)
         f.add_separator()
-        f.add_command(label="Settings…", accelerator=f"{ACC}+,", command=lambda: self.show_page("settings"))
+        f.add_command(label=tr("Settings…"), accelerator=f"{ACC}+,", command=lambda: self.show_page("settings"))
         f.add_separator()
-        f.add_command(label="Quit", accelerator=f"{ACC}+Q", command=self.quit)
-        m.add_cascade(label="File", menu=f)
+        f.add_command(label=tr("Quit"), accelerator=f"{ACC}+Q", command=self.quit)
+        m.add_cascade(label=tr("File"), menu=f)
         c = tk.Menu(m, tearoff=False)
-        c.add_command(label="Play / Pause", accelerator="Space", command=self.play_pause)
-        c.add_command(label="Next", accelerator=f"{ACC}+Right", command=self.next)
-        c.add_command(label="Previous", accelerator=f"{ACC}+Left", command=self.previous)
+        c.add_command(label=tr("Play / Pause"), accelerator="Space", command=self.play_pause)
+        c.add_command(label=tr("Next"), accelerator=f"{ACC}+Right", command=self.next)
+        c.add_command(label=tr("Previous"), accelerator=f"{ACC}+Left", command=self.previous)
         c.add_separator()
-        c.add_cascade(label="Shuffle", menu=self._mode_menu(c, True))
-        c.add_cascade(label="Repeat", menu=self._mode_menu(c, False))
+        c.add_cascade(label=tr("Shuffle"), menu=self._mode_menu(c, True))
+        c.add_cascade(label=tr("Repeat"), menu=self._mode_menu(c, False))
         c.add_separator()
-        c.add_command(label="Volume Up", accelerator=f"{ACC}+Up", command=lambda: self.volume_step(0.05))
-        c.add_command(label="Volume Down", accelerator=f"{ACC}+Down", command=lambda: self.volume_step(-0.05))
-        c.add_command(label="Mute", command=self.toggle_mute)
+        c.add_command(label=tr("Volume Up"), accelerator=f"{ACC}+Up", command=lambda: self.volume_step(0.05))
+        c.add_command(label=tr("Volume Down"), accelerator=f"{ACC}+Down", command=lambda: self.volume_step(-0.05))
+        c.add_command(label=tr("Mute"), command=self.toggle_mute)
         c.add_separator()
-        c.add_command(label="Equalizer…", command=self.open_eq)
-        c.add_command(label="Playback Info…", command=self.open_info)
-        m.add_cascade(label="Controls", menu=c)
+        c.add_command(label=tr("Equalizer…"), command=self.open_eq)
+        c.add_command(label=tr("Playback Info…"), command=self.open_info)
+        m.add_cascade(label=tr("Controls"), menu=c)
         v = tk.Menu(m, tearoff=False)
-        v.add_command(label="Library", command=lambda: self.show_page("library"))
+        v.add_command(label=tr("Library"), command=lambda: self.show_page("library"))
         v.add_separator()
         from .player_collections import TILES
         for key, text, _ in TILES:
-            v.add_command(label=text, command=lambda k=key: self.show_page(k))
+            v.add_command(label=tr(text), command=lambda k=key: self.show_page(k))
         v.add_separator()
-        v.add_command(label="Now Playing and Lyrics", accelerator=f"{ACC}+L", command=self.toggle_now_playing)
-        v.add_command(label="Up Next", command=self.toggle_up_next)
+        v.add_command(label=tr("Now Playing and Lyrics"), accelerator=f"{ACC}+L", command=self.toggle_now_playing)
+        v.add_command(label=tr("Up Next"), command=self.toggle_up_next)
         v.add_separator()
-        v.add_command(label="Quality Check", command=lambda: self.show_page("quality"))
-        v.add_command(label="Settings", command=lambda: self.show_page("settings"))
-        m.add_cascade(label="View", menu=v)
+        v.add_command(label=tr("Quality Check"), command=lambda: self.show_page("quality"))
+        v.add_command(label=tr("Settings"), command=lambda: self.show_page("settings"))
+        m.add_cascade(label=tr("View"), menu=v)
         h = tk.Menu(m, tearoff=False)
-        h.add_command(label=f"About {APP_NAME}", command=self.about)
-        m.add_cascade(label="Help", menu=h)
+        h.add_command(label=tr("About {app}", app=APP_NAME), command=self.about)
+        m.add_cascade(label=tr("Help"), menu=h)
         self.menubar = m
         self.shuffle_popup = self._mode_menu(self.root, True)
         self.repeat_popup = self._mode_menu(self.root, False)
@@ -700,7 +713,7 @@ class PlayerApp:
         modes, labels = (SHUFFLE_MODES, SHUFFLE_LABELS) if shuffle else (REPEAT_MODES, REPEAT_LABELS)
         var = self.shuffle_var if shuffle else self.repeat_var
         for mode in modes:
-            menu.add_radiobutton(label=labels[mode], value=mode, variable=var,
+            menu.add_radiobutton(label=tr(labels[mode]), value=mode, variable=var,
                                  command=(lambda m=mode: self.set_shuffle(m)) if shuffle
                                  else (lambda m=mode: self.set_repeat(m)))
         return menu
@@ -858,14 +871,14 @@ class PlayerApp:
         cfg = settings_mod.Settings.from_dict(self.cfg.to_dict())
         stop = self.lib_stop
         out = self.q
-        out.put(("lib_status", "Updating the library: looking for songs…"))
+        out.put(("lib_status", tr("Updating the library: looking for songs…")))
 
         def work():
             lib = None
             try:
                 lib = musiclib.Library()
                 files = musiclib.library_files(cfg)
-                out.put(("lib_status", f"Updating the library: {len(files):,} songs found…"))
+                out.put(("lib_status", tr("Updating the library: {n} songs found…", n=f"{len(files):,}")))
                 tracks = lib.refresh(files, progress=lambda d, n: out.put(("lib_progress", d, n)), stop=stop)
                 out.put(("lib_done", tracks))
             except Exception as exc:  # noqa: BLE001
@@ -890,9 +903,10 @@ class PlayerApp:
         if self.lib_then_check:
             self.lib_then_check = False
             self.check_library(switch=False)
+        self.lookup_library()
 
     def choose_music_folder(self) -> None:
-        d = filedialog.askdirectory(title="Choose a music folder", parent=self.root)
+        d = filedialog.askdirectory(title=tr("Choose a music folder"), parent=self.root)
         if not d:
             return
         d = os.path.abspath(d)
@@ -921,8 +935,8 @@ class PlayerApp:
 
     def lyrics_for_library(self) -> None:
         if not self.tracks:
-            messagebox.showinfo("Download lyrics", "The library has no songs yet. Add your music folder in "
-                                "Settings → Library first.", parent=self.root)
+            messagebox.showinfo(tr("Download lyrics"), tr("The library has no songs yet. Add your music folder in "
+                                                          "Settings → Library first."), parent=self.root)
             return
         self.qc.download_lyrics([t.path for t in musiclib.sort_songs(self.tracks)])
 
@@ -942,6 +956,8 @@ class PlayerApp:
     def settings_changed(self, old, new) -> None:
         if (old.theme, old.font_family) != (new.theme, new.font_family):
             self.theme.apply(new.theme, new.font_family)
+            self._settings_page_again()
+        if old.language != new.language:  # the restart note under Settings → Appearance → Language
             self._settings_page_again()
         if old.output_device != new.output_device:
             self.engine.set_device(new.output_device)
@@ -998,18 +1014,18 @@ class PlayerApp:
         path = track.path
         missing = getattr(track, "missing", False)
         if rows is not None and index is not None and not missing:
-            m.add_command(label="Play", command=lambda: self.play_list(list(rows), index, list_name))
+            m.add_command(label=tr("Play"), command=lambda: self.play_list(list(rows), index, list_name))
             m.add_separator()
-        m.add_command(label="Unlike" if self.is_liked(path) else "Like", command=lambda: self.toggle_like(path))
-        m.add_command(label="Remove dislike" if self.is_disliked(path) else "Dislike",
+        m.add_command(label=tr("Unlike") if self.is_liked(path) else tr("Like"), command=lambda: self.toggle_like(path))
+        m.add_command(label=tr("Remove dislike") if self.is_disliked(path) else tr("Dislike"),
                       command=lambda: self.toggle_dislike(path))
         sub = tk.Menu(m, tearoff=False)
         for p in self.state.playlists:
             sub.add_command(label=p["name"], command=lambda pid=p["id"]: self.add_to_playlist(pid, [path]))
         if self.state.playlists:
             sub.add_separator()
-        sub.add_command(label="New Playlist…", command=lambda: self.new_playlist([path]))
-        m.add_cascade(label="Add to playlist", menu=sub)
+        sub.add_command(label=tr("New Playlist…"), command=lambda: self.new_playlist([path]))
+        m.add_cascade(label=tr("Add to playlist"), menu=sub)
         if extras:
             m.add_separator()
             for text, cmd in extras:
@@ -1017,12 +1033,13 @@ class PlayerApp:
         m.add_separator()
         album = None if missing else self.album_of(track)
         if album is not None:
-            m.add_command(label="Show album", command=lambda: self.open_album(album))
+            m.add_command(label=tr("Show album"), command=lambda: self.open_album(album))
         if os.path.exists(path):
-            m.add_command(label="Edit info…", command=lambda: self.edit_info([track]))
-            m.add_command(label="Show in folder", command=lambda: gui.reveal_in_file_manager(path))
+            m.add_command(label=tr("Edit info…"), command=lambda: self.edit_info([track]))
+            m.add_command(label=tr("Get info from MusicBrainz…"), command=lambda: self.musicbrainz([track]))
+            m.add_command(label=tr("Show in folder"), command=lambda: gui.reveal_in_file_manager(path))
         if path == self.current:
-            m.add_command(label="Playback Info…", command=self.open_info)
+            m.add_command(label=tr("Playback Info…"), command=self.open_info)
         self._theme_menu(m)
         self.last_menu = m
         return m
@@ -1047,10 +1064,76 @@ class PlayerApp:
         self.edit_window = EditInfoWindow(self, tracks, heading, subheading)
         return self.edit_window
 
+    def musicbrainz(self, tracks: List[Track], album: bool = False, heading: str = "",
+                    subheading: str = "") -> Optional[MusicBrainzWindow]:
+        """The MusicBrainz window for these songs (2.1); one at a time, as Edit Info."""
+        w = self.mb_window
+        if w is not None:
+            try:
+                if w.win.winfo_exists():
+                    w.win.lift()
+                    w.win.focus_force()
+                    return w
+            except tk.TclError:
+                pass
+            self.mb_window = None
+        tracks = [t for t in tracks if not getattr(t, "missing", False) and os.path.exists(t.path)]
+        if not tracks:
+            return None
+        self.mb_window = MusicBrainzWindow(self, tracks, album, heading, subheading)
+        return self.mb_window
+
+    def album_musicbrainz(self, album: dict) -> Optional[MusicBrainzWindow]:
+        n = len(album["tracks"])
+        return self.musicbrainz(album["tracks"], True, tr_name(album["title"]),
+                                " · ".join(x for x in (tr_name(album["artist"]), plural(n, "song")) if x))
+
+    # ---- the automatic MusicBrainz lookup (2.1) ---------------------------------------
+    def musicbrainz_busy(self) -> bool:
+        return self.mb_thread is not None and self.mb_thread.is_alive()
+
+    def lookup_library(self, force: bool = False) -> bool:
+        """Look the library's songs that miss information up on MusicBrainz in a thread
+        (after each library update when `musicbrainz_auto` is on, or by hand with force)."""
+        if self.musicbrainz_busy() or not self.tracks or (not force and not self.cfg.musicbrainz_auto):
+            return False
+        self.mb_forced = force
+        cfg = settings_mod.Settings.from_dict(self.cfg.to_dict())
+        known = {t.path: (musicbrainz.index_tags(t), t.duration) for t in self.tracks}
+        paths = [t.path for t in self.tracks]
+        out, stop = self.q, self.mb_stop
+
+        def work():
+            try:
+                client = musicbrainz.MusicBrainzClient(cfg.musicbrainz_server, stop=stop)
+                res = musicbrainz.run_auto(client, paths, cfg, known=known.get,
+                                           progress=lambda i, n: out.put(("mb_progress", i, n)))
+                out.put(("mb_done", res))
+            except musicbrainz.MusicBrainzStopped:
+                out.put(("mb_done", None))
+            except Exception as exc:  # noqa: BLE001 - the lookup must never stop the app
+                out.put(("mb_done", [musicbrainz.AutoOutcome("", musicbrainz.FAILED, message=str(exc))]))
+
+        self.mb_thread = threading.Thread(target=work, daemon=True, name="realhires-mb-auto")
+        self.mb_thread.start()
+        return True
+
+    def _musicbrainz_done(self, outcomes) -> None:
+        if outcomes is None:
+            self.sidebar.set_status("")
+            return
+        filled = [o.path for o in outcomes if o.status == musicbrainz.FILLED]
+        # after an automatic run that asked nothing the status stays quiet; a run by hand always answers
+        quiet = not outcomes and not self.mb_forced
+        self.sidebar.set_status("" if quiet else tr_text(musicbrainz.auto_summary(outcomes)))
+        self.mb_last = outcomes
+        if filled:
+            self.refresh_library()
+
     def edit_album_info(self, album: dict) -> Optional[EditInfoWindow]:
         n = len(album["tracks"])
-        return self.edit_info(album["tracks"], album["title"],
-                              " · ".join(x for x in (album["artist"], f"{n:,} song{'s' if n != 1 else ''}") if x))
+        return self.edit_info(album["tracks"], tr_name(album["title"]),
+                              " · ".join(x for x in (tr_name(album["artist"]), plural(n, "song")) if x))
 
     def tags_saved(self, paths: List[str]) -> None:
         """Edit Info saved new information into these files (the library index already
@@ -1069,15 +1152,15 @@ class PlayerApp:
     def _playlist_name(self, name: str) -> str:
         clean = playerstate.clean_name(name)
         if not clean:
-            raise playerstate.InvalidName("Give the playlist a name.")
+            raise playerstate.InvalidName(tr("Give the playlist a name."))
         return clean
 
     def new_playlist(self, songs=None, name: Optional[str] = None, open_page: bool = True) -> Optional[str]:
         """A new playlist (asks for its name), with `songs` in it; returns its id."""
         if name is None:
-            name = ask_name(self, "New Playlist", "Name of the playlist",
-                            self.state.unique_playlist_name("New Playlist"), check=self._playlist_name,
-                            ok="Create")
+            name = ask_name(self, tr("New Playlist"), tr("Name of the playlist"),
+                            self.state.unique_playlist_name(tr("New Playlist")), check=self._playlist_name,
+                            ok=tr("Create"))
         if not name:
             return None
         pid = self.state.create_playlist(name, list(songs or []))
@@ -1092,8 +1175,8 @@ class PlayerApp:
         if p is None:
             return
         if name is None:
-            name = ask_name(self, "Rename Playlist", "New name of the playlist", p["name"],
-                            check=self._playlist_name, ok="Rename")
+            name = ask_name(self, tr("Rename Playlist"), tr("New name of the playlist"), p["name"],
+                            check=self._playlist_name, ok=tr("Rename"))
         if name:
             self.state.rename_playlist(pid, name)
             self.save_state()
@@ -1103,8 +1186,9 @@ class PlayerApp:
         p = self.state.playlist(pid)
         if p is None:
             return
-        if confirm and not messagebox.askyesno("Delete Playlist", f"Delete the playlist “{p['name']}”? The songs "
-                                               "themselves are not deleted.", parent=self.root):
+        if confirm and not messagebox.askyesno(tr("Delete Playlist"), tr(
+                "Delete the playlist “{name}”? The songs themselves are not deleted.", name=p["name"]),
+                parent=self.root):
             return
         self.state.delete_playlist(pid)
         self.save_state()
@@ -1122,8 +1206,9 @@ class PlayerApp:
         self.save_state()
         self.playlists_changed()
         if p is not None:
-            self.sidebar.set_status(f"Added {n} song{'s' if n != 1 else ''} to “{p['name']}”." if n
-                                    else f"Already in “{p['name']}”.")
+            added = (tr("Added 1 song to “{name}”.", name=p["name"]) if n == 1 else
+                     tr("Added {n} songs to “{name}”.", n=n, name=p["name"]))
+            self.sidebar.set_status(added if n else tr("Already in “{name}”.", name=p["name"]))
             self.root.after(4000, lambda: self.sidebar.set_status("") if not self.library_busy() else None)
         return n
 
@@ -1213,9 +1298,9 @@ class PlayerApp:
         return stats.compute(self.plays(since, until))
 
     def clear_history(self, confirm: bool = True) -> None:
-        if confirm and not messagebox.askyesno("Clear the play history", "Forget every song you have played? "
-                                               "Recently Played and Your Stats start again from nothing.",
-                                               parent=self.root):
+        if confirm and not messagebox.askyesno(tr("Clear the play history"), tr(
+                "Forget every song you have played? Recently Played and Your Stats start again from nothing."),
+                parent=self.root):
             return
         self.lib.clear_history()
         self._refresh_pages({"played", "library", "stats", "stats_details"})
@@ -1241,8 +1326,8 @@ class PlayerApp:
             os.makedirs(folder, exist_ok=True)
             (opener or gui.open_with_default_app)(folder)
         except OSError as exc:
-            messagebox.showerror("Open themes folder", f"The themes folder {folder} could not be opened: {exc}",
-                                 parent=self.root)
+            messagebox.showerror(tr("Open themes folder"), tr("The themes folder {folder} could not be opened: "
+                                                              "{error}", folder=folder, error=exc), parent=self.root)
         return folder
 
     def current_theme(self) -> dict:
@@ -1274,8 +1359,8 @@ class PlayerApp:
     def rename_theme(self, old: str, new: Optional[str] = None) -> None:
         custom = themes.load_custom()
         if new is None:
-            new = ask_name(self, "Rename Theme", "New name of the theme", old,
-                           check=lambda n: themes.check_name(n, custom, renaming=old), ok="Rename")
+            new = ask_name(self, tr("Rename Theme"), tr("New name of the theme"), old,
+                           check=lambda n: themes.check_name(n, custom, renaming=old), ok=tr("Rename"))
         if not new:
             return
         new = themes.check_name(new, custom, renaming=old)
@@ -1288,7 +1373,8 @@ class PlayerApp:
         self._settings_page_again()
 
     def delete_theme(self, name: str, confirm: bool = True) -> None:
-        if confirm and not messagebox.askyesno("Delete Theme", f"Delete your theme “{name}”?", parent=self.root):
+        if confirm and not messagebox.askyesno(tr("Delete Theme"), tr("Delete your theme “{name}”?", name=name),
+                                               parent=self.root):
             return
         themes.save_custom([t for t in themes.load_custom() if t["name"] != name])
         if self.cfg.theme == name:
@@ -1314,9 +1400,9 @@ class PlayerApp:
     def export_theme_file(self, name: str, path: Optional[str] = None) -> Optional[str]:
         theme = next((t for t in self.all_themes() if t["name"] == name), None) or self.current_theme()
         if path is None:
-            path = filedialog.asksaveasfilename(parent=self.root, title="Export the theme",
+            path = filedialog.asksaveasfilename(parent=self.root, title=tr("Export the theme"),
                                                 initialfile=f"{theme['name']}.json", defaultextension=".json",
-                                                filetypes=[(f"{APP_NAME} theme", "*.json")])
+                                                filetypes=[(tr("{app} theme", app=APP_NAME), "*.json")])
         if not path:
             return None
         with open(path, "w", encoding="utf-8", newline="\n") as fh:
@@ -1326,8 +1412,9 @@ class PlayerApp:
     def import_theme_file(self, path: Optional[str] = None) -> Optional[str]:
         """A theme from a .json file (a taken name gets " 2"); it is selected."""
         if path is None:
-            path = filedialog.askopenfilename(parent=self.root, title="Import a theme",
-                                              filetypes=[(f"{APP_NAME} theme", "*.json"), ("All files", "*")])
+            path = filedialog.askopenfilename(parent=self.root, title=tr("Import a theme"),
+                                              filetypes=[(tr("{app} theme", app=APP_NAME), "*.json"),
+                                                         (tr("All files"), "*")])
         if not path:
             return None
         custom = themes.load_custom()
@@ -1335,7 +1422,7 @@ class PlayerApp:
             with open(path, encoding="utf-8") as fh:
                 theme = themes.import_theme(fh.read(), custom)
         except (OSError, themes.ThemeError) as exc:
-            messagebox.showerror("Import a theme", str(exc), parent=self.root)
+            messagebox.showerror(tr("Import a theme"), tr_text(str(exc)), parent=self.root)
             return None
         custom.append(theme)
         themes.save_custom(custom)
@@ -1400,10 +1487,10 @@ class PlayerApp:
             self.engine.set_next(self._auto_next(), after=self.current)
 
     def _song_changed(self) -> None:
-        tr = self.track(self.current)
-        if tr is None and self.current:  # not (or no longer) in the index: its file name
-            tr = Track(self.current)
-        self.bar.lcd.set_song(tr, self.error)
+        trk = self.track(self.current)
+        if trk is None and self.current:  # not (or no longer) in the index: its file name
+            trk = Track(self.current)
+        self.bar.lcd.set_song(trk, self.error)
         self.bar.update_controls()
         if self.up_next_shown:
             self.up_next.refresh()
@@ -1426,7 +1513,7 @@ class PlayerApp:
                                shuffle=st.shuffle, repeat=st.repeat, seed=random.getrandbits(64),
                                disliked=set(st.disliked))
         self.queue.start(t.path)
-        self.context_name = album["title"] if album else ""
+        self.context_name = tr_name(album["title"]) if album else ""
         self.current = t.path
         self.resume_pos = min(st.last_position, max(0.0, t.duration - 1.0)) if t.duration else st.last_position
         self._song_changed()
@@ -1444,7 +1531,7 @@ class PlayerApp:
             songs = page.songs() if isinstance(page, Page) else album_order(self.tracks)
             if not songs and self.page_name == "quality":
                 songs = album_order(self.tracks)
-            self.play_list(songs, 0, getattr(page, "list_name", "") or "Library")
+            self.play_list(songs, 0, getattr(page, "list_name", "") or tr("Library"))
         self.bar.update_controls()
 
     def next(self) -> None:
@@ -1624,7 +1711,7 @@ class PlayerApp:
         try:
             playerstate.save(st)
         except OSError as exc:
-            self.sidebar.set_status(f"The player state could not be saved: {exc}")
+            self.sidebar.set_status(tr("The player state could not be saved: {error}", error=exc))
 
     # ---- equalizer and info ---------------------------------------------
     def open_eq(self) -> None:
@@ -1658,33 +1745,37 @@ class PlayerApp:
         t = self.track(self.current)
         dash = "—"
         if t is None:
-            return [("Track", [("Title", "Nothing is playing")])]
+            return [(tr("Track"), [(tr("Title"), tr("Nothing is playing"))])]
         album = self.album_of(t)
         count = len(album["tracks"]) if album else 0
-        track_no = f"{t.track} of {count}" if t.track and count >= t.track else (str(t.track) if t.track else dash)
-        track = [("Title", t.display_title), ("Artist", t.artist or dash), ("Album", t.album or dash),
-                 ("Album artist", t.album_artist or dash), ("Genre", t.genre or dash), ("Year", t.year or dash),
-                 ("Track", track_no), ("Disc", str(t.disc) if t.disc else dash),
-                 ("Duration", fmt_time(t.duration)), ("File", t.path), ("Size", fmt_bytes(t.size) if t.size
-                                                                          else dash)]
-        decoder = [("Format", f"{t.codec.upper()}, {'lossy' if t.is_lossy else 'lossless'}" if t.codec else dash),
-                   ("Sample rate", player_mod.fmt_khz(t.sample_rate)),
-                   ("Bit depth", player_mod.bit_depth_label(t.bits, t.is_float, t.is_lossy)),
-                   ("Channels", player_mod.channels_label(t.channels)),
-                   ("Bit rate", player_mod.bit_rate_label(t.bit_rate)),
-                   ("Decoder", player_mod.ffmpeg_version())]
+        track_no = (tr("{track} of {count}", track=t.track, count=count) if t.track and count >= t.track
+                    else (str(t.track) if t.track else dash))
+        track = [(tr("Title"), t.display_title), (tr("Artist"), t.artist or dash), (tr("Album"), t.album or dash),
+                 (tr("Album artist"), t.album_artist or dash), (tr("Genre"), t.genre or dash),
+                 (tr("Year"), t.year or dash), (tr("Track"), track_no), (tr("Disc"), str(t.disc) if t.disc else dash),
+                 (tr("Duration"), fmt_time(t.duration)), (tr("File"), t.path),
+                 (tr("Size"), fmt_bytes(t.size) if t.size else dash)]
+        fmt = (tr("{codec}, lossy", codec=t.codec.upper()) if t.is_lossy else
+               tr("{codec}, lossless", codec=t.codec.upper())) if t.codec else dash
+        decoder = [(tr("Format"), fmt),
+                   (tr("Sample rate"), tr_text(player_mod.fmt_khz(t.sample_rate))),
+                   (tr("Bit depth"), tr_text(player_mod.bit_depth_label(t.bits, t.is_float, t.is_lossy))),
+                   (tr("Channels"), tr_text(player_mod.channels_label(t.channels))),
+                   (tr("Bit rate"), tr_text(player_mod.bit_rate_label(t.bit_rate))),
+                   (tr("Decoder"), player_mod.ffmpeg_version())]
         info = self.engine.output_info()
         playing = self.engine.active and self.engine.current == t.path
         rate = info["rate"] if playing else 0
-        output = [("Device", info["device"] or "System default"),
-                  ("Output", player_mod.output_label(rate)),
-                  ("Resampling", player_mod.resampling_label(t.sample_rate, rate, player_mod.resampler_name())
+        output = [(tr("Device"), info["device"] or tr("System default")),
+                  (tr("Output"), tr_text(player_mod.output_label(rate))),
+                  (tr("Resampling"), tr_text(player_mod.resampling_label(t.sample_rate, rate,
+                                                                         player_mod.resampler_name()))
                    if rate else dash),
-                  ("Volume", player_mod.fmt_gain(0.0 if self.state.muted else self.state.volume ** 2,
-                                                 self.state.muted)),
-                  ("Equalizer", player_mod.eq_summary(self.state.eq)),
-                  ("Gapless", "On" if self.cfg.gapless else "Off")]
-        quality = [("Verdict", "Not checked yet")]
+                  (tr("Volume"), tr_text(player_mod.fmt_gain(0.0 if self.state.muted else self.state.volume ** 2,
+                                                             self.state.muted))),
+                  (tr("Equalizer"), tr_text(player_mod.eq_summary(self.state.eq))),
+                  (tr("Gapless"), tr("On") if self.cfg.gapless else tr("Off"))]
+        quality = [(tr("Verdict"), tr("Not checked yet"))]
         store = self.qc.store
         if store is not None:
             try:
@@ -1694,9 +1785,10 @@ class PlayerApp:
             except Exception:  # noqa: BLE001
                 r = None
             if r is not None:
-                quality = [("Verdict", gui.VERDICT_STYLE.get(r.verdict, (r.verdict,))[0]),
-                           ("Why", r.summary or dash)]
-        return [("Track", track), ("Decoder", decoder), ("Output", output), ("Quality check", quality)]
+                quality = [(tr("Verdict"), tr(gui.VERDICT_STYLE.get(r.verdict, (r.verdict,))[0])),
+                           (tr("Why"), tr_text(r.summary) if r.summary else dash)]
+        return [(tr("Track"), track), (tr("Decoder"), decoder), (tr("Output"), output),
+                (tr("Quality check"), quality)]
 
     # ---- the clock --------------------------------------------------------
     def _tick(self) -> None:
@@ -1733,26 +1825,62 @@ class PlayerApp:
                     self.sidebar.set_status(rest[0])
                 elif kind == "lib_progress":
                     done, total = rest
-                    self.sidebar.set_status(f"Updating the library: {done:,} of {total:,} songs")
+                    self.sidebar.set_status(tr("Updating the library: {done} of {total} songs", done=f"{done:,}",
+                                               total=f"{total:,}"))
                 elif kind == "lib_done":
                     self.lib_pending = False
                     self._library_done(rest[0])
                 elif kind == "lib_error":
                     self.lib_pending = False
-                    self.sidebar.set_status(f"The library could not be updated: {rest[0]}")
+                    self.sidebar.set_status(tr("The library could not be updated: {error}", error=rest[0]))
+                elif kind == "mb_progress":
+                    i, n = rest
+                    if i < n and not self.library_busy():
+                        self.sidebar.set_status(tr("Getting song information from MusicBrainz: {i} of {n} albums",
+                                                   i=f"{i + 1:,}", n=f"{n:,}"))
+                elif kind == "mb_done":
+                    self._musicbrainz_done(rest[0])
         except queue.Empty:
             pass
 
     # ---- the rest -------------------------------------------------------
     def about(self) -> None:
         messagebox.showinfo(
-            f"About {APP_NAME}",
-            f"{APP_NAME} {__version__}\n\nA music player (formerly Real-Hi-Res) that also finds fake hi-res audio (upsampled or 16-bit "
-            "padded) and fake lossless files (FLAC/WAV/ALAC made from MP3/AAC) by analysing the audio itself.\n\n"
-            f"{lyrics_mod.ABOUT_CREDIT}\n\nOn Windows and Linux the app uses the Inter typeface by Rasmus "
-            "Andersson, under the SIL Open Font License.\n\n" + PROJECT_URL, parent=self.root)
+            tr("About {app}", app=APP_NAME),
+            f"{APP_NAME} {__version__}\n\n"
+            + tr("A music player (formerly Real-Hi-Res) that also finds fake hi-res audio (upsampled or 16-bit "
+                 "padded) and fake lossless files (FLAC/WAV/ALAC made from MP3/AAC) by analysing the audio itself.")
+            + f"\n\n{tr_text(lyrics_mod.ABOUT_CREDIT)}\n{tr_text(musicbrainz.ABOUT_CREDIT)}\n\n"
+            + tr("On Windows and Linux the app uses the Inter typeface by Rasmus Andersson, under the SIL Open Font "
+                 "License.") + "\n\n" + PROJECT_URL, parent=self.root)
+
+    def restart_command(self) -> List[str]:
+        """How to start the app again with the same arguments: the frozen program
+        itself, else this Python with `-m realhires.gui`."""
+        if getattr(sys, "frozen", False):
+            return [sys.executable] + list(self.argv)
+        return [sys.executable, "-m", "realhires.gui"] + list(self.argv)
+
+    def restart(self) -> None:
+        """Settings → Appearance → Language → Restart now: save everything as Quit does,
+        then start the app again (a new language is chosen when the app starts)."""
+        self._shutdown()
+        kw = probe._no_window()  # the user's environment, and no console window on Windows
+        kw["env"] = dict(kw["env"], PYINSTALLER_RESET_ENVIRONMENT="1")  # a program of its own, not a child
+        kw["close_fds"] = True
+        try:
+            self.start_process(self.restart_command(), **kw)
+        except OSError as exc:
+            messagebox.showerror(APP_NAME, tr("{app} could not start again: {error}. Please start it yourself.",
+                                              app=APP_NAME, error=exc), parent=self.root)
+        self.root.destroy()
 
     def quit(self) -> None:
+        self._shutdown()
+        self.root.destroy()
+
+    def _shutdown(self) -> None:
+        """Save the player state and stop every thread and timer (Quit and Restart)."""
         if self.eq_window is not None:
             try:
                 self.eq_window.close()
@@ -1764,6 +1892,7 @@ class PlayerApp:
         self._listen_end()
         self.save_state()
         self.lib_stop.set()
+        self.mb_stop.set()
         self.engine.close()
         self.covers.close()
         self.qc.shutdown()
@@ -1773,7 +1902,6 @@ class PlayerApp:
                 self.root.tk.call("after", "cancel", job)  # (after_cancel would delete widgets' commands)
         except tk.TclError:
             pass
-        self.root.destroy()
 
 
 def main(argv=None) -> int:
@@ -1796,7 +1924,8 @@ def main(argv=None) -> int:
         root.iconphoto(True, tk.PhotoImage(file=icon))
     except (tk.TclError, OSError):
         pass  # the icon is cosmetic only
-    PlayerApp(root, initial=[a for a in args if not a.startswith("-")])
+    app = PlayerApp(root, initial=[a for a in args if not a.startswith("-")])
+    app.argv = args  # restart() starts the app again with the same arguments
     root.mainloop()
     return 0
 

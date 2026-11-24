@@ -429,6 +429,7 @@
   "{host} refused the request (HTTP {status}).": "{host}がリクエストを拒否しました（HTTP {status}）。",
   "Could not connect to {host} securely: {why}.": "{host}に安全に接続できませんでした：{why}。",
   "could not reach {host}: {why}": "{host}に接続できません：{why}",
-  "server error (HTTP {status})": "サーバーエラー（HTTP {status}）"
+  "server error (HTTP {status})": "サーバーエラー（HTTP {status}）",
+  "lossy~{k:num}k": "ロッシー〜{k}k"
  }
 }
