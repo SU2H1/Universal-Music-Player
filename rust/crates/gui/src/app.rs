@@ -1587,10 +1587,12 @@ impl App {
                 ui.label(tr!("A music player that finds fake hi-res audio (upsampled or 16-bit padded) and fake lossless files made from MP3/AAC, by analysing the decoded audio itself."));
                 ui.label(tr!("This is the Rust version; it shares its settings, saved results, library and player state with the Python version."));
                 ui.label(tr_text(realhires::lyrics::ABOUT_CREDIT));
+                ui.label(tr_text(realhires::musicbrainz::ABOUT_CREDIT));
                 ui.label(tr!("Windows and Linux use the Inter typeface by The Inter Project Authors (SIL Open Font License 1.1)."));
                 ui.horizontal_wrapped(|ui| {
                     ui.hyperlink_to("LRCLIB", "https://lrclib.net");
                     ui.hyperlink_to("LRCGET", "https://github.com/tranxuanthang/lrcget");
+                    ui.hyperlink_to("MusicBrainz", "https://musicbrainz.org");
                     ui.hyperlink_to("Inter", "https://rsms.me/inter/");
                 });
                 ui.hyperlink(realhires::PROJECT_URL);

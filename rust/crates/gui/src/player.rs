@@ -166,6 +166,13 @@ fn wall_clock() -> f64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0)
 }
 
+/// What the automatic MusicBrainz lookup posts (2.1).
+enum MbMsg {
+    Progress(usize, usize),
+    /// None when it was stopped
+    Done(Option<Vec<realhires::musicbrainz::AutoOutcome>>),
+}
+
 enum LibMsg {
     Progress(usize, usize),
     Done(Vec<Track>),
@@ -366,6 +373,16 @@ pub struct Player {
     themes_gen: u64,
     /// the Edit Info window (one at a time)
     pub edit_info: Option<crate::editinfo::EditInfo>,
+    /// the MusicBrainz window (2.1, one at a time)
+    pub mb_win: Option<crate::mbwin::MbWindow>,
+    /// the automatic MusicBrainz lookup (2.1): its messages, stop flag, progress and last summary
+    mb_rx: Option<Receiver<MbMsg>>,
+    mb_stop: Arc<AtomicBool>,
+    pub mb_progress: Option<(usize, usize)>,
+    /// `musicbrainz::auto_summary()` of the last run (English, translated when drawn)
+    pub mb_summary: String,
+    pub mb_last: Option<Vec<realhires::musicbrainz::AutoOutcome>>,
+    mb_forced: bool,
     /// the play history (`library.sqlite`)
     pub history: Option<Library>,
     pub history_gen: u64,
@@ -445,6 +462,13 @@ impl Player {
             file_themes_read: Instant::now(),
             themes_gen: 0,
             edit_info: None,
+            mb_win: None,
+            mb_rx: None,
+            mb_stop: Arc::new(AtomicBool::new(false)),
+            mb_progress: None,
+            mb_summary: String::new(),
+            mb_last: None,
+            mb_forced: false,
             history: Library::open(None).ok(),
             history_gen: 0,
             listening: None,
@@ -556,6 +580,129 @@ impl Player {
                 self.scanner.quiet_scan = true;
                 self.page = page;
             }
+            self.lookup_library(false);
+        }
+    }
+
+    // ------------------------------------------------- MusicBrainz (2.1) ---
+
+    /// Open the MusicBrainz window for one song (one at a time).
+    pub fn musicbrainz_song(&mut self, path: &str) {
+        let (heading, sub) = match self.lib.track(path) {
+            Some(t) => (
+                t.display_title(),
+                [t.artist.as_str(), t.album.as_str()].iter().filter(|x| !x.is_empty()).cloned().collect::<Vec<_>>().join(" · "),
+            ),
+            None => (realhires::paths::file_name(path), String::new()),
+        };
+        self.open_musicbrainz(vec![path.to_string()], false, heading, sub);
+    }
+
+    /// Open the MusicBrainz window for every song of an album.
+    pub fn musicbrainz_album(&mut self, album: &Album) {
+        let n = album.tracks.len();
+        let count = count(n, n_!("1 song"), n_!("{n} songs"));
+        let sub = [tr_name(&album.artist), count.as_str()].iter().filter(|x| !x.is_empty()).cloned().collect::<Vec<_>>().join(" · ");
+        let paths = album.tracks.iter().map(|t| t.path.clone()).collect();
+        self.open_musicbrainz(paths, true, album.title.clone(), sub);
+    }
+
+    pub fn open_musicbrainz(&mut self, paths: Vec<String>, album: bool, heading: String, subheading: String) {
+        let paths: Vec<String> = paths.into_iter().filter(|p| std::path::Path::new(p).is_file()).collect();
+        if self.mb_win.is_some() || paths.is_empty() {
+            return;
+        }
+        let cfg = self.scanner.cfg.clone();
+        self.mb_win = Some(crate::mbwin::MbWindow::new(&self.ctx, &cfg, paths, album, heading, subheading));
+    }
+
+    pub fn musicbrainz_busy(&self) -> bool {
+        self.mb_rx.is_some()
+    }
+
+    /// Look the library's songs that miss information up on MusicBrainz in a
+    /// thread: after each library update when `musicbrainz_auto` is on, or by
+    /// hand (`force`, Settings → Library).  False when it did not start.
+    pub fn lookup_library(&mut self, force: bool) -> bool {
+        let cfg = self.scanner.cfg.clone();
+        if self.mb_rx.is_some() || self.lib.tracks.is_empty() || (!force && !cfg.musicbrainz_auto) {
+            return false;
+        }
+        use realhires::musicbrainz as mb;
+        self.mb_forced = force;
+        let known: HashMap<String, (Vec<(String, String)>, f64)> =
+            self.lib.tracks.iter().map(|t| (t.path.clone(), (mb::index_tags(t), t.duration))).collect();
+        let paths: Vec<String> = self.lib.tracks.iter().map(|t| t.path.clone()).collect();
+        let (tx, rx) = mpsc::channel();
+        let stop = Arc::new(AtomicBool::new(false));
+        self.mb_stop = stop.clone();
+        let ctx = self.ctx.clone();
+        let _ = std::thread::Builder::new().name("musicbrainz-auto".into()).spawn(move || {
+            let out = match mb::LookupLog::open(None) {
+                Err(e) => Some(vec![mb::AutoOutcome { status: mb::FAILED.into(), message: e.to_string(), ..Default::default() }]),
+                Ok(log) => {
+                    let mut client = mb::MusicBrainzClient::new(&cfg.musicbrainz_server).with_stop(stop);
+                    let p = tx.clone();
+                    let c = ctx.clone();
+                    match mb::run_auto(&mut client, &paths, Some(&cfg), &log, &|path| known.get(path).cloned(), move |i, n| {
+                        let _ = p.send(MbMsg::Progress(i, n));
+                        c.request_repaint();
+                    }) {
+                        Ok(o) => Some(o),
+                        Err(mb::MbError::Stopped) => None,
+                        Err(mb::MbError::Failed(m)) => {
+                            Some(vec![mb::AutoOutcome { status: mb::FAILED.into(), message: m, ..Default::default() }])
+                        }
+                    }
+                }
+            };
+            let _ = tx.send(MbMsg::Done(out));
+            ctx.request_repaint();
+        });
+        self.mb_rx = Some(rx);
+        self.mb_progress = Some((0, 0));
+        self.mb_summary.clear();
+        true
+    }
+
+    fn poll_musicbrainz(&mut self) {
+        let Some(rx) = &self.mb_rx else { return };
+        let mut done = None;
+        while let Ok(m) = rx.try_recv() {
+            match m {
+                MbMsg::Progress(i, n) => self.mb_progress = Some((i, n)),
+                MbMsg::Done(o) => done = Some(o),
+            }
+        }
+        let Some(out) = done else { return };
+        self.mb_rx = None;
+        self.mb_progress = None;
+        let Some(out) = out else {
+            self.mb_summary.clear();
+            return;
+        };
+        // after an automatic run that asked nothing the status stays quiet; a run by hand always answers
+        let quiet = out.is_empty() && !self.mb_forced;
+        self.mb_summary = if quiet { String::new() } else { realhires::musicbrainz::auto_summary(&out) };
+        let filled = out.iter().any(|o| o.status == realhires::musicbrainz::FILLED);
+        self.mb_last = Some(out);
+        if filled {
+            self.update_library();
+        }
+    }
+
+    /// The sidebar's status line: the library update, else the MusicBrainz lookup.
+    pub fn status_line(&self) -> Option<String> {
+        if let Some(s) = self.library_status() {
+            return Some(s);
+        }
+        match self.mb_progress {
+            Some((i, n)) if i < n => {
+                Some(tr!("Getting song information from MusicBrainz: {i} of {n} albums", i = realhires::stats::thousands(i as i64 + 1), n = realhires::stats::thousands(n as i64)))
+            }
+            Some(_) => None,
+            None if !self.mb_summary.is_empty() => Some(tr_text(&self.mb_summary)),
+            None => None,
         }
     }
 
@@ -1390,6 +1537,7 @@ impl Player {
         self.scanner.background(&ctx);
         self.covers.poll(&ctx);
         self.poll_library();
+        self.poll_musicbrainz();
         self.poll_engine();
         self.track_listening();
         self.apply_settings_due(&ctx);
@@ -1553,7 +1701,7 @@ impl Player {
             }
         });
         ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
-            if let Some(s) = self.library_status() {
+            if let Some(s) = self.status_line() {
                 ui.label(RichText::new(s).small().color(pal.secondary));
                 ui.add_space(4.0);
             }
@@ -1802,6 +1950,21 @@ impl Player {
                 return; // Esc belongs to the Edit Info window while it is open
             }
         }
+        if let Some(mut w) = self.mb_win.take() {
+            match w.show(ctx, pal) {
+                crate::mbwin::Outcome::Open => self.mb_win = Some(w),
+                crate::mbwin::Outcome::Closed => {}
+                crate::mbwin::Outcome::Saved { close } => {
+                    self.update_library();
+                    if !close {
+                        self.mb_win = Some(w);
+                    }
+                }
+            }
+            if self.mb_win.is_some() {
+                return; // Esc belongs to the MusicBrainz window while it is open
+            }
+        }
         // Esc closes the topmost of the player's windows
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && !ctx.egui_wants_keyboard_input() {
             if self.eq_open {
@@ -1917,6 +2080,7 @@ impl Player {
         self.flush_listening();
         self.save_state();
         self.lib_stop.store(true, Ordering::Relaxed);
+        self.mb_stop.store(true, Ordering::Relaxed);
         self.engine.stop();
     }
 }
@@ -2392,6 +2556,59 @@ mod tests {
     /// The player in Japanese (2.1): every page, every Settings group and the
     /// windows draw Japanese texts.  Only this thread uses Japanese, so the
     /// tests that run at the same time keep English.
+    #[test]
+    fn musicbrainz_window_from_the_album_page() {
+        let _env = crate::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!("rhr-player-mb-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let music = tmp.join("Music");
+        std::env::set_var("REALHIRES_RESULTS", tmp.join("results.sqlite"));
+        std::env::set_var("REALHIRES_SETTINGS", tmp.join("settings.json"));
+        std::env::set_var(musiclib::LIBRARY_ENV, tmp.join("library.sqlite"));
+        std::env::set_var(playerstate::PLAYER_ENV, tmp.join("player.json"));
+        std::env::set_var(crate::audio::BACKEND_ENV, "null");
+        std::env::set_var(realhires::themes::THEMES_ENV, tmp.join("themes.json"));
+        let titles = [("Neon Streets", 201.0), ("Midnight Signal", 245.0), ("Harbour Lights", 187.0), ("Last Train Home", 263.0)];
+        let paths: Vec<String> = titles
+            .iter()
+            .enumerate()
+            .map(|(i, (t, secs))| song(&music, "Night Drive", t, "The Example Band", "Pop", i as u32 + 1, 8_000, *secs))
+            .collect();
+        let mut cfg = Settings::default();
+        cfg.library_folders = vec![music.to_string_lossy().into_owned()];
+        realhires::settings::save(&cfg, None).unwrap();
+        let ctx = egui::Context::default();
+        let mut p = Player::new(&ctx, cfg, vec![]);
+        run_until(&ctx, &mut p, "the library index", |p| p.lib.tracks.len() == 4 && p.lib_rx.is_none());
+        // the switch is off by default: a library update asks MusicBrainz nothing
+        assert!(!p.scanner.cfg.musicbrainz_auto);
+        assert!(!p.lookup_library(false) && !p.musicbrainz_busy());
+        let album = p.lib.albums.iter().find(|a| a.title == "Night Drive").cloned().unwrap();
+        p.go(Page::Album(album.key.clone()));
+        frame(&ctx, &mut p);
+        p.musicbrainz_album(&album);
+        p.mb_win.as_mut().expect("the MusicBrainz window").set_client(crate::mbwin::test_client());
+        run_until(&ctx, &mut p, "the release", |p| p.mb_win.as_ref().is_some_and(|w| w.detail.is_some() && !w.busy));
+        {
+            let w = p.mb_win.as_mut().unwrap();
+            assert!(w.album && w.query_title == "Night Drive");
+            assert_eq!(w.detail.as_ref().unwrap().release.id, "rel-night-2001");
+            assert_eq!(w.changes().len(), 4);
+            w.only_empty = true;
+            w.update_preview();
+            assert!(!w.lines.iter().any(|(l, _)| l.contains("Genre:")), "the genre is filled");
+            assert!(w.save());
+        }
+        run_until(&ctx, &mut p, "saving and the library update", |p| p.mb_win.is_none() && p.lib_rx.is_none());
+        let tags = realhires::probe::probe(&paths[2]).unwrap().tags;
+        let tag = |k: &str| realhires::probe::tag(&tags, k).unwrap_or("").to_string();
+        assert_eq!((tag("album_artist").as_str(), tag("date").as_str(), tag("genre").as_str()), ("The Example Band", "1999-05-28", "Pop"));
+        let t = p.lib.track(&paths[2]).unwrap();
+        assert_eq!((t.album_artist.as_str(), t.year.as_str()), ("The Example Band", "1999"));
+        p.on_exit();
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
     #[test]
     fn japanese_pages_and_windows() {
         let _env = crate::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());

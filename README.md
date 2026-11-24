@@ -72,7 +72,7 @@ Since version 2.0 the desktop app opens as a music player. Its window looks and 
 
 1. **All Songs**: every song as a table you can sort by any column, with Play and Shuffle.
 2. **Folders**: your music folders as they are on disk, with their subfolders, the songs in each, and a path you can click back along.
-3. **Albums**: cover cards; a click opens the album page with its cover, artist, genre and year, **Play**, **Shuffle**, **Edit album info…** and the track list.
+3. **Albums**: cover cards; a click opens the album page with its cover, artist, genre and year, **Play**, **Shuffle**, **Edit album info…**, **Get album info from MusicBrainz…** and the track list.
 4. **Artists**: the performing artist of each song.
 5. **Album Artists**: the album artist of each album.
 6. **Genres**, 7. **Years** and 8. **Composers**: like Artists, the names on the left with their counts, and the chosen one's albums or songs on the right.
@@ -84,9 +84,9 @@ Since version 2.0 the desktop app opens as a music player. Its window looks and 
 
 The sidebar lists the same pages, your playlists by name, and **Settings** at the bottom; the **Search** box at its top finds albums and songs by title, artist, album or genre as you type.
 
-![An album page: the cover, the title, artist, genre and year, Play and Shuffle, and the track list with the song playing marked](docs/gui-player-album.png)
+![An album page: the cover, the title, artist, genre and year, Play, Shuffle, Edit album info… and Get album info from MusicBrainz…, and the track list with the song playing marked](docs/gui-player-album.png)
 
-**The playback bar** at the top has **Shuffle**, **Previous**, **Play/Pause**, **Next** and **Repeat** on the left, the "LCD" in the middle (cover, title, artist and album, a seek bar you can click or drag, the elapsed and remaining time, and a quality badge such as **Hi-Res Lossless**, **Lossless** or **AAC 256 kbps**), and on the right the heart (like), the thumbs-down (dislike), **…** (add to a playlist, go to the album, get lyrics, edit its information, check its quality, show in folder), **Lyrics**, **Up Next**, the **equalizer** and the volume (click the speaker to mute). Space plays and pauses; Ctrl/Cmd+Left and Right go to the previous and next song.
+**The playback bar** at the top has **Shuffle**, **Previous**, **Play/Pause**, **Next** and **Repeat** on the left, the "LCD" in the middle (cover, title, artist and album, a seek bar you can click or drag, the elapsed and remaining time, and a quality badge such as **Hi-Res Lossless**, **Lossless** or **AAC 256 kbps**), and on the right the heart (like), the thumbs-down (dislike), **…** (add to a playlist, go to the album, get lyrics, edit its information, get its information from MusicBrainz, check its quality, show in folder), **Lyrics**, **Up Next**, the **equalizer** and the volume (click the speaker to mute). Space plays and pauses; Ctrl/Cmd+Left and Right go to the previous and next song.
 
 - **Shuffle** opens a menu: **Off**, **Songs in this list**, **All songs in the library**, **Same genre**, **Same artist** or **Same album** (as the song playing). **Repeat** offers **Off**, **Repeat song**, **Repeat album** and **Stop after this song**. A mode that is on is drawn in the accent colour.
 - **Now Playing** (the **Lyrics** button, or a click on the cover in the LCD) shows the album picture on the left and the lyrics on the right, as at the top of this page. Synced lyrics follow the music line by line, with the current line highlighted, and a click on a line jumps there. A song without lyrics shows its cover in the centre, with a **Get lyrics** button that downloads them from LRCLIB. Lyrics come from the `.lrc` or `.txt` next to the song, or from the lyrics written inside the file.

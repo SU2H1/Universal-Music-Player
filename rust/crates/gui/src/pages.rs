@@ -271,6 +271,12 @@ impl Player {
                     {
                         self.edit_album_info(&a);
                     }
+                    if ui
+                        .add_enabled(self.mb_win.is_none(), egui::Button::new(tr!("Get album info from MusicBrainz…")))
+                        .clicked()
+                    {
+                        self.musicbrainz_album(&a);
+                    }
                 });
             });
         });
@@ -406,6 +412,10 @@ impl Player {
         }
         if ui.add_enabled(self.edit_info.is_none(), egui::Button::new(tr!("Edit info…"))).clicked() {
             self.edit_song_info(path);
+            ui.close();
+        }
+        if ui.add_enabled(self.mb_win.is_none(), egui::Button::new(tr!("Get info from MusicBrainz…"))).clicked() {
+            self.musicbrainz_song(path);
             ui.close();
         }
         if ui.button(tr!("Check its quality")).clicked() {
@@ -875,6 +885,12 @@ impl Player {
                     if ui.button(tr!("Download lyrics for the whole library…")).clicked() {
                         self.lyrics_for_library();
                     }
+                    if ui
+                        .add_enabled(!self.musicbrainz_busy(), egui::Button::new(tr!("Look up the library on MusicBrainz now")))
+                        .clicked()
+                    {
+                        self.lookup_library(true);
+                    }
                     if ui.button(tr!("Open the quality checker")).clicked() {
                         self.go(Page::Quality);
                     }
@@ -883,7 +899,7 @@ impl Player {
                     }
                 });
                 let n = self.lib.tracks.len();
-                let text = match self.library_status() {
+                let text = match self.status_line() {
                     Some(s) => s,
                     None => tr!(
                         "{songs} in {albums}.",

@@ -549,37 +549,39 @@ impl MbWindow {
     }
 }
 
+/// Tests: a client answering from Python's recorded catalogue answers
+/// (`rust/crates/core/tests/python_musicbrainz.json`).
+#[cfg(test)]
+pub(crate) fn test_client() -> MusicBrainzClient {
+    use realhires::json::{self, Value};
+    let data = json::parse(include_str!("../../core/tests/python_musicbrainz.json")).unwrap();
+    let answers: Vec<(String, u16, String)> = data
+        .get("responses")
+        .and_then(Value::as_object)
+        .unwrap()
+        .iter()
+        .map(|(u, v)| {
+            let a = v.as_array().unwrap();
+            let st = match &a[0] {
+                Value::Int(n) => *n as u16,
+                _ => 0,
+            };
+            (u.clone(), st, a[1].as_str().unwrap().to_string())
+        })
+        .collect();
+    MusicBrainzClient::new(mb::DEFAULT_SERVER).with_min_interval(0.0).with_transport(Box::new(
+        move |url: &str, _h: &[(&str, &str)], _t| match answers.iter().find(|(u, _, _)| u == url) {
+            Some((_, st, body)) => Ok((*st, vec![], body.clone().into_bytes())),
+            None => Ok((404, vec![], b"{}".to_vec())),
+        },
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use egui::{pos2, vec2, Rect};
-    use realhires::json::{self, Value};
     use std::time::{Duration, Instant};
-
-    /// A client answering from Python's recorded catalogue answers.
-    fn vector_client() -> MusicBrainzClient {
-        let data = json::parse(include_str!("../../core/tests/python_musicbrainz.json")).unwrap();
-        let answers: Vec<(String, u16, String)> = data
-            .get("responses")
-            .and_then(Value::as_object)
-            .unwrap()
-            .iter()
-            .map(|(u, v)| {
-                let a = v.as_array().unwrap();
-                let st = match &a[0] {
-                    Value::Int(n) => *n as u16,
-                    _ => 0,
-                };
-                (u.clone(), st, a[1].as_str().unwrap().to_string())
-            })
-            .collect();
-        MusicBrainzClient::new(mb::DEFAULT_SERVER).with_min_interval(0.0).with_transport(Box::new(
-            move |url: &str, _h: &[(&str, &str)], _t| match answers.iter().find(|(u, _, _)| u == url) {
-                Some((_, st, body)) => Ok((*st, vec![], body.clone().into_bytes())),
-                None => Ok((404, vec![], b"{}".to_vec())),
-            },
-        ))
-    }
 
     fn frame(ctx: &egui::Context, w: &mut MbWindow) -> String {
         let input = egui::RawInput {
@@ -637,7 +639,7 @@ mod tests {
         let ctx = egui::Context::default();
         let cfg = Settings::default();
         let mut w = MbWindow::new(&ctx, &cfg, paths.clone(), true, "Night Drive".into(), String::new());
-        w.set_client(vector_client());
+        w.set_client(test_client());
         let t0 = Instant::now();
         while w.detail.is_none() || w.busy {
             assert!(t0.elapsed() < Duration::from_secs(60), "timed out: {:?} {}", w.status, w.error);
