@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "realhires"
-version = "2.0.0"
+version = "2.1.0"
 description = "Universal Music Player (formerly Real-Hi-Res): a music player that finds fake hi-res and fake lossless audio files"
 readme = "README.md"
 license = {text = "GPL-3.0-only"}
@@ -27,7 +27,7 @@ universal-music-player = "realhires.gui:main"
 packages = ["realhires"]
 
 [tool.setuptools.package-data]
-realhires = ["assets/*.png", "assets/fonts/*"]
+realhires = ["assets/*.png", "assets/fonts/*", "assets/lang/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

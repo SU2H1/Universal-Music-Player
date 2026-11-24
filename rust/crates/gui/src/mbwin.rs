@@ -82,7 +82,13 @@ pub fn preview_lines(
 ) -> (Vec<(String, bool)>, Vec<(String, Changes)>) {
     let mut lines = vec![];
     let mut plans = vec![];
-    for (s, t) in songs.iter().zip(matched) {
+    // in the release's track order, songs without a track last (in their own order)
+    let mut pairs: Vec<(&Song, &Option<ReleaseTrack>)> = songs.iter().zip(matched).collect();
+    pairs.sort_by_key(|(_, t)| match t {
+        Some(t) => (0, t.disc, t.number),
+        None => (1, 0, 0),
+    });
+    for (s, t) in pairs {
         let name = realhires::paths::file_name(&s.path);
         let Some(t) = t else {
             lines.push((tr!("{file}: no matching track on this release, left as it is", file = name), true));
@@ -532,5 +538,144 @@ impl MbWindow {
             };
         }
         result
+    }
+}
+
+impl MbWindow {
+    /// Tests: answer from this client instead of musicbrainz.org.
+    #[cfg(test)]
+    pub fn set_client(&mut self, client: MusicBrainzClient) {
+        self.client = Arc::new(Mutex::new(client));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{pos2, vec2, Rect};
+    use realhires::json::{self, Value};
+    use std::time::{Duration, Instant};
+
+    /// A client answering from Python's recorded catalogue answers.
+    fn vector_client() -> MusicBrainzClient {
+        let data = json::parse(include_str!("../../core/tests/python_musicbrainz.json")).unwrap();
+        let answers: Vec<(String, u16, String)> = data
+            .get("responses")
+            .and_then(Value::as_object)
+            .unwrap()
+            .iter()
+            .map(|(u, v)| {
+                let a = v.as_array().unwrap();
+                let st = match &a[0] {
+                    Value::Int(n) => *n as u16,
+                    _ => 0,
+                };
+                (u.clone(), st, a[1].as_str().unwrap().to_string())
+            })
+            .collect();
+        MusicBrainzClient::new(mb::DEFAULT_SERVER).with_min_interval(0.0).with_transport(Box::new(
+            move |url: &str, _h: &[(&str, &str)], _t| match answers.iter().find(|(u, _, _)| u == url) {
+                Some((_, st, body)) => Ok((*st, vec![], body.clone().into_bytes())),
+                None => Ok((404, vec![], b"{}".to_vec())),
+            },
+        ))
+    }
+
+    fn frame(ctx: &egui::Context, w: &mut MbWindow) -> String {
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 840.0))),
+            ..Default::default()
+        };
+        let pal = crate::look::palette(false);
+        let out = ctx.run_ui(input, |ui| {
+            let _ = w.show(ui.ctx(), &pal);
+        });
+        let mut text = String::new();
+        fn walk(shape: &egui::Shape, out: &mut String) {
+            match shape {
+                egui::Shape::Text(t) => {
+                    out.push_str(t.galley.text());
+                    out.push('\n');
+                }
+                egui::Shape::Vec(v) => v.iter().for_each(|s| walk(s, out)),
+                _ => {}
+            }
+        }
+        for c in &out.shapes {
+            walk(&c.shape, &mut text);
+        }
+        out.drop_without_applying_deltas();
+        text
+    }
+
+    #[test]
+    fn musicbrainz_window_finds_previews_and_saves() {
+        let _env = crate::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!("rhr-mbwin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        let album = tmp.join("Night Drive");
+        std::fs::create_dir_all(&album).unwrap();
+        std::env::set_var("REALHIRES_RESULTS", tmp.join("results.sqlite"));
+        std::env::set_var(realhires::musiclib::LIBRARY_ENV, tmp.join("library.sqlite"));
+        let ffmpeg = realhires::probe::tool("ffmpeg");
+        let mut paths = vec![];
+        for (i, (title, secs)) in [("Neon Streets", 201), ("Midnight Signal", 245), ("Harbour Lights", 187), ("Last Train Home", 263)]
+            .iter()
+            .enumerate()
+        {
+            let p = album.join(format!("0{}.flac", i + 1)).to_string_lossy().into_owned();
+            let ok = std::process::Command::new(&ffmpeg)
+                .args(["-v", "error", "-y", "-f", "lavfi", "-i", &format!("anullsrc=r=44100:cl=stereo"), "-t", &secs.to_string()])
+                .args(["-metadata", &format!("title={title}"), "-metadata", "artist=The Example Band"])
+                .args(["-metadata", "album=Night Drive", &p])
+                .status()
+                .unwrap()
+                .success();
+            assert!(ok);
+            paths.push(p);
+        }
+        let ctx = egui::Context::default();
+        let cfg = Settings::default();
+        let mut w = MbWindow::new(&ctx, &cfg, paths.clone(), true, "Night Drive".into(), String::new());
+        w.set_client(vector_client());
+        let t0 = Instant::now();
+        while w.detail.is_none() || w.busy {
+            assert!(t0.elapsed() < Duration::from_secs(60), "timed out: {:?} {}", w.status, w.error);
+            frame(&ctx, &mut w);
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!((w.query_title.as_str(), w.query_artist.as_str()), ("Night Drive", "The Example Band"));
+        assert_eq!(w.detail.as_ref().unwrap().release.id, "rel-night-2001");
+        let text = frame(&ctx, &mut w);
+        assert!(text.contains("Night Drive — The Example Band  ·  2001-03-07 · JP · CD · 4 tracks"), "{text}");
+        assert!(text.contains("01.flac → 1. Neon Streets"), "{text}");
+        assert!(text.contains("Album artist: (empty) → The Example Band"), "{text}");
+        assert!(text.contains("4 of 4 songs found on this release."), "{text}");
+        // the fields to write and "only empty" redraw the changes
+        let genre = FIELDS.iter().position(|f| *f == "genre").unwrap();
+        w.fields[genre] = false;
+        w.update_preview();
+        assert!(!w.lines.iter().any(|(l, _)| l.contains("Genre:")));
+        // Japanese, on this thread only
+        i18n::set_thread_language("日本語");
+        let ja = frame(&ctx, &mut w);
+        i18n::set_thread_language("");
+        assert!(ja.contains("見つかったリリース") && ja.contains("変更内容") && ja.contains("4トラック"), "{ja}");
+        assert!(w.save());
+        let t0 = Instant::now();
+        while w.done.is_none() {
+            assert!(t0.elapsed() < Duration::from_secs(60), "saving timed out");
+            frame(&ctx, &mut w);
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(w.outcomes.iter().all(|o| o.ok), "{:?}", w.outcomes);
+        let tags = realhires::probe::probe(&paths[1]).unwrap().tags;
+        let tag = |k: &str| realhires::probe::tag(&tags, k).unwrap_or("").to_string();
+        assert_eq!(tag("album_artist"), "The Example Band");
+        assert_eq!(tag("date"), "1999-05-28");
+        assert_eq!(tag("composer"), "Kai Example, Mio Example");
+        assert_eq!(tag("genre"), "");
+        assert_eq!(mb::LookupLog::open(None).unwrap().status(&paths[1]), mb::SAVED);
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

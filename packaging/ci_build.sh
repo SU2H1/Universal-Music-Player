@@ -42,6 +42,11 @@ fi
 
 echo "::group::PyInstaller"
 "$PY" -m PyInstaller --noconfirm packaging/realhires.spec
+# 2.1: the Japanese catalog must be inside the build, or the app silently stays English
+if ! find dist -path '*realhires/assets/lang/ja.json' | grep -q .; then
+    echo "ERROR: realhires/assets/lang/ja.json is missing from the build (packaging/realhires.spec)" >&2
+    exit 1
+fi
 echo "::endgroup::"
 
 case "$OS" in

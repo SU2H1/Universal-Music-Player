@@ -306,3 +306,68 @@ quality checker; Clear the play history….
 - A song counts in the play history from one second of listening; the seconds are the forward steps of the position
   while playing (the Python app ignores steps over 1.5 s, the Rust app over 2 s, between screen updates), so seeking
   never counts.
+
+### Language (2.1, asked for on 2026-11-24: "add language settings … for now Japanese and English")
+
+Settings → Appearance → **Language** (`language`, first in the group; "English" or "日本語", each shown in its own
+language; default English). Every text the apps show is written in English in the code and passed through the
+translation core (`realhires/i18n.py`, `rust/crates/core/src/i18n.rs`): `tr()` / `tr!()` for the apps' own texts
+(with `{name}` placeholders filled after translating), `tr_name()` for library names (only the core's placeholders
+such as "Unknown Album" are translated, never a real name), and `tr_text()` for the finished texts of the shared core
+(verdict summaries, reasons and notes, Fix, lyrics, Edit Info and MusicBrainz messages, Your Stats cards, the time
+left, the Playback info labels), which are matched against the catalog's patterns (`{name}` any text, `{name:num}` a
+number; a text of "; "-joined parts or of several sentences is translated part by part, and the values a pattern
+takes are translated in turn). Settings show `tr(group)`, `tr(label)`, `tr_text(help)` and `tr(choice)` but store
+the English values, so `settings.json`, the saved results and `player.json` never depend on the language. The
+catalog is `realhires/assets/lang/ja.json`, joined from `i18n/ja/*.json` by `tests/i18n_keys.py --merge`; the Rust
+app includes the same file at build time. A text missing from the catalog is shown in English.
+
+- The Rust app changes language at once (egui draws every frame; the scanner's `apply_settings()` calls
+  `set_language()`). The Tk app sets the language once per start; when the chosen language differs from the one in
+  use, the Appearance section shows "The new language is used when the app starts again." and **Restart now**
+  (`PlayerApp.restart()`: saves everything as Quit does, then starts the app again with the same arguments); the
+  Quality check page's own Settings window shows the note only. This is an intended difference.
+- The command-line tools always write English.
+- Japanese glyphs: Tk uses the system's font fallback; the Rust app adds a system CJK font as a fallback to its
+  fonts (`look.rs`), so Japanese titles show in either language.
+
+### Song information from MusicBrainz (2.1, asked for on 2026-11-24: "auto add metadata to library (default is off) … add metadata via musicbrainz")
+
+The core is `realhires/musicbrainz.py` and `rust/crates/core/src/musicbrainz.rs` (checked against each other with
+`rust/crates/core/tests/python_musicbrainz.json`): `MusicBrainzClient` (one request at a time, at least one second
+apart across every client of the app that uses the real clock, the User-Agent "UniversalMusicPlayer/<version> (
+<project URL> )", 503/429 waited for with Retry-After or a back-off and retried up to 4 times), `search_releases()`,
+`search_recordings()`, `release()` (one lookup with the track list, artist credits, release group with its first
+release date and genres, and the works' composers), `match_tracks()`, `changes_for()`, `search_candidates()`,
+`find_album()`/`find_song()` (the automatic mode's certain matches) and `run_auto()` with the lookup log (table
+`musicbrainz` in `library.sqlite`).
+
+- **Get info from MusicBrainz…** in every song's menu (and so in the playback bar's "…") and **Get album info from
+  MusicBrainz…** on an album page (next to Edit album info…) open the **MusicBrainz** window, one at a time: the
+  heading as Edit Info's; a search row (Album or Title, Artist, Search; Enter searches) filled from the songs' tags
+  (`album_of()` for an album, the title and artist for one song; the folder name or file name when the tag is
+  empty), which searches at once; the status line ("Reading the information of 12 songs…", "Searching
+  MusicBrainz…", "Reading the release…", "4 of 4 songs found on this release.", "Nothing found on MusicBrainz…");
+  **Releases found**: one line per release ("Title — Artist  ·  date · country · formats · N tracks", plus the
+  status when it is not Official), the first chosen and read at once; **Changes**: per song "file → number. title"
+  (or "file: no matching track on this release, left as it is") and in grey "Field: old → new" ("(empty)" for an
+  empty tag) or "Nothing to change"; one checkbox per field (`tagedit.FIELDS`, all on) and **Only fill in empty
+  fields** (off), which redraw the changes; the error line (red); **Save** (only when something would change) and
+  **Cancel**/Esc; the credit `musicbrainz.CREDIT` in small grey text. Save writes each song's own changes with
+  `save_changes()` ("Saving 2 of 4…"), marks them `saved` in the lookup log and refreshes the library; it closes
+  when everything was saved without a note, else it shows `tagedit.save_summary()` with Close.
+- The date written is the release group's first release date (else the release's), the track "n/total", the disc
+  "n/total" only for releases of several discs, the genre the release group's (else the release's) genre with the
+  most votes in title case, the composer the works' composers (else their writers), joined with ", ".
+- **Add song information from MusicBrainz automatically** (`musicbrainz_auto`, Settings → Library, off by default)
+  and **MusicBrainz server** (`musicbrainz_server`). When it is on, every finished library update starts the
+  automatic lookup in a thread (one at a time): songs not in the lookup log (or changed since) whose index entry
+  misses one of artist, album, album artist, release date, track number or genre are read again with ffprobe,
+  grouped by folder and album tag, and looked up (`find_album()`: the same album and artist, room for every song,
+  every song found by number or title with the length within 3 s; at most 3 releases read per album;
+  `find_song()` for a song without album tag: same title and artist, length within 3 s, the most suitable release:
+  official, not a compilation or live album, album before EP before single, earliest). Only empty tags are filled.
+  The sidebar's status line shows "Getting song information from MusicBrainz: 3 of 20 albums" and then
+  `auto_summary()`; the library is refreshed when something was filled. **Look up the library on MusicBrainz now**
+  (Settings → Library) runs it at once, also when the switch is off, and always reports. Quitting stops it.
+- Help → About adds `musicbrainz.ABOUT_CREDIT`.

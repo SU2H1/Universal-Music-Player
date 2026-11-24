@@ -82,6 +82,13 @@ songs from LRCLIB (lrclib.net), as LRCGET does, and saves them as .lrc files
 next to the songs; the dashboard's Lyrics tab shows them.
 "Settings..." holds the detection thresholds, scanning, saved results,
 display, fixing and lyrics options.
+Language (2.1): Settings > Appearance > Language switches the app between
+English and Japanese (日本語) at once; the command-line tool always writes
+English.  Song information (2.1): "Get info from MusicBrainz..." (a song's
+menu) and "Get album info from MusicBrainz..." (an album page) look songs up
+on MusicBrainz (musicbrainz.org) and show what would change before saving;
+Settings > Library > "Add song information from MusicBrainz automatically"
+(off by default) fills in missing information of new songs by itself.
 
 Command line
 ------------
@@ -127,6 +134,13 @@ LRCGET ("Copyright (c) 2023 tranxuanthang") and the LRCLIB server
 are released under the MIT License.  Real-Hi-Res's lyrics code was written
 for Real-Hi-Res and contains no code from either project.  Thank you to
 tranxuanthang and to everyone who contributes lyrics to LRCLIB.
+
+Song information comes from MusicBrainz (https://musicbrainz.org), the open
+music encyclopedia, and from the people who contribute to it.  Its core data
+is public domain (CC0); tags and genres are under CC BY-NC-SA 3.0
+(https://musicbrainz.org/doc/About/Data_License).  The app's MusicBrainz
+code was written for it against MusicBrainz's published web service and
+contains no code from MusicBrainz or MusicBrainz Picard.
 
 On Windows and Linux the app uses the Inter typeface
 (https://rsms.me/inter/, Copyright (c) 2016 The Inter Project Authors),

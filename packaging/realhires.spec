@@ -29,6 +29,9 @@ assets = [(ICON_PNG, os.path.join("realhires", "assets"))]
 # privately by the player on Windows and Linux (realhires/player_theme.py)
 assets += [(p, os.path.join("realhires", "assets", "fonts"))
            for p in glob.glob(os.path.join(ROOT, "realhires", "assets", "fonts", "*"))]
+# 2.1: the translations (realhires/i18n.py reads them from realhires/assets/lang)
+assets += [(p, os.path.join("realhires", "assets", "lang"))
+           for p in glob.glob(os.path.join(ROOT, "realhires", "assets", "lang", "*.json"))]
 IS_WIN = sys.platform == "win32"
 # PyInstaller converts the PNG to .ico/.icns itself when Pillow is installed.
 try:

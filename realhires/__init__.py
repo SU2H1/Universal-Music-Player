@@ -10,6 +10,6 @@ two independent forensic tests:
   which exposes 16-bit audio padded with zeros into a 24-bit container.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 APP_NAME = "Universal Music Player"
 PROJECT_URL = "https://github.com/SU2H1/Universal-Music-Player"

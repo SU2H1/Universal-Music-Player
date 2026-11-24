@@ -57,7 +57,9 @@ def preview_lines(songs: List[mb.Song], detail: mb.ReleaseDetail, matched, field
     """[(text, grey)] lines of the changes preview, and the changes of each song."""
     lines = []
     plans = []
-    for s, t in zip(songs, matched):
+    # in the release's track order, songs without a track last (in their own order)
+    pairs = sorted(zip(songs, matched), key=lambda p: (0, p[1].disc, p[1].number) if p[1] is not None else (1, 0, 0))
+    for s, t in pairs:
         name = os.path.basename(s.path)
         if t is None:
             lines.append((tr("{file}: no matching track on this release, left as it is", file=name), True))
