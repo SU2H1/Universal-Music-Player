@@ -323,13 +323,3 @@ pub fn install_theme(ctx: &egui::Context, theme: &str, custom: &[realhires::them
     }
     ctx.set_theme(pref);
 }
-
-#[cfg(test)]
-mod timing_probe {
-    #[test]
-    fn japanese_font_lookup_time() {
-        let t = std::time::Instant::now();
-        let found = super::japanese_fonts();
-        eprintln!("japanese_fonts: {:?} in {:?}", found.as_ref().map(|f| f.2.clone()), t.elapsed());
-    }
-}
