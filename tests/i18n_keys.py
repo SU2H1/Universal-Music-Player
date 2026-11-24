@@ -108,7 +108,8 @@ def core_keys() -> Dict[str, List[str]]:
         add(g, "settings.GROUPS")
     for f in settings.Settings.field_info():
         add(f["label"], f"settings.{f['name']}.label")
-        add(f["help"], f"settings.{f['name']}.help")
+        if f["name"] != "jobs":  # names this computer's CPU count: translated by a pattern
+            add(f["help"], f"settings.{f['name']}.help")
         if f["kind"] in ("choice", "multi") and f["name"] not in ("colormap", "language", "shown_verdicts"):
             for c in f["choices"] or []:
                 add(c, f"settings.{f['name']}.choices")

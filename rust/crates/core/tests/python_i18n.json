@@ -1,0 +1,317 @@
+{
+ "cases": [
+  {
+   "text": "Library",
+   "tr_text": "ライブラリ",
+   "tr": "ライブラリ",
+   "tr_name": "Library"
+  },
+  {
+   "text": "Hi-Res Lossless",
+   "tr_text": "ハイレゾロスレス",
+   "tr": "ハイレゾロスレス",
+   "tr_name": "Hi-Res Lossless"
+  },
+  {
+   "text": "MP3 320 kbps",
+   "tr_text": "MP3 320 kbps",
+   "tr": "MP3 320 kbps",
+   "tr_name": "MP3 320 kbps"
+  },
+  {
+   "text": "6 channels",
+   "tr_text": "6チャンネル",
+   "tr": "6 channels",
+   "tr_name": "6 channels"
+  },
+  {
+   "text": "24-bit",
+   "tr_text": "24ビット",
+   "tr": "24ビット",
+   "tr_name": "24-bit"
+  },
+  {
+   "text": "32-bit float",
+   "tr_text": "32ビット浮動小数点",
+   "tr": "32ビット浮動小数点",
+   "tr_name": "32-bit float"
+  },
+  {
+   "text": "—",
+   "tr_text": "—",
+   "tr": "—",
+   "tr_name": "—"
+  },
+  {
+   "text": "Graphic: Rock",
+   "tr_text": "グラフィック：ロック",
+   "tr": "Graphic: Rock",
+   "tr_name": "Graphic: Rock"
+  },
+  {
+   "text": "Graphic: Rock, parametric: 3 bands (pre-amp −4.5 dB)",
+   "tr_text": "グラフィック：ロック、パラメトリック：3バンド（プリアンプ −4.5 dB）",
+   "tr": "Graphic: Rock, parametric: 3 bands (pre-amp −4.5 dB)",
+   "tr_name": "Graphic: Rock, parametric: 3 bands (pre-amp −4.5 dB)"
+  },
+  {
+   "text": "Parametric: 1 band",
+   "tr_text": "パラメトリック：1バンド",
+   "tr": "Parametric: 1 band",
+   "tr_name": "Parametric: 1 band"
+  },
+  {
+   "text": "From 96 kHz to 48 kHz (soxr)",
+   "tr_text": "96 kHzから48 kHzへ（soxr）",
+   "tr": "From 96 kHz to 48 kHz (soxr)",
+   "tr_name": "From 96 kHz to 48 kHz (soxr)"
+  },
+  {
+   "text": "96 kHz, 32-bit float, stereo",
+   "tr_text": "96 kHz、32ビット浮動小数点、ステレオ",
+   "tr": "96 kHz, 32-bit float, stereo",
+   "tr_name": "96 kHz, 32-bit float, stereo"
+  },
+  {
+   "text": "9 PM",
+   "tr_text": "午後9時",
+   "tr": "9 PM",
+   "tr_name": "9 PM"
+  },
+  {
+   "text": "12 AM",
+   "tr_text": "午前12時",
+   "tr": "12 AM",
+   "tr_name": "12 AM"
+  },
+  {
+   "text": "28 May 2026",
+   "tr_text": "2026年5月28日",
+   "tr": "28 May 2026",
+   "tr_name": "28 May 2026"
+  },
+  {
+   "text": "About 3 days of music.",
+   "tr_text": "約3日分の音楽です。",
+   "tr": "About 3 days of music.",
+   "tr_name": "About 3 days of music."
+  },
+  {
+   "text": "Radiohead · 12 plays",
+   "tr_text": "Radiohead・12回再生",
+   "tr": "Radiohead · 12 plays",
+   "tr_name": "Radiohead · 12 plays"
+  },
+  {
+   "text": "1 play, 4 minutes",
+   "tr_text": "1回再生、4分",
+   "tr": "1 play, 4 minutes",
+   "tr_name": "1 play, 4 minutes"
+  },
+  {
+   "text": "35% of your listening time",
+   "tr_text": "再生時間の35%",
+   "tr": "35% of your listening time",
+   "tr_name": "35% of your listening time"
+  },
+  {
+   "text": "by 12 artists",
+   "tr_text": "アーティスト12組",
+   "tr": "by 12 artists",
+   "tr_name": "by 12 artists"
+  },
+  {
+   "text": "5 days",
+   "tr_text": "5日",
+   "tr": "5 days",
+   "tr_name": "5 days"
+  },
+  {
+   "text": "1 day",
+   "tr_text": "1日",
+   "tr": "1日",
+   "tr_name": "1 day"
+  },
+  {
+   "text": "3 albums",
+   "tr_text": "アルバム3枚",
+   "tr": "3 albums",
+   "tr_name": "3 albums"
+  },
+  {
+   "text": "about 1 h 20 min left",
+   "tr_text": "残り約1時間20分",
+   "tr": "about 1 h 20 min left",
+   "tr_name": "about 1 h 20 min left"
+  },
+  {
+   "text": "about 6 min left",
+   "tr_text": "残り約6分",
+   "tr": "about 6 min left",
+   "tr_name": "about 6 min left"
+  },
+  {
+   "text": "estimating the time left",
+   "tr_text": "残り時間を見積もり中",
+   "tr": "残り時間を見積もり中",
+   "tr_name": "estimating the time left"
+  },
+  {
+   "text": "less than a minute left",
+   "tr_text": "残り1分未満",
+   "tr": "残り1分未満",
+   "tr_name": "less than a minute left"
+  },
+  {
+   "text": "Fixable to 16/44.1",
+   "tr_text": "16/44.1に修正可能",
+   "tr": "Fixable to 16/44.1",
+   "tr_name": "Fixable to 16/44.1"
+  },
+  {
+   "text": "16/44.1, stays fake: MP3/AAC source",
+   "tr_text": "16/44.1、偽物のまま：元はMP3/AAC",
+   "tr": "16/44.1, stays fake: MP3/AAC source",
+   "tr_name": "16/44.1, stays fake: MP3/AAC source"
+  },
+  {
+   "text": "Upsampled from 44.1 kHz: nothing above 22.05 kHz; Padded: only 16 of 24 bits used",
+   "tr_text": "44.1 kHzからアップサンプリング：22.05 kHzより上は空；パディング：24ビット中16ビットのみ使用",
+   "tr": "Upsampled from 44.1 kHz: nothing above 22.05 kHz; Padded: only 16 of 24 bits used",
+   "tr_name": "Upsampled from 44.1 kHz: nothing above 22.05 kHz; Padded: only 16 of 24 bits used"
+  },
+  {
+   "text": "Upsampled from 48 kHz: nothing above 24 kHz; Something new the catalogue does not know",
+   "tr_text": "48 kHzからアップサンプリング：24 kHzより上は空；Something new the catalogue does not know",
+   "tr": "Upsampled from 48 kHz: nothing above 24 kHz; Something new the catalogue does not know",
+   "tr_name": "Upsampled from 48 kHz: nothing above 24 kHz; Something new the catalogue does not know"
+  },
+  {
+   "text": "Genuine 24-bit at standard 44.1 kHz: hi-res by bit depth only",
+   "tr_text": "標準の44.1 kHzで本物の24ビット：ビット深度だけのハイレゾ",
+   "tr": "Genuine 24-bit at standard 44.1 kHz: hi-res by bit depth only",
+   "tr_name": "Genuine 24-bit at standard 44.1 kHz: hi-res by bit depth only"
+  },
+  {
+   "text": "Genuine 24-bit at 32 kHz: hi-res by bit depth only",
+   "tr_text": "32 kHzで本物の24ビット：ビット深度だけのハイレゾ",
+   "tr": "Genuine 24-bit at 32 kHz: hi-res by bit depth only",
+   "tr_name": "Genuine 24-bit at 32 kHz: hi-res by bit depth only"
+  },
+  {
+   "text": "Spectrum collapses by 87 dB around 22.05 kHz (level is down 6 dB at 21.5 kHz and down 20 dB by 22.0 kHz), the Nyquist limit of a 44.1 kHz master: upsampled from 44.1 kHz (high confidence). Still hi-res, but not the advertised 192 kHz.",
+   "tr_text": "スペクトルが44.1 kHzマスターのナイキスト限界である22.05 kHz付近で87 dB崩れています（21.5 kHzで−6 dB、22.0 kHzまでに−20 dB）：44.1 kHzからアップサンプリングされています（信頼度：高）。ハイレゾではありますが、表示されている192 kHzではありません。",
+   "tr": "Spectrum collapses by 87 dB around 22.05 kHz (level is down 6 dB at 21.5 kHz and down 20 dB by 22.0 kHz), the Nyquist limit of a 44.1 kHz master: upsampled from 44.1 kHz (high confidence). Still hi-res, but not the advertised 192 kHz.",
+   "tr_name": "Spectrum collapses by 87 dB around 22.05 kHz (level is down 6 dB at 21.5 kHz and down 20 dB by 22.0 kHz), the Nyquist limit of a 44.1 kHz master: upsampled from 44.1 kHz (high confidence). Still hi-res, but not the advertised 192 kHz."
+  },
+  {
+   "text": "Every sample lies on an even grid with a step of 4.0 levels of the 24-bit scale instead of 1. That is what a 16-bit master gives after a gain change of -1.5 dB (with or without dither) on its way into a 24-bit file, so the low bits hold no real detail and the resolution is still 16 bits.",
+   "tr_text": "すべてのサンプルが、24ビットスケールで1ではなく4.0段ごとの等間隔のグリッド上にあります。これは16ビットのマスターが-1.5 dBの音量変更（ディザの有無を問わず）を経て24ビットのファイルになったときの特徴で、下位ビットに本当の細部はなく、解像度は16ビットのままです。",
+   "tr": "Every sample lies on an even grid with a step of 4.0 levels of the 24-bit scale instead of 1. That is what a 16-bit master gives after a gain change of -1.5 dB (with or without dither) on its way into a 24-bit file, so the low bits hold no real detail and the resolution is still 16 bits.",
+   "tr_name": "Every sample lies on an even grid with a step of 4.0 levels of the 24-bit scale instead of 1. That is what a 16-bit master gives after a gain change of -1.5 dB (with or without dither) on its way into a 24-bit file, so the low bits hold no real detail and the resolution is still 16 bits."
+  },
+  {
+   "text": "MusicBrainz filled in the information of 5 songs. 2 could not be looked up: No answer from musicbrainz.org after 4 attempts (the server asked to slow down).",
+   "tr_text": "MusicBrainzで5曲の情報を補いました。2曲は調べられませんでした：4回試しましたがmusicbrainz.orgから応答がありません（サーバーが速度を落とすよう求めました）。",
+   "tr": "MusicBrainz filled in the information of 5 songs. 2 could not be looked up: No answer from musicbrainz.org after 4 attempts (the server asked to slow down).",
+   "tr_name": "MusicBrainz filled in the information of 5 songs. 2 could not be looked up: No answer from musicbrainz.org after 4 attempts (the server asked to slow down)."
+  },
+  {
+   "text": "A sentence. Another one that is not known. 3 more.",
+   "tr_text": "A sentence. Another one that is not known. 3 more.",
+   "tr": "A sentence. Another one that is not known. 3 more.",
+   "tr_name": "A sentence. Another one that is not known. 3 more."
+  },
+  {
+   "text": "",
+   "tr_text": "",
+   "tr": "",
+   "tr_name": ""
+  },
+  {
+   "text": "Unknown Album",
+   "tr_text": "不明なアルバム",
+   "tr": "不明なアルバム",
+   "tr_name": "不明なアルバム"
+  },
+  {
+   "text": "Rock",
+   "tr_text": "ロック",
+   "tr": "ロック",
+   "tr_name": "Rock"
+  },
+  {
+   "text": "Kind of Blue",
+   "tr_text": "Kind of Blue",
+   "tr": "Kind of Blue",
+   "tr_name": "Kind of Blue"
+  },
+  {
+   "text": "{n} songs",
+   "tr_text": "{n}曲",
+   "tr": "{n}曲",
+   "tr_name": "{n} songs"
+  },
+  {
+   "text": "x; y",
+   "tr_text": "x; y",
+   "tr": "x; y",
+   "tr_name": "x; y"
+  },
+  {
+   "text": "Off",
+   "tr_text": "オフ",
+   "tr": "オフ",
+   "tr_name": "Off"
+  }
+ ],
+ "matches": [
+  [
+   "{a}, {b}",
+   "x, y, z",
+   {
+    "b": "y, z",
+    "a": "x"
+   }
+  ],
+  [
+   "{d:num} {m} {y:num}",
+   "28 May 2026",
+   {
+    "y": "2026",
+    "m": "May",
+    "d": "28"
+   }
+  ],
+  [
+   "{d:num} {m} {y:num}",
+   "From 1 to 2",
+   null
+  ],
+  [
+   "{n:num} days",
+   "−5 days",
+   {
+    "n": "−5"
+   }
+  ],
+  [
+   "{n:num} days",
+   "five days",
+   null
+  ],
+  [
+   "a{x}b{y}c",
+   "aXbYbZc",
+   {
+    "y": "YbZ",
+    "x": "X"
+   }
+  ],
+  [
+   "{x}",
+   "",
+   null
+  ]
+ ]
+}

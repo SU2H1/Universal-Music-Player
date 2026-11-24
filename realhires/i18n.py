@@ -42,7 +42,11 @@ PLACEHOLDER_NAMES = ("Unknown Artist", "Unknown Album", "Unknown Genre", "Unknow
 # The verdicts as the result files store them; the apps show them translated.
 VERDICT_NAMES = ("FAKE LOSSLESS", "FAKE HI-RES", "SUSPICIOUS", "REAL HI-RES", "NOT HI-RES", "LOSSY FORMAT", "ERROR")
 
-_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)(?::num)?\}")
+# In a pattern, {name:num} matches only a number ("44.1", "1,234", "−4.5", "50%"); {name} matches any text.
+NUM_CHARS = frozenset("0123456789.,+-−%")
+
+MAX_DEPTH = 3   # how deep the values taken by patterns are translated in turn
 
 _current = "en"
 _catalogs: Dict[str, "Catalog"] = {}
@@ -62,17 +66,24 @@ def placeholders(text: str) -> List[str]:
     return _PLACEHOLDER.findall(text)
 
 
-def _split(template: str) -> Tuple[List[str], List[str]]:
-    """A template as literal parts and the placeholder names between them (len(lits) == len(names) + 1)."""
+def _split(template: str) -> Tuple[List[str], List[str], List[bool]]:
+    """A template as literal parts, the placeholder names between them (len(lits) == len(names) + 1)
+    and whether each placeholder takes only a number."""
     lits: List[str] = []
     names: List[str] = []
+    nums: List[bool] = []
     pos = 0
     for m in _PLACEHOLDER.finditer(template):
         lits.append(template[pos:m.start()])
         names.append(m.group(1))
+        nums.append(m.group(0).endswith(":num}"))
         pos = m.end()
     lits.append(template[pos:])
-    return lits, names
+    return lits, names, nums
+
+
+def _is_num(text: str) -> bool:
+    return bool(text) and all(c in NUM_CHARS for c in text) and any(c.isdigit() for c in text)
 
 
 def match_template(template: str, text: str) -> Optional[Dict[str, str]]:
@@ -80,7 +91,7 @@ def match_template(template: str, text: str) -> Optional[Dict[str, str]]:
 
     Each placeholder takes the shortest non-empty text that lets the rest of
     the template match (the Rust version matches the same way)."""
-    lits, names = _split(template)
+    lits, names, nums = _split(template)
     if not names:
         return {} if text == template else None
     if not text.startswith(lits[0]):
@@ -95,6 +106,8 @@ def match_template(template: str, text: str) -> Optional[Dict[str, str]]:
             end = len(text) - len(lit)
             if end <= pos or not text.endswith(lit):
                 return False
+            if nums[i] and not _is_num(text[pos:end]):
+                return False
             got[names[i]] = text[pos:end]
             return True
         start = pos + 1
@@ -102,7 +115,7 @@ def match_template(template: str, text: str) -> Optional[Dict[str, str]]:
             at = text.find(lit, start)
             if at < 0:
                 return False
-            if walk(i + 1, at + len(lit)):
+            if (not nums[i] or _is_num(text[pos:at])) and walk(i + 1, at + len(lit)):
                 got[names[i]] = text[pos:at]
                 return True
             start = at + 1
@@ -131,16 +144,24 @@ class Catalog:
                 self.patterns.append((k, v))
         self.name = data.get("language") if isinstance(data.get("language"), str) else ""
 
-    def text(self, text: str) -> Optional[str]:
-        """The translation of one whole text (exact, then a pattern), or None."""
+    def text(self, text: str, depth: int = 0) -> Optional[str]:
+        """The translation of one whole text (exact, then a pattern), or None.  The values a
+        pattern takes from the text are translated the same way (up to MAX_DEPTH deep), so
+        "Graphic: Rock" can become "グラフィック：ロック"."""
         hit = self.strings.get(text)
         if hit is not None:
             return hit
+        if depth >= MAX_DEPTH:
+            return None
         for template, translated in self.patterns:
             values = match_template(template, text)
             if values is not None:
-                return fill(translated, {k: self.strings.get(v, v) for k, v in values.items()})
+                return fill(translated, {k: self._value(v, depth + 1) for k, v in values.items()})
         return None
+
+    def _value(self, v: str, depth: int) -> str:
+        hit = self.text(v, depth)
+        return v if hit is None else hit
 
 
 def load_catalog(code: str) -> Catalog:
@@ -195,7 +216,7 @@ def tr_name(name: str) -> str:
     return tr(name) if name in PLACEHOLDER_NAMES else name
 
 
-_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(])")
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])")
 
 
 def tr_text(text: str) -> str:

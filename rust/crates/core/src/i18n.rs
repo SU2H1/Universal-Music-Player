@@ -36,6 +36,8 @@ pub const PLACEHOLDER_NAMES: [&str; 7] = [
 pub const VERDICT_NAMES: [&str; 7] =
     ["FAKE LOSSLESS", "FAKE HI-RES", "SUSPICIOUS", "REAL HI-RES", "NOT HI-RES", "LOSSY FORMAT", "ERROR"];
 const CODES: [&str; 2] = ["en", "ja"];
+/// How deep the values taken by patterns are translated in turn.
+pub const MAX_DEPTH: usize = 3;
 
 const JA_JSON: &str = include_str!("../../../../realhires/assets/lang/ja.json");
 
@@ -98,17 +100,25 @@ impl Catalog {
         cat
     }
 
-    /// The translation of one whole text (exact, then a pattern), or None.
+    /// The translation of one whole text (exact, then a pattern), or None; the
+    /// values a pattern takes are translated the same way, up to `MAX_DEPTH` deep.
     pub fn text(&self, text: &str) -> Option<String> {
+        self.text_at(text, 0)
+    }
+
+    fn text_at(&self, text: &str, depth: usize) -> Option<String> {
         if let Some(hit) = self.strings.get(text) {
             return Some(hit.clone());
+        }
+        if depth >= MAX_DEPTH {
+            return None;
         }
         for (template, translated) in &self.patterns {
             if let Some(values) = match_template(template, text) {
                 let values: Vec<(String, String)> = values
                     .into_iter()
                     .map(|(k, v)| {
-                        let t = self.strings.get(&v).cloned().unwrap_or(v);
+                        let t = self.text_at(&v, depth + 1).unwrap_or(v);
                         (k, t)
                     })
                     .collect();
@@ -141,32 +151,29 @@ fn is_ident(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
 }
 
-/// The `{name}` placeholders of a text: (start, end, name), byte offsets.
-fn spans(text: &str) -> Vec<(usize, usize, &str)> {
+/// The `{name}` (or, in patterns, `{name:num}`) placeholders of a text:
+/// (start, end, name, number only), byte offsets.
+fn spans(text: &str) -> Vec<(usize, usize, &str, bool)> {
     let mut out = vec![];
     let b = text.as_bytes();
     let mut i = 0;
     while i < b.len() {
         if b[i] == b'{' {
             let rest = &text[i + 1..];
-            let mut chars = rest.char_indices();
-            if let Some((_, c0)) = chars.next() {
-                if is_ident_start(c0) {
-                    let mut end = None;
-                    for (j, c) in rest.char_indices().skip(1) {
-                        if c == '}' {
-                            end = Some(j);
-                            break;
-                        }
-                        if !is_ident(c) {
-                            break;
-                        }
-                    }
-                    if let Some(j) = end {
-                        out.push((i, i + 1 + j + 1, &text[i + 1..i + 1 + j]));
-                        i = i + 1 + j + 1;
-                        continue;
-                    }
+            if rest.chars().next().is_some_and(is_ident_start) {
+                let ident = rest.char_indices().find(|(_, c)| !is_ident(*c)).map_or(rest.len(), |(j, _)| j);
+                let after = &rest[ident..];
+                let (close, num) = if after.starts_with('}') {
+                    (Some(ident), false)
+                } else if after.starts_with(":num}") {
+                    (Some(ident + 4), true)
+                } else {
+                    (None, false)
+                };
+                if let Some(j) = close {
+                    out.push((i, i + 1 + j + 1, &text[i + 1..i + 1 + ident], num));
+                    i = i + 1 + j + 1;
+                    continue;
                 }
             }
         }
@@ -175,9 +182,16 @@ fn spans(text: &str) -> Vec<(usize, usize, &str)> {
     out
 }
 
+/// In a pattern, `{name:num}` matches only a number ("44.1", "1,234", "−4.5", "50%").
+fn is_num(text: &str) -> bool {
+    !text.is_empty()
+        && text.chars().all(|c| c.is_ascii_digit() || matches!(c, '.' | ',' | '+' | '-' | '−' | '%'))
+        && text.chars().any(|c| c.is_ascii_digit())
+}
+
 /// The placeholder names of a text, in order.
 pub fn placeholders(text: &str) -> Vec<String> {
-    spans(text).into_iter().map(|(_, _, n)| n.to_string()).collect()
+    spans(text).into_iter().map(|(_, _, n, _)| n.to_string()).collect()
 }
 
 /// Put the values into the `{name}` placeholders; unknown names stay.
@@ -187,7 +201,7 @@ pub fn fill(template: &str, values: &[(&str, String)]) -> String {
     }
     let mut out = String::with_capacity(template.len() + 16);
     let mut pos = 0;
-    for (start, end, name) in spans(template) {
+    for (start, end, name, _) in spans(template) {
         out.push_str(&template[pos..start]);
         match values.iter().find(|(k, _)| *k == name) {
             Some((_, v)) => out.push_str(v),
@@ -208,10 +222,12 @@ pub fn match_template(template: &str, text: &str) -> Option<Vec<(String, String)
     }
     let mut lits: Vec<&str> = vec![];
     let mut names: Vec<&str> = vec![];
+    let mut nums: Vec<bool> = vec![];
     let mut pos = 0;
-    for (start, end, name) in &sp {
+    for (start, end, name, num) in &sp {
         lits.push(&template[pos..*start]);
         names.push(name);
+        nums.push(*num);
         pos = *end;
     }
     lits.push(&template[pos..]);
@@ -220,7 +236,7 @@ pub fn match_template(template: &str, text: &str) -> Option<Vec<(String, String)
     }
     let mut got: Vec<(String, String)> = names.iter().map(|n| (n.to_string(), String::new())).collect();
 
-    fn walk(i: usize, pos: usize, text: &str, lits: &[&str], got: &mut Vec<(String, String)>) -> bool {
+    fn walk(i: usize, pos: usize, text: &str, lits: &[&str], nums: &[bool], got: &mut Vec<(String, String)>) -> bool {
         let lit = lits[i + 1];
         let last = i == got.len() - 1;
         if last {
@@ -228,7 +244,7 @@ pub fn match_template(template: &str, text: &str) -> Option<Vec<(String, String)
                 return false;
             }
             let end = text.len() - lit.len();
-            if end <= pos {
+            if end <= pos || (nums[i] && !is_num(&text[pos..end])) {
                 return false;
             }
             got[i].1 = text[pos..end].to_string();
@@ -242,7 +258,7 @@ pub fn match_template(template: &str, text: &str) -> Option<Vec<(String, String)
             }
             let Some(off) = text[start..].find(lit) else { return false };
             let at = start + off;
-            if walk(i + 1, at + lit.len(), text, lits, got) {
+            if (!nums[i] || is_num(&text[pos..at])) && walk(i + 1, at + lit.len(), text, lits, nums, got) {
                 got[i].1 = text[pos..at].to_string();
                 return true;
             }
@@ -250,7 +266,7 @@ pub fn match_template(template: &str, text: &str) -> Option<Vec<(String, String)
         }
     }
 
-    walk(0, lits[0].len(), text, &lits, &mut got).then_some(got)
+    walk(0, lits[0].len(), text, &lits, &nums, &mut got).then_some(got)
 }
 
 /// The code of a `language` setting value ("日本語" → "ja"); unknown gives "en".
@@ -307,7 +323,7 @@ fn sentence_join(code: &str) -> &'static str {
     }
 }
 
-/// Split where Python's `(?<=[.!?])\s+(?=[A-Z"'(])` splits.
+/// Split where Python's `(?<=[.!?])\s+(?=[A-Z0-9"'(])` splits.
 fn sentences(text: &str) -> Vec<&str> {
     let mut out = vec![];
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -320,7 +336,7 @@ fn sentences(text: &str) -> Vec<&str> {
             while j < chars.len() && chars[j].1.is_whitespace() {
                 j += 1;
             }
-            if j < chars.len() && (chars[j].1.is_ascii_uppercase() || matches!(chars[j].1, '"' | '\'' | '(')) {
+            if j < chars.len() && (chars[j].1.is_ascii_uppercase() || chars[j].1.is_ascii_digit() || matches!(chars[j].1, '"' | '\'' | '(')) {
                 out.push(&text[start..at]);
                 start = chars[j].0;
                 i = j;
@@ -408,6 +424,9 @@ mod tests {
         assert_eq!(match_template("{a} kHz", " kHz"), None);
         assert_eq!(match_template("{a}, {b}", "x, y, z"), Some(vec![("a".into(), "x".into()), ("b".into(), "y, z".into())]));
         assert_eq!(match_template("曲 {n} 件", "曲 3 件"), Some(vec![("n".into(), "3".into())]));
+        assert_eq!(match_template("{d:num} {m} {y:num}", "28 May 2026").map(|v| v.len()), Some(3));
+        assert_eq!(match_template("{d:num} {m} {y:num}", "Upsampled from 44.1 kHz"), None);
+        assert_eq!(placeholders("{n:num} days"), vec!["n"]);
         assert_eq!(sentences("One 1.5 kHz. Two! three. (Four)"), vec!["One 1.5 kHz.", "Two! three.", "(Four)"]);
     }
 

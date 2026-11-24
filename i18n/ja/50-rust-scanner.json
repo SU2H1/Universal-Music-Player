@@ -1,0 +1,30 @@
+{
+ "strings": {
+  ", {left} to go": "、残り {left}",
+  "Select one or more fake files to fix.": "修正する偽物のファイルを1つ以上選択してください。",
+  "{fakes} fake ({pct}%), {sus} suspicious, {real} real hi-res": "偽物 {fakes}（{pct}%）、疑わしい {sus}、本物のハイレゾ {real}",
+  "Fix: {status}": "修正：{status}",
+  "Selected all {n} listed files.": "表示中のすべてのファイル（{n}個）を選択しました。",
+  "Lyrics are being downloaded for the scanned songs; wait for them or stop the scan first.": "スキャンした曲の歌詞をダウンロード中です。終わるまで待つか、先にスキャンを停止してください。",
+  "Select one or more fake hi-res or fake lossless files first.": "まず偽ハイレゾまたは偽ロスレスのファイルを1つ以上選択してください。",
+  "No fake hi-res or fake lossless files were found.": "偽ハイレゾや偽ロスレスのファイルは見つかりませんでした。",
+  "Copied {n} path(s).": "{n}件のパスをコピーしました。",
+  "A music player that finds fake hi-res audio (upsampled or 16-bit padded) and fake lossless files made from MP3/AAC, by analysing the decoded audio itself.": "デコードしたオーディオそのものを解析して、偽ハイレゾのオーディオ（アップサンプリングまたは16ビットのパディング）と、MP3/AACから作られた偽ロスレスのファイルを見つけるミュージックプレーヤーです。",
+  "This is the Rust version; it shares its settings, saved results, library and player state with the Python version.": "これはRust版です。設定、保存された結果、ライブラリ、プレーヤーの状態をPython版と共有します。",
+  "Windows and Linux use the Inter typeface by The Inter Project Authors (SIL Open Font License 1.1).": "WindowsとLinuxでは、The Inter Project Authorsによる書体Inter（SIL Open Font License 1.1）を使用しています。",
+  "Remove the selected sources (Delete key)": "選択したスキャン対象を取り除く（Deleteキー）",
+  "Nothing added yet. Click “Add Folder…” or “Add Files…” (or drop folders here): the files found are listed below straight away, then press Scan.": "まだ何も追加されていません。「フォルダを追加…」または「ファイルを追加…」をクリックするか、ここにフォルダをドロップすると、見つかったファイルがすぐ下に一覧表示されます。その後「スキャン」を押してください。",
+  "file, folder or reason": "ファイル、フォルダ、理由",
+  "No files match the current filters. Tick more verdicts above, or clear the search.": "現在のフィルタに一致するファイルはありません。上で判定をさらにチェックするか、検索を消去してください。",
+  "Scan some files to see their albums and artists.": "ファイルをスキャンすると、アルバムとアーティストが表示されます。",
+  "No albums match the search.": "検索に一致するアルバムはありません。",
+  "Export": "書き出し",
+  "No scanned files are listed.": "スキャン済みのファイルが一覧にありません。",
+  "Exported {n} files to {path}": "{n}個のファイルを {path} に書き出しました",
+  "Could not write {path}: {error}": "{path} に書き込めませんでした：{error}",
+  "Yes": "はい",
+  "No": "いいえ",
+  "No folder yet.": "まだフォルダがありません。"
+ },
+ "patterns": {}
+}
