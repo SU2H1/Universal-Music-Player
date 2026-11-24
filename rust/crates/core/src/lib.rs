@@ -23,6 +23,7 @@ pub mod embed;
 pub mod eq;
 pub mod eta;
 pub mod fix;
+pub mod i18n;
 pub mod imaging;
 pub mod json;
 pub mod library;

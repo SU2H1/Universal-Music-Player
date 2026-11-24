@@ -233,6 +233,10 @@ settings! {
         None, NUMS;
 
     // ---- Appearance (2.0) ---------------------------------------------------
+    language: String = s(crate::i18n::DEFAULT_LANGUAGE), "Appearance", "Language",
+        s("The language of the app's menus, pages and windows: English or 日本語 (Japanese). The information of your \
+           songs is shown as it is in their tags, and the command-line tool always writes English."), Choice, None,
+        None, &crate::i18n::LANGUAGES;
     font_family: String = s(""), "Appearance", "Font",
         s("The font of the app. Empty = SF Pro, the system font, on macOS and Inter on Windows and Linux (SF Pro may \
            only be used on Apple systems). Any font installed on your computer can be chosen."), Str, None, None, NUMS;

@@ -20,6 +20,8 @@ import sys
 from dataclasses import MISSING, asdict, dataclass, field, fields
 from typing import Any, Dict, List, Optional
 
+from .i18n import LANGUAGES
+
 GROUPS = ("Library", "Playback", "Appearance", "Lyrics", "Detection", "Scanning", "Saved results", "Display",
           "Fixing")
 SETTINGS_VERSION = 160  # bumped when old saved values need migrating (see from_dict)
@@ -71,6 +73,11 @@ class Settings:
         kind="bool")
 
     # ---- Appearance (2.0) ---------------------------------------------------
+    language: str = _f(
+        "English", "Appearance", "Language",
+        "The language of the app's menus, pages and windows: English or 日本語 (Japanese). The information of "
+        "your songs is shown as it is in their tags, and the command-line tool always writes English.",
+        choices=list(LANGUAGES), kind="choice")
     font_family: str = _f(
         "", "Appearance", "Font",
         "The font of the app. Empty = SF Pro, the system font, on macOS and Inter on Windows and Linux "

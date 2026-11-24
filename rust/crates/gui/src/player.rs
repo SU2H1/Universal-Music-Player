@@ -340,6 +340,7 @@ pub fn gain_of(state: &PlayerState) -> f32 {
 
 impl Player {
     pub fn new(ctx: &egui::Context, cfg: Settings, initial: Vec<String>) -> Player {
+        realhires::i18n::set_language(&cfg.language);
         let quality_first = !initial.is_empty();
         let scanner = App::new(ctx, cfg, initial);
         let state = playerstate::load(None);

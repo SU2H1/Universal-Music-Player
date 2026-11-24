@@ -46,7 +46,8 @@ except ImportError as exc:  # e.g. Debian/Ubuntu Python without python3-tk
         f"(Details: {exc})"
     ) from exc
 
-from . import APP_NAME, PROJECT_URL, __version__
+from . import APP_NAME, PROJECT_URL, __version__, i18n
+from .i18n import tr, tr_name, tr_text
 from . import settings as settings_mod
 from .eta import ScanEta, file_sizes, fmt_about
 from .fix import FIXABLE_VERDICTS, fix_advice, fix_outlook
@@ -3103,7 +3104,9 @@ def scanner_main(argv=None) -> int:
         # clam paints the bar in the window colour, which makes it invisible.
         style.configure("Horizontal.TProgressbar", background="#4a90d9")
     style.configure("Treeview", rowheight=22)
-    App(root, initial=[a for a in args if not a.startswith("-")])
+    cfg = settings_mod.load()
+    i18n.set_language(cfg.language)
+    App(root, initial=[a for a in args if not a.startswith("-")], cfg=cfg)
     root.mainloop()
     return 0
 

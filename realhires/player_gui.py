@@ -28,7 +28,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Callable, Dict, List, Optional
 
-from . import APP_NAME, PROJECT_URL, __version__, gui, musiclib, playerstate, stats, themes
+from . import APP_NAME, PROJECT_URL, __version__, gui, i18n, musiclib, playerstate, stats, themes
+from .i18n import tr, tr_name, tr_text
 from . import lyrics as lyrics_mod
 from . import settings as settings_mod
 from .musiclib import Track
@@ -513,6 +514,7 @@ class PlayerApp:
     def __init__(self, root: tk.Tk, initial: Optional[List[str]] = None):
         self.root = root
         cfg = settings_mod.load()
+        i18n.set_language(cfg.language)  # 2.1: the language is chosen once per start (Settings → Appearance)
         self.theme = Theme(root)
         self.theme.configure(cfg.theme, cfg.font_family)
         self.theme.styles()
