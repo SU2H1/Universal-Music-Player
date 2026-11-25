@@ -190,18 +190,43 @@ SCROLL_SCRIPT = r'''
 import faulthandler, os, sys, time
 sys.path.insert(0, REPO)
 faulthandler.enable()
-faulthandler.dump_traceback_later(330, exit=True)  # (a slow macOS runner took over 2 minutes to make the 36 covers ahead)
+faulthandler.dump_traceback_later(330, exit=True)  # (the waits below end first and say what is missing)
 import tkinter as tk
 from realhires import covers, musiclib
 from realhires.player_theme import Theme
 from realhires.player_widgets import AlbumGrid, CoverCache
 
-runs = []
+# what the covers made ahead went through, so a failure says where a cover was lost
+# (Apple Silicon runners: every FFmpeg run was over within 30 s, the pass was idle,
+# and some cover was still not on disk five minutes later)
+runs = []      # every FFmpeg run: [source, seconds, ran to the end, made a picture]
 real = covers._thumbnail
 def counting(source, size, embedded):
-    runs.append(source)
-    return real(source, size, embedded)
+    entry = [source, None, None, None]
+    runs.append(entry)
+    t = time.time()
+    try:
+        data, ok = real(source, size, embedded)
+    except BaseException as exc:
+        entry[1:] = [round(time.time() - t, 2), "raised %r" % (exc,), False]
+        raise
+    entry[1:] = [round(time.time() - t, 2), ok, data is not None]
+    return data, ok
 covers._thumbnail = counting
+
+made_log = []  # every cover the background pass made: (first path, key, outcome, on disk afterwards)
+real_cached = covers.cached_cover_png
+def logged(paths, size):
+    paths = list(paths)
+    key = covers.cache_key(paths, size)
+    try:
+        data = real_cached(paths, size)
+    except BaseException as exc:
+        made_log.append((paths[0], key, "raised %r" % (exc,), covers.is_cached(paths, size)))
+        raise
+    made_log.append((paths[0], key, "cover" if data else "no cover", covers.is_cached(paths, size)))
+    return data
+covers.cached_cover_png = logged
 
 tracks = []
 for i in range(ALBUMS):
@@ -236,8 +261,8 @@ def watchdog():
     start = time.time()
     while True:
         time.sleep(30)
-        print("--- %.0f s: %d FFmpeg runs, %d queued" % (time.time() - start, len(runs), cache.prefetching()
-                                                       if "cache" in globals() else -1), file=sys.stderr, flush=True)
+        print("--- %.0f s: %s" % (time.time() - start, made_report() if "cache" in globals() else "starting"),
+              file=sys.stderr, flush=True)
         for tid, frame in sys._current_frames().items():
             name = next((t.name for t in threading.enumerate() if t.ident == tid), "?")
             print("thread %s:\n%s" % (name, "".join(traceback.format_stack(frame)[-6:])), file=sys.stderr, flush=True)
@@ -262,15 +287,40 @@ def scroll_through(grid, cache):
         shown.update(visible)
     return shown
 
+def saved(a):
+    return covers.is_cached([t.path for t in a["tracks"]], cache.GRID)
+
+def made_report():
+    lines = ["made ahead: %d FFmpeg runs, %d of %d covers saved, %d queued, %d made" % (
+        len(runs), sum(saved(a) for a in albums), len(albums), cache.prefetching(), len(made_log))]
+    for a in albums:
+        if saved(a):
+            continue
+        paths = [t.path for t in a["tracks"]]
+        lines.append("not saved: %s" % os.path.basename(os.path.dirname(paths[0])))
+        lines.append("  its key now: %r" % covers.cache_key(paths, cache.GRID))
+        lines += ["  made: %r" % (e,) for e in made_log if e[0] == paths[0]]
+        lines += ["  FFmpeg: %r" % (r,) for r in runs if os.path.dirname(r[0]) == os.path.dirname(paths[0])]
+    lines += ["slow or unfinished FFmpeg run: %r" % (r,) for r in runs if r[1] is None or r[1] > 5]
+    try:
+        lines.append("covers folder: %d files" % len(os.listdir(covers.cache_dir())))
+    except OSError as exc:
+        lines.append("covers folder: %r" % (exc,))
+    return "\n".join(lines)
+
 # first session: the library is read, the grid covers are made ahead
 cache = CoverCache(root)
 cache.library_changed(albums)
 cache.prefetch(albums)
-pump(lambda: cache.prefetching() == 0 and all(covers.is_cached([t.path for t in a["tracks"]], cache.GRID)
-                                               for a in albums),
-     lambda: "made ahead: %d FFmpeg runs, %d of %d covers saved, %d queued" % (
-         len(runs), sum(covers.is_cached([t.path for t in a["tracks"]], cache.GRID) for a in albums),
-         len(albums), cache.prefetching()), timeout=300)
+t_made = time.time()
+while not (cache.prefetching() == 0 and all(saved(a) for a in albums)):
+    if cache.prefetching() == 0 and len(made_log) >= ALBUMS:
+        time.sleep(0.5)
+        if not all(saved(a) for a in albums):
+            raise AssertionError("the background pass ended without saving every cover:\n" + made_report())
+    assert time.time() - t_made < 150, "timed out: " + made_report()
+    root.update()
+    time.sleep(0.01)
 made = len(runs)
 assert made >= ALBUMS, made
 assert cache.images == {}, "made ahead only on disk"
