@@ -1646,9 +1646,11 @@ class PlayerApp(TabsMixin, PlacesMixin, MoodsMixin):
         self._refresh_pages({"playlists", "playlist", "library"})
 
     # ---- play history and stats -------------------------------------------------
-    def _listen_start(self, path: str) -> None:
+    def _listen_start(self, path: str, start: Optional[float] = None) -> None:
+        """A song starts at `start` seconds: what is heard is counted from there (as the
+        Rust app does), so the time before the first position update is not lost."""
         self._listen_end()
-        self.listen = {"path": path, "started": time.time(), "seconds": 0.0, "last": None}
+        self.listen = {"path": path, "started": time.time(), "seconds": 0.0, "last": start}
 
     def _listen_tick(self, pos: float) -> None:
         """Count the position's forward steps between updates while playing (seeking
@@ -1878,7 +1880,7 @@ class PlayerApp(TabsMixin, PlacesMixin, MoodsMixin):
         t = self.by_path.get(path)
         info = SongInfo(path, t.sample_rate, t.channels or 2, t.duration, t.bits, t.is_float, t.is_lossy) \
             if t is not None and t.sample_rate else None
-        self._listen_start(path)
+        self._listen_start(path, position)
         self.current, self.error, self.resume_pos = path, "", 0.0
         self.engine.play(path, position, info)
         self._update_next()
@@ -2069,7 +2071,7 @@ class PlayerApp(TabsMixin, PlacesMixin, MoodsMixin):
             nxt = self.queue.next(auto=True) if self.queue else None
             self._sync_repeat()
             if nxt == path:
-                self._listen_start(path)
+                self._listen_start(path, 0.0)  # a gapless join: the next song from its start
                 self.current, self.error = path, ""
                 self._update_next()
                 self._song_changed()

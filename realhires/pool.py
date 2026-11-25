@@ -48,9 +48,11 @@ class MultiProcessPool:
     """Minimal executor facade (submit/shutdown/context manager) over one or
     more ProcessPoolExecutors.  Tasks are dealt out round-robin."""
 
-    def __init__(self, workers: int, mp_context=None, limit: Optional[int] = None):
+    def __init__(self, workers: int, mp_context=None, limit: Optional[int] = None, initializer=None,
+                 initargs: tuple = ()):
         self.sizes = split_workers(workers, limit)
-        self._pools = [ProcessPoolExecutor(max_workers=n, mp_context=mp_context) for n in self.sizes]
+        self._pools = [ProcessPoolExecutor(max_workers=n, mp_context=mp_context, initializer=initializer,
+                                           initargs=initargs) for n in self.sizes]
         self._next = itertools.cycle(self._pools)
 
     @property

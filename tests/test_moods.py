@@ -348,3 +348,19 @@ def _first_difference(a, b, path="$"):
                 return d
         return None
     return None if a == b else f"{path}: {a!r} != {b!r}"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="os.getpriority is POSIX only")
+def test_the_analysis_worker_runs_below_normal_priority():
+    # the Tk app analyses in a worker process (2.4), started with moods.lower_priority()
+    import multiprocessing
+
+    from realhires.pool import MultiProcessPool
+
+    mine = os.getpriority(os.PRIO_PROCESS, 0)
+    pool = MultiProcessPool(1, mp_context=multiprocessing.get_context("spawn"), initializer=moods.lower_priority)
+    try:
+        theirs = pool.submit(os.getpriority, os.PRIO_PROCESS, 0).result(timeout=60)
+    finally:
+        pool.shutdown()
+    assert theirs == min(mine + 10, 19), (mine, theirs)

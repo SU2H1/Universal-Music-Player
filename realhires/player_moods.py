@@ -152,7 +152,9 @@ class MoodsMixin:
 
                 from .pool import MultiProcessPool
 
-                pool = MultiProcessPool(1, mp_context=multiprocessing.get_context("spawn"))
+                # below normal priority, as its FFmpeg is: background work never slows the window
+                pool = MultiProcessPool(1, mp_context=multiprocessing.get_context("spawn"),
+                                        initializer=moods.lower_priority)
             except Exception:  # noqa: BLE001 - no worker process: analyse in this thread
                 pool = None
 

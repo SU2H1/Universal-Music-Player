@@ -336,3 +336,24 @@ def test_library_index(tmp_path, monkeypatch):
     (music / "B" / "03.flac").unlink()
     assert len(lib.refresh(musiclib.library_files(cfg))) == 2 and calls == []
     lib.close()
+
+
+def test_listening_is_counted_from_where_the_song_starts():
+    # 2.4: the time before the first position update counts (a busy computer updates it
+    # less often), steps over 1.5 s still count as seeks, as before
+    import types
+
+    pytest.importorskip("tkinter")
+    from realhires.player_gui import PlayerApp
+
+    fake = types.SimpleNamespace(listen=None, current="a.flac", engine=types.SimpleNamespace(current="a.flac"),
+                                 _listen_end=lambda: None)
+    PlayerApp._listen_start(fake, "a.flac", 0.0)
+    for pos in (0.7, 1.2):
+        PlayerApp._listen_tick(fake, pos)
+    assert abs(fake.listen["seconds"] - 1.2) < 1e-9
+    PlayerApp._listen_tick(fake, 5.0)  # a seek
+    assert abs(fake.listen["seconds"] - 1.2) < 1e-9 and fake.listen["last"] == 5.0
+    PlayerApp._listen_start(fake, "a.flac")  # no known start: from the first update, as before
+    PlayerApp._listen_tick(fake, 0.7)
+    assert fake.listen["seconds"] == 0.0

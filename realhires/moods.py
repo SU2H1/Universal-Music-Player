@@ -176,6 +176,22 @@ def _low_priority(cmd: List[str]) -> Tuple[List[str], dict]:
     return ([nice, "-n", "10"] + cmd if nice else cmd), kw
 
 
+def lower_priority() -> None:
+    """Put the calling process below normal priority, like its FFmpeg (the Tk app's
+    analysis worker process calls it when it starts), so background analysis never
+    takes the CPU from the window or the sound.  Failing to change it changes nothing."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            k32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+            k32.SetPriorityClass(k32.GetCurrentProcess(), 0x00004000)  # BELOW_NORMAL_PRIORITY_CLASS
+        else:
+            os.nice(10)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def samples_of(data: bytes) -> np.ndarray:
     """The mono samples (float64) of FFmpeg's two-channel f32le output: (left + right) / 2."""
     n = len(data) // 8

@@ -1274,7 +1274,8 @@ def loaded():
     # card's menu plays the album from its first song)
     am.invoke(0)
     assert app.current == album["tracks"][0].path and app.context_name == "Northern Lights", app.context_name
-    wait(lambda: app.engine.position() > 1.3, heard, what="first song")
+    # (what was heard, not the position: a busy runner updates the position less often)
+    wait(lambda: app.listen is not None and app.listen["seconds"] > 1.1, heard, what="first song heard")
 
 def heard():
     app.next()
