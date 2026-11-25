@@ -7,6 +7,28 @@
 "disliked": [
 "/music/Pop/Rain/04 Taxi Lights.m4a"
 ],
+"moods": {
+"/music/Jazz/Night/01 Blue Hour.flac": {
+"bpm": 72,
+"mood": "Sad",
+"tempo": "Slow"
+},
+"/music/Jazz/Night/02 Échos.flac": {
+"bpm": 128,
+"mood": "Happy",
+"tempo": "Up-tempo"
+},
+"/music/Pop/Rain/03 rain.mp3": {
+"bpm": 104,
+"mood": "Chill",
+"tempo": "Mid-tempo"
+},
+"/music/Classical/大地/05 交響曲.wav": {
+"bpm": 0,
+"mood": "Sad",
+"tempo": ""
+}
+},
 "tracks": [
 {
 "path": "/music/Jazz/Night/01 Blue Hour.flac",
@@ -152,12 +174,15 @@
 "format": "FLAC",
 "folder": "/music/Jazz/Night",
 "quality": "Hi-Res Lossless",
+"mood": "Sad",
+"tempo": "Slow",
 "year": 2021,
 "bits": 24,
 "sample_rate": 96000,
 "bit_rate": 0,
 "duration": 312.5,
 "added_days": 3.0,
+"bpm": 72,
 "lossless": true,
 "liked": false,
 "disliked": false
@@ -172,12 +197,15 @@
 "format": "FLAC",
 "folder": "/music/Jazz/Night",
 "quality": "Lossless",
+"mood": "Happy",
+"tempo": "Up-tempo",
 "year": 2021,
 "bits": 16,
 "sample_rate": 44100,
 "bit_rate": 0,
 "duration": 600.0,
 "added_days": 40.0,
+"bpm": 128,
 "lossless": true,
 "liked": true,
 "disliked": false
@@ -192,12 +220,15 @@
 "format": "MP3",
 "folder": "/music/Pop/Rain",
 "quality": "Lossy",
+"mood": "Chill",
+"tempo": "Mid-tempo",
 "year": 0,
 "bits": 0,
 "sample_rate": 44100,
 "bit_rate": 320,
 "duration": 201.0,
 "added_days": 30.0,
+"bpm": 104,
 "lossless": false,
 "liked": true,
 "disliked": false
@@ -212,12 +243,15 @@
 "format": "AAC",
 "folder": "/music/Pop/Rain",
 "quality": "Lossy",
+"mood": "",
+"tempo": "",
 "year": 0,
 "bits": 0,
 "sample_rate": 48000,
 "bit_rate": 256,
 "duration": 59.9,
 "added_days": 400.0,
+"bpm": 0,
 "lossless": false,
 "liked": false,
 "disliked": true
@@ -232,12 +266,15 @@
 "format": "PCM_F32LE",
 "folder": "/music/Classical/大地",
 "quality": "Hi-Res Lossless",
+"mood": "Sad",
+"tempo": "",
 "year": 2010,
 "bits": 32,
 "sample_rate": 192000,
 "bit_rate": 0,
 "duration": 3600.0,
 "added_days": -1.0,
+"bpm": 0,
 "lossless": true,
 "liked": false,
 "disliked": false
@@ -252,12 +289,15 @@
 "format": "PCM_S24BE",
 "folder": "/music/Classical/大地",
 "quality": "Hi-Res Lossless",
+"mood": "",
+"tempo": "",
 "year": 0,
 "bits": 24,
 "sample_rate": 48000,
 "bit_rate": 0,
 "duration": 30.25,
 "added_days": 3.0,
+"bpm": 0,
 "lossless": true,
 "liked": false,
 "disliked": false
@@ -5206,6 +5246,1239 @@ false
 "tab": {
 "format": "universal-music-player-tab",
 "version": 1,
+"name": "mood is Happy",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is",
+"value": "Happy"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is_not Happy",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is_not",
+"value": "Happy"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood contains Happy",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "contains",
+"value": "Happy"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood not_contains Happy",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "not_contains",
+"value": "Happy"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood starts_with Happy",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "starts_with",
+"value": "Happy"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is sad",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is",
+"value": "sad"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+false,
+false,
+true,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is_not sad",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is_not",
+"value": "sad"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+true,
+true,
+false,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood contains sad",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "contains",
+"value": "sad"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+false,
+false,
+true,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood not_contains sad",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "not_contains",
+"value": "sad"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+true,
+true,
+false,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood starts_with sad",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "starts_with",
+"value": "sad"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+false,
+false,
+true,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is Chill",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is",
+"value": "Chill"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is_not Chill",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is_not",
+"value": "Chill"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood contains Chill",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "contains",
+"value": "Chill"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood not_contains Chill",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "not_contains",
+"value": "Chill"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood starts_with Chill",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "starts_with",
+"value": "Chill"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is ",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a"
+],
+"matches": [
+false,
+false,
+false,
+true,
+false,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood is_not ",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "is_not",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+false,
+true,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood contains ",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "contains",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood not_contains ",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "not_contains",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [],
+"matches": [
+false,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "mood starts_with ",
+"match": "all",
+"rules": [
+{
+"field": "mood",
+"op": "starts_with",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is Up-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is",
+"value": "Up-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is_not Up-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is_not",
+"value": "Up-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo contains Up-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "contains",
+"value": "Up-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo not_contains Up-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "not_contains",
+"value": "Up-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo starts_with Up-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "starts_with",
+"value": "Up-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is slow",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is",
+"value": "slow"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac"
+],
+"matches": [
+true,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is_not slow",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is_not",
+"value": "slow"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo contains slow",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "contains",
+"value": "slow"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac"
+],
+"matches": [
+true,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo not_contains slow",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "not_contains",
+"value": "slow"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo starts_with slow",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "starts_with",
+"value": "slow"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac"
+],
+"matches": [
+true,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is Mid-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is",
+"value": "Mid-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is_not Mid-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is_not",
+"value": "Mid-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo contains Mid-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "contains",
+"value": "Mid-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo not_contains Mid-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "not_contains",
+"value": "Mid-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo starts_with Mid-tempo",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "starts_with",
+"value": "Mid-tempo"
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3"
+],
+"matches": [
+false,
+false,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is ",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+false,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo is_not ",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "is_not",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo contains ",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "contains",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo not_contains ",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "not_contains",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [],
+"matches": [
+false,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "tempo starts_with ",
+"match": "all",
+"rules": [
+{
+"field": "tempo",
+"op": "starts_with",
+"value": ""
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
 "name": "year = 0",
 "match": "all",
 "rules": [
@@ -8730,6 +10003,747 @@ true
 "tab": {
 "format": "universal-music-player-tab",
 "version": 1,
+"name": "bpm = 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "=",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+false,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm != 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "!=",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm > 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm >= 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">=",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm < 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [],
+"matches": [
+false,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm <= 0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<=",
+"value": 0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+false,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm = 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "=",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac"
+],
+"matches": [
+true,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm != 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "!=",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm > 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm >= 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">=",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm < 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+false,
+false,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm <= 72",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<=",
+"value": 72
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+false,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm = 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "=",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [],
+"matches": [
+false,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm != 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "!=",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm > 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm >= 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">=",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm < 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm <= 120",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<=",
+"value": 120
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm = 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "=",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm != 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "!=",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm > 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [],
+"matches": [
+false,
+false,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm >= 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": ">=",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+false,
+true,
+false,
+false,
+false,
+false
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm < 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+false,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "bpm <= 128.0",
+"match": "all",
+"rules": [
+{
+"field": "bpm",
+"op": "<=",
+"value": 128.0
+}
+],
+"sort": "title",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
 "name": "lossless True",
 "match": "all",
 "rules": [
@@ -9527,6 +11541,118 @@ true
 "tab": {
 "format": "universal-music-player-tab",
 "version": 1,
+"name": "sort mood False",
+"match": "all",
+"rules": [],
+"sort": "mood",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "sort mood True",
+"match": "all",
+"rules": [],
+"sort": "mood",
+"descending": true,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav",
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "sort tempo False",
+"match": "all",
+"rules": [],
+"sort": "tempo",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "sort tempo True",
+"match": "all",
+"rules": [],
+"sort": "tempo",
+"descending": true,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
 "name": "sort year False",
 "match": "all",
 "rules": [],
@@ -9848,6 +11974,62 @@ true
 "/music/Pop/Rain/03 rain.mp3",
 "/music/Classical/大地/06 Coda.aiff",
 "/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/05 交響曲.wav"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "sort bpm False",
+"match": "all",
+"rules": [],
+"sort": "bpm",
+"descending": false,
+"limit": 0
+},
+"songs": [
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
+"/music/Classical/大地/05 交響曲.wav",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/02 Échos.flac"
+],
+"matches": [
+true,
+true,
+true,
+true,
+true,
+true
+]
+},
+{
+"tab": {
+"format": "universal-music-player-tab",
+"version": 1,
+"name": "sort bpm True",
+"match": "all",
+"rules": [],
+"sort": "bpm",
+"descending": true,
+"limit": 0
+},
+"songs": [
+"/music/Jazz/Night/02 Échos.flac",
+"/music/Pop/Rain/03 rain.mp3",
+"/music/Jazz/Night/01 Blue Hour.flac",
+"/music/Classical/大地/06 Coda.aiff",
+"/music/Pop/Rain/04 Taxi Lights.m4a",
 "/music/Classical/大地/05 交響曲.wav"
 ],
 "matches": [
@@ -14053,7 +16235,10 @@ false,
 "added_days": "Days since added",
 "lossless": "Lossless",
 "liked": "Liked",
-"disliked": "Disliked"
+"disliked": "Disliked",
+"mood": "Mood",
+"tempo": "Tempo",
+"bpm": "Tempo (BPM)"
 },
 "ops": {
 "title": {
@@ -14119,6 +16304,20 @@ false,
 "not_contains": "does not contain",
 "starts_with": "starts with"
 },
+"mood": {
+"is": "is",
+"is_not": "is not",
+"contains": "contains",
+"not_contains": "does not contain",
+"starts_with": "starts with"
+},
+"tempo": {
+"is": "is",
+"is_not": "is not",
+"contains": "contains",
+"not_contains": "does not contain",
+"starts_with": "starts with"
+},
 "year": {
 "=": "is",
 "!=": "is not",
@@ -14167,6 +16366,14 @@ false,
 "<": "is less than",
 "<=": "is at most"
 },
+"bpm": {
+"=": "is",
+"!=": "is not",
+">": "is more than",
+">=": "is at least",
+"<": "is less than",
+"<=": "is at most"
+},
 "lossless": {
 "is": "is"
 },
@@ -14187,12 +16394,15 @@ false,
 "format": "text",
 "folder": "text",
 "quality": "text",
+"mood": "text",
+"tempo": "text",
 "year": "number",
 "bits": "number",
 "sample_rate": "number",
 "bit_rate": "number",
 "duration": "number",
 "added_days": "number",
+"bpm": "number",
 "lossless": "yesno",
 "liked": "yesno",
 "disliked": "yesno",
@@ -14244,6 +16454,16 @@ false,
 "op": "contains",
 "value": "Hi-Res Lossless"
 },
+"mood": {
+"field": "mood",
+"op": "contains",
+"value": "Happy"
+},
+"tempo": {
+"field": "tempo",
+"op": "contains",
+"value": "Up-tempo"
+},
 "year": {
 "field": "year",
 "op": ">=",
@@ -14271,6 +16491,11 @@ false,
 },
 "added_days": {
 "field": "added_days",
+"op": ">=",
+"value": 0
+},
+"bpm": {
+"field": "bpm",
 "op": ">=",
 "value": 0
 },

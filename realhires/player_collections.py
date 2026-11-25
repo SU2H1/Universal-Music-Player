@@ -10,12 +10,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import i18n, musiclib, stats
+from . import i18n, musiclib, player_stats, stats
 from . import settings as settings_mod
 from .i18n import N_, tr, tr_name, tr_text
 from .musiclib import Track
 from .player_pages import (Page, album_menu, album_order, frame, label, library_groups, plural, song_table,
                            track_sort, track_value)
+from .player_places import draw_day_place, draw_places
 from .player_theme import IconButton, PillButton, draw_icon, fit_text, mix, round_rect
 from .player_widgets import (AlbumGrid, Column, SongList, bind_wheel, draw_cover, draw_mosaic,
                              show_scrollbar)
@@ -83,6 +84,7 @@ TILES = [  # page, name (English: shown as tr(name)), icon
     ("songs", N_("All Songs"), "note"), ("folders", N_("Folders"), "folder"), ("albums", N_("Albums"), "album"),
     ("artists", N_("Artists"), "artist"), ("album_artists", N_("Album Artists"), "mic"),
     ("genres", N_("Genres"), "genre"), ("years", N_("Years"), "calendar"), ("composers", N_("Composers"), "piano"),
+    ("moods", N_("Moods"), "mood"),  # 2.4
     ("playlists", N_("Playlists"), "playlist"), ("liked", N_("Liked Songs"), "heart"),
     ("disliked", N_("Disliked Songs"), "thumbs_down"), ("played", N_("Recently Played"), "history"),
     ("recent", N_("Recently Added"), "clock"), ("stats", N_("Your Stats"), "stats"),
@@ -94,7 +96,7 @@ LAYOUT_ICONS = [("Tiles", "tiles"), ("List", "list")]  # the buttons at the righ
 
 
 class LibraryPage(Page):
-    """The start page: its entries (the fourteen of TILES, then those that come
+    """The start page: its entries (the fifteen of TILES, then those that come
     after them) as tiles or, with the setting library_layout = "List" (2.3), as
     rows; the newest albums, and a Your Stats banner when there are plays this
     year.  The two buttons at the right of the title switch the layout."""
@@ -146,6 +148,7 @@ class LibraryPage(Page):
             "genres": count(n(library_groups(app, "genres")), "genre"),
             "years": count(n(library_groups(app, "years")), "year"),
             "composers": count(n(library_groups(app, "composers")), "composer"),
+            "moods": app.moods_entry_count(),  # 2.4
             "playlists": count(n(app.state.playlists), "playlist"),
             "liked": count(n(app.state.liked), "song"),
             "disliked": count(n(app.state.disliked), "song"),
@@ -160,13 +163,13 @@ class LibraryPage(Page):
 
     def entries(self) -> List[Tuple[str, str, str, str, Callable[[], None]]]:
         """The page's entries in their order, as (key, name shown, icon, count, open): the
-        fourteen of TILES, then the entries that come after them (more_entries())."""
+        fifteen of TILES, then the entries that come after them (more_entries())."""
         out = [(key, tr(name), icon, self.counts.get(key, ""), lambda key=key: self.app.show_page(key))
                for key, name, icon in TILES]
         return out + self.more_entries()
 
     def more_entries(self) -> List[Tuple[str, str, str, str, Callable[[], None]]]:
-        """Entries after the fourteen: the custom tabs (2.3), with their songs."""
+        """Entries after the fifteen: the custom tabs (2.3), with their songs."""
         return self.app.tab_entries()
 
     def layout(self) -> str:
@@ -323,9 +326,28 @@ class LibraryPage(Page):
 
 
 # ------------------------------------------------------------------ folders ---
+class FolderRow:
+    """A subfolder in the Folders page's list (2.4): its path, name and number of songs."""
+
+    __slots__ = ("path", "name", "count")
+
+    def __init__(self, path: str, name: str, count: int):
+        self.path, self.name, self.count = path, name, count
+
+    def __repr__(self) -> str:
+        return f"FolderRow({self.path!r})"
+
+
 class FoldersPage(Page):
     """The library folders as the roots; a folder shows its subfolders above its songs,
-    with a breadcrumb whose parts can be clicked."""
+    with a breadcrumb whose parts can be clicked.
+
+    2.4 ("Folder cannot be scrolled"): the subfolders and the songs are one list that
+    scrolls as one page (`table`, whose subfolder rows are `FolderRow`s drawn by
+    `_draw_folder()` and opened with one click).  The subfolders used to be a list of
+    their own above the songs, whose `configure(height=…)` had no effect (a frame takes
+    the requested size of the widgets packed in it), so it stayed about three rows tall
+    and scrolled on its own, and the songs scrolled in a second box below it."""
 
     list_name = N_("Folders")
 
@@ -342,13 +364,12 @@ class FoldersPage(Page):
                                                                                             padx=(0, 10))
         self.sub = label(self, t, "", "body", fg="text2")
         self.sub.pack(anchor="w", padx=28, pady=(0, 6))
-        self.dirs = SongList(self, t, [Column("icon", "", 30, kind="icon"), Column("name", "", 300, True),
-                                       Column("count", "", 90, anchor="e")],
-                             lambda r, k: "folder" if k == "icon" else (r[1] if k == "name" else plural(r[2], "song")),
-                             header=False, zebra=False, row_height=36,
-                             on_select=lambda i: self.open(self.dirs.rows[i][0]))
-        self.table = song_table(self, self, kind="folders",
-                                on_activate=lambda i: app.play_list(self.table.rows, i, self.list_name))
+        self.table = song_table(self, self, kind="folders", on_activate=self._activate,
+                                value=lambda r, k: "" if isinstance(r, FolderRow) else track_value(r, k),
+                                sort_value=lambda r, k: (0,) if isinstance(r, FolderRow) else track_sort(r, k),
+                                special=lambda r: isinstance(r, FolderRow), draw_special=self._draw_folder)
+        self.table.on_context = self._context
+        self.table.pack(fill="both", expand=True, padx=12, pady=(0, 8))
         self.parts: List[Tuple[str, Optional[str]]] = []
 
     def roots(self) -> List[str]:
@@ -378,20 +399,55 @@ class FoldersPage(Page):
         else:
             subs, songs = musiclib.folder_view(tracks, self.folder)
         self._crumbs(roots)
-        self.dirs.set_rows(subs)
-        self.dirs.selected = None
-        self.table.set_rows(songs)
         below = self._below()
         self.sub.configure(text=tr("{a}, {b}", a=plural(len(subs), "folder"), b=plural(len(below), "song"))
                            if (subs or below) else tr("No songs in this folder."))
-        self.dirs.pack_forget()
-        self.table.pack_forget()
-        if subs:
-            self.dirs.configure(height=min(len(subs), 7) * 36 + 6)
-            self.dirs.pack(fill="x" if songs else "both", expand=not songs, padx=12, pady=(0, 8))
-        if songs:
-            self.table.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+        # one list: the subfolders above the songs; the headings only when there are songs
+        self.table.has_header = bool(songs)
+        self.table.sortable = bool(songs)
+        self.table.set_rows([FolderRow(*x) for x in subs] + list(songs))
+        self.table.selected = None
         self.list_name = self.parts[-1][0] if self.parts else tr("Folders")
+
+    def folder_rows(self) -> List[FolderRow]:
+        return [r for r in self.table.rows if isinstance(r, FolderRow)]
+
+    def song_rows(self) -> List[Track]:
+        """The songs of the list, in the order shown."""
+        return [r for r in self.table.rows if not isinstance(r, FolderRow)]
+
+    def _activate(self, i: int) -> None:
+        """A click on a subfolder opens it; Enter or a double click on a song plays the
+        folder's songs from it."""
+        row = self.table.rows[i]
+        if isinstance(row, FolderRow):
+            self.open(row.path)
+            return
+        songs = self.song_rows()
+        self.app.play_list(songs, songs.index(row), self.list_name)
+
+    def _context(self, i: int, e) -> None:
+        row = self.table.rows[i]
+        if isinstance(row, FolderRow):
+            return
+        songs = self.song_rows()
+        self.app.song_menu(row, list_name=self.list_name, rows=songs, index=songs.index(row)).tk_popup(
+            e.x_root, e.y_root)
+
+    def _draw_folder(self, c: tk.Canvas, row: FolderRow, x0: float, x1: float, y: float, h: int, tags,
+                     selected: bool) -> None:
+        """A subfolder's row: the folder icon, its name and its number of songs."""
+        t = self.theme
+        mid = y + h / 2
+        fg = t.c("on_accent") if selected else t.c("text")
+        fg2 = t.c("on_accent") if selected else t.c("text2")
+        draw_icon(c, "folder", x0 + 22, mid, 16, t.c("on_accent") if selected else t.c("accent"), tag=tags)
+        count = plural(row.count, "song")
+        cid = c.create_text(x1 - 16, mid, text=count, anchor="e", fill=fg2, font=t.f("body"), tags=tags)
+        bbox = c.bbox(cid)
+        room = int((bbox[0] if bbox else x1 - 100) - (x0 + 44) - 16)
+        c.create_text(x0 + 44, mid, text=fit_text(t.f("body"), row.name, max(room, 20), self.table._fit), anchor="w",
+                      fill=fg, font=t.f("body"), tags=tags)
 
     def _crumbs(self, roots: List[str]) -> None:
         """'Music › Jazz › 1999': every part opens its folder."""
@@ -683,6 +739,14 @@ class StatsPage(Page):
         c.bind("<Button-1>", self._click)
         c.bind("<Motion>", self._motion)
         c.bind("<Leave>", lambda e: self._set_hover(None))
+        # 2.4: the names are links (player_stats); a right click on a song opens its menu
+        self.menu_hits: List[Tuple[tuple, Callable[[object], None]]] = []
+        self.day_menus: List[Tuple[tuple, Callable[[object], None]]] = []
+        self.boards: Dict[str, List[dict]] = {}  # the period's leaderboards (2.4), by kind
+        for seq in ("<Button-3>", "<Button-2>"):  # Button-2: the right click on macOS
+            c.bind(seq, lambda e: self._menu(e, c, self.menu_hits))
+        app.covers.listeners.append(lambda key, size: size == player_stats.COVER and self.winfo_exists()
+                                    and app.page_name == "stats" and self.area.redraw())
         # 2.3: the day's plays beside the calendar, scrolling inside the calendar's height
         self.day_c = tk.Canvas(c, highlightthickness=0, bd=0, width=200, height=100)
         t.reg(self.day_c, bg="bg")
@@ -692,6 +756,8 @@ class StatsPage(Page):
         self.day_c.bind("<Button-1>", self._day_click)
         self.day_c.bind("<Motion>", self._day_motion)
         self.day_c.bind("<Leave>", lambda e: self._set_day_hover(None))
+        for seq in ("<Button-3>", "<Button-2>"):
+            self.day_c.bind(seq, lambda e: self._menu(e, self.day_c, self.day_menus))
         bind_wheel(self.day_c, self._day_wheel)
 
     def _period(self) -> None:
@@ -706,11 +772,13 @@ class StatsPage(Page):
 
     def refresh(self) -> None:
         self.st = self.app.compute_stats()
+        self.boards = player_stats.boards(player_stats.period_plays(self.app))
         st = self.st
         period = tr(self.app.stats_period)
         self.sub.configure(text=tr("{period}: {minutes}, {plays}", period=period,
                                    minutes=plural(int(st["seconds"] / 60 + 0.5), "minute"),
                                    plays=plural(st["plays"], "play")) if st["logged"] else period)
+        self.place_rows = self.app.period_places()  # 2.4: the period's places
         self._load_calendar()
         self.area.redraw()
 
@@ -742,6 +810,10 @@ class StatsPage(Page):
         self.day_c.yview_moveto(0)
         self.area.redraw()
 
+    def _day_paths(self) -> List[str]:
+        """The songs of the chosen day's list, each once (the queue of a click on one)."""
+        return list(dict.fromkeys(r["path"] for r in self.day_rows))
+
     def play_row(self, i: int) -> None:
         """A click on a song of the day's list: play the day's songs (each once) from it."""
         tracks: List[Track] = []
@@ -764,6 +836,12 @@ class StatsPage(Page):
         hit = self._hit(e)
         if hit:
             hit[1]()
+
+    def _menu(self, e, c: tk.Canvas, menus) -> None:
+        """A right click on a song (2.4): its menu."""
+        hit = player_stats.hit_at(menus, c.canvasx(e.x), c.canvasy(e.y))
+        if hit:
+            hit[1](e)
 
     def _motion(self, e) -> None:
         hit = self._hit(e)
@@ -849,7 +927,11 @@ class StatsPage(Page):
         rest = width - 70 - 90
         tw = rest * 0.55
         aw = rest - tw - 16
+        with_places, place = any(r.get("place") for r in self.day_rows), None
         for i, r in enumerate(self.day_rows):
+            if with_places and r.get("place", "") != place:  # 2.4: where the plays under it were played
+                place = r.get("place", "")
+                y = draw_day_place(self, c, x, y, width, place)
             box = (x, y, right, y + self.ROW_H)
             playable = r["path"] in self.app.by_path
             if playable and hover == box:
@@ -862,12 +944,17 @@ class StatsPage(Page):
             c.create_text(x + 12, mid, text=r["time"], anchor="w", fill=t.c("text2"), font=t.f("body"))
             c.create_text(x + 70, mid, text=fit_text(font, r["title"], int(tw), self._fit), anchor="w",
                           fill=t.c("accent") if playing else t.c("text") if playable else t.c("text2"), font=font)
-            c.create_text(x + 70 + tw + 16, mid, text=fit_text(t.f("body"), tr_name(r["artist"]), int(aw), self._fit),
-                          anchor="w", fill=t.c("text2"), font=t.f("body"))
+            aid = c.create_text(x + 70 + tw + 16, mid, text=fit_text(t.f("body"), tr_name(r["artist"]), int(aw),
+                                                                     self._fit),
+                                anchor="w", fill=t.c("text2"), font=t.f("body"))
+            player_stats.add_link(c, aid, hits, player_stats.artist_link(self.app, r["artist"]))  # 2.4
             c.create_text(right - 12, mid, text=tr_text(r["minutes"]), anchor="e", fill=t.c("text2"),
                           font=t.f("body"))
             if playable:
                 hits.append((box, lambda i=i: self.play_row(i)))
+                menus = self.day_menus if c is self.day_c else self.menu_hits
+                menus.append((box, player_stats.song_menu_link(self.app, self._day_paths(), r["path"],
+                                                               self.list_name)))
             y += self.ROW_H
         return y + 18
 
@@ -879,7 +966,7 @@ class StatsPage(Page):
         dc = self.day_c
         _x, _y, w, h = self.day_box
         dc.delete("all")
-        self.day_hits = []
+        self.day_hits, self.day_menus = [], []
         bottom = self._draw_day(dc, 0, 0, w, self.day_hits, self.day_hover)
         dc.configure(scrollregion=(0, 0, w, max(bottom, h)), yscrollincrement=24)
 
@@ -922,7 +1009,7 @@ class StatsPage(Page):
         t, c = self.theme, self.area.c
         W = c.winfo_width()
         m, gap = self.MARGIN, 16
-        self.hits = []
+        self.hits, self.menu_hits = [], []
         top = 8
         y0 = self._draw_calendar(top)
         if self.side_by_side(W):  # the day's plays to the right, as tall as the calendar
@@ -953,12 +1040,47 @@ class StatsPage(Page):
             round_rect(c, x, y, x + cw, y + ch, 16, fill=color, outline="")
             c.create_text(x + 20, y + 26, text=lab.upper(), anchor="w", fill=mix(color, "#ffffff", 0.78),
                           font=t.f("stat_label"))
-            c.create_text(x + 20, y + 72, text=fit_text(t.f("stat_big"), big, int(cw - 40), self._fit), anchor="w",
-                          fill="#ffffff", font=t.f("stat_big"))
-            c.create_text(x + 20, y + 118, text=fit_text(t.f("stat_detail"), detail, int(cw - 40), self._fit),
-                          anchor="w", fill=mix(color, "#ffffff", 0.85), font=t.f("stat_detail"))
+            bid = c.create_text(x + 20, y + 72, text=fit_text(t.f("stat_big"), big, int(cw - 40), self._fit),
+                                anchor="w", fill="#ffffff", font=t.f("stat_big"))
+            did = c.create_text(x + 20, y + 118, text=fit_text(t.f("stat_detail"), detail, int(cw - 40), self._fit),
+                                anchor="w", fill=mix(color, "#ffffff", 0.85), font=t.f("stat_detail"))
+            self._card_links(cards[i][0], bid, did)
         rows = (len(cards) + cols - 1) // cols
-        return y0 + rows * (ch + gap) + 20
+        # 2.4: the leaderboard, then the period's places
+        return draw_places(self, self._draw_leaderboard(y0 + rows * (ch + gap) + 20) - 16)
+
+    # ---- 2.4: links and the leaderboard ------------------------------------
+    def _card_links(self, label: str, big: int, detail: int) -> None:
+        """The cards' names as links: the top song plays (the period's most played songs
+        as the queue), its artist, the top artist, album (and its artist) and genre open
+        their pages."""
+        app, st, c = self.app, self.st or {}, self.area.c
+        add = player_stats.add_link
+        if label == "Your top song" and st.get("top_songs"):
+            s = st["top_songs"][0]
+            queue = stats.ranked_songs(self.boards.get("songs", []))
+            add(c, big, self.hits, player_stats.song_link(app, queue, s["key"], self.list_name), self.menu_hits,
+                player_stats.song_menu_link(app, queue, s["key"], self.list_name))
+            add(c, detail, self.hits, player_stats.artist_link(app, s["artist"]))
+        elif label == "Your top artist" and st.get("top_artists"):
+            add(c, big, self.hits, player_stats.artist_link(app, st["top_artists"][0]["name"]))
+        elif label == "Your top album" and st.get("top_albums"):
+            a = st["top_albums"][0]
+            paths = next((r["paths"] for r in self.boards.get("albums", []) if r["key"] == a["key"]), [])
+            add(c, big, self.hits, player_stats.album_link(app, a["name"], a["artist"], paths))
+            add(c, detail, self.hits, player_stats.artist_link(app, a["artist"]))
+        elif label == "Your top genre" and st.get("top_genres"):
+            add(c, big, self.hits, player_stats.genre_link(app, st["top_genres"][0]["name"]))
+
+    def _draw_leaderboard(self, y: float) -> float:
+        """The leaderboard (2.4): the switch, See All (the Most Played page) and the top
+        rows of the period."""
+        c, W, m = self.area.c, self.area.c.winfo_width(), self.MARGIN
+        kind = self.app.leaderboard_kind
+        y = player_stats.section_heading(self, c, m, y, W - 2 * m, self.hits, self.area.redraw, see_all=True)
+        return player_stats.draw_board(self, c, m, y, W - 2 * m, kind, self.boards.get(kind, []),
+                                       player_stats.SECTION_ROWS, self.hits, self.menu_hits, self.list_name,
+                                       self._fit) + 20
 
 
 class StatsDetailsPage(Page):
@@ -981,8 +1103,10 @@ class StatsDetailsPage(Page):
         self.sub.pack(anchor="w")
         self.area = ScrollCanvas(self, self, self._draw)
         self.area.pack(fill="both", expand=True)
+        self.links = player_stats.LinkArea(self.area.c)  # 2.4: the top lists' names are links
         self.st: Optional[dict] = None
         self.lib: Optional[dict] = None
+        self.boards: Dict[str, List[dict]] = {}
         self._fit: dict = {}
 
     def show(self, **kw) -> None:
@@ -990,6 +1114,7 @@ class StatsDetailsPage(Page):
 
     def refresh(self) -> None:
         self.st = self.app.compute_stats()
+        self.boards = player_stats.boards(player_stats.period_plays(self.app))
         self.lib = stats.library_stats(self.app.tracks)
         self.sub.configure(text=tr("{period} · Your Stats", period=tr(self.app.stats_period)))
         self.area.redraw()
@@ -1019,22 +1144,52 @@ class StatsDetailsPage(Page):
                               font=t.f("small"))
         return y + height + 34
 
-    def _top(self, x: float, y: float, width: float, title: str, rows: List[dict], with_artist: bool) -> float:
-        t, c = self.theme, self.area.c
+    def _top(self, x: float, y: float, width: float, title: str, rows: List[dict], with_artist: bool,
+             kind: str = "") -> float:
+        """A top list ("Top songs"…): rank, name and artist (2.4: links; a right click on a
+        song opens its menu), plays and minutes."""
+        t, c, app = self.theme, self.area.c, self.app
         c.create_text(x, y + 12, text=title, anchor="w", fill=t.c("text"), font=t.f("h2"))
         y += 34
         if not rows:
             c.create_text(x, y + 10, text=tr("Nothing yet."), anchor="w", fill=t.c("text2"), font=t.f("body"))
             return y + 30
+        queue = [r["key"] for r in rows[:50]] if kind == "songs" else []
+        paths = {r["key"]: r["paths"] for r in self.boards.get(kind, [])} if kind == "albums" else {}
+        body = t.f("body")
         for i, r in enumerate(rows[:50], start=1):
             right = tr("{plays} · {minutes} min", plays=plural(r["plays"], "play"),
                        minutes=f"{int(r['seconds'] / 60 + 0.5):,}")
             rid = c.create_text(x + width, y + 10, text=right, anchor="e", fill=t.c("text2"), font=t.f("small"))
             rw = c.bbox(rid)[2] - c.bbox(rid)[0]
             c.create_text(x, y + 10, text=f"{i}", anchor="w", fill=t.c("text2"), font=t.f("small_b"))
-            name = tr_name(r["name"]) + (f" — {tr_name(r['artist'])}" if with_artist and r.get("artist") else "")
-            c.create_text(x + 30, y + 10, text=fit_text(t.f("body"), name, int(width - rw - 44), self._fit),
-                          anchor="w", fill=t.c("text"), font=t.f("body"))
+            room = int(width - rw - 44)
+            artist = tr_name(r["artist"]) if with_artist and r.get("artist") else ""
+            name = tr_name(r["name"])
+            if artist:  # the name gets at least two thirds of the room
+                room_name = max(int(room * 2 / 3), room - body.measure(f" — {artist}"))
+            else:
+                room_name = room
+            nid = c.create_text(x + 30, y + 10, text=fit_text(body, name, room_name, self._fit), anchor="w",
+                                fill=t.c("text"), font=body)
+            if kind == "songs":
+                name_ = self.list_name
+                player_stats.add_link(c, nid, self.links.hits, player_stats.song_link(app, queue, r["key"], name_),
+                                      self.links.menus, player_stats.song_menu_link(app, queue, r["key"], name_))
+            elif kind == "artists":
+                player_stats.add_link(c, nid, self.links.hits, player_stats.artist_link(app, r["name"]))
+            elif kind == "albums":
+                player_stats.add_link(c, nid, self.links.hits,
+                                      player_stats.album_link(app, r["name"], r["artist"], paths.get(r["key"], [])))
+            elif kind == "genres":
+                player_stats.add_link(c, nid, self.links.hits, player_stats.genre_link(app, r["name"]))
+            if artist:
+                nx = c.bbox(nid)[2] if c.bbox(nid) else x + 30
+                did = c.create_text(nx, y + 10, text=" — ", anchor="w", fill=t.c("text2"), font=body)
+                ax = c.bbox(did)[2] if c.bbox(did) else nx + 20
+                aid = c.create_text(ax, y + 10, text=fit_text(body, artist, int(x + 30 + room - ax), self._fit),
+                                    anchor="w", fill=t.c("text"), font=body)
+                player_stats.add_link(c, aid, self.links.hits, player_stats.artist_link(app, r["artist"]))
             y += 24
         return y + 12
 
@@ -1054,6 +1209,7 @@ class StatsDetailsPage(Page):
         t, c = self.theme, self.area.c
         W = c.winfo_width()
         st, lib = self.st, self.lib
+        self.links.clear()
         y = 8.0
         if st is None or lib is None:
             return 100
@@ -1088,11 +1244,11 @@ class StatsDetailsPage(Page):
             y = self._heading(y, tr("By month"))
             y = self._bars(y, [s / 60 for _, s in months], labels, every=max(1, len(months) // 12 + 1))
             half = (W - 56 - 32) / 2
-            y1 = self._top(28, y, half, tr("Top songs"), st["top_songs"], True)
-            y2 = self._top(28 + half + 32, y, half, tr("Top artists"), st["top_artists"], False)
+            y1 = self._top(28, y, half, tr("Top songs"), st["top_songs"], True, "songs")
+            y2 = self._top(28 + half + 32, y, half, tr("Top artists"), st["top_artists"], False, "artists")
             y = max(y1, y2)
-            y1 = self._top(28, y, half, tr("Top albums"), st["top_albums"], True)
-            y2 = self._top(28 + half + 32, y, half, tr("Top genres"), st["top_genres"], False)
+            y1 = self._top(28, y, half, tr("Top albums"), st["top_albums"], True, "albums")
+            y2 = self._top(28 + half + 32, y, half, tr("Top genres"), st["top_genres"], False, "genres")
             y = max(y1, y2)
         y = self._heading(y, tr("Your library"))
         hours = lib["seconds"] / 3600.0

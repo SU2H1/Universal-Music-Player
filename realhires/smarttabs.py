@@ -1,7 +1,7 @@
 """Custom tabs (2.3): saved sets of rules that pick songs from the library.
 
 A tab is shown in the sidebar like a playlist, and on the Library page after its
-fourteen entries.  It is a small JSON file, so tabs can be shared: no code runs, a
+fifteen entries.  It is a small JSON file, so tabs can be shared: no code runs, a
 tab only names fields of the songs, operators and values
 (docs/player-spec.md, "2.3", "6. Custom tabs")::
 
@@ -38,8 +38,9 @@ MAX_LIMIT = 100000
 MAX_INT = 10 ** 15   # larger whole numbers are read as floats (the same in Rust)
 SHOWN_CHARS = 60     # how much of an unknown field, operator or sort a message repeats
 
-TEXT_FIELDS = ("title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality")
-NUMBER_FIELDS = ("year", "bits", "sample_rate", "bit_rate", "duration", "added_days")
+TEXT_FIELDS = ("title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality",
+               "mood", "tempo")
+NUMBER_FIELDS = ("year", "bits", "sample_rate", "bit_rate", "duration", "added_days", "bpm")
 YESNO_FIELDS = ("lossless", "liked", "disliked")
 FIELDS = TEXT_FIELDS + NUMBER_FIELDS + YESNO_FIELDS
 
@@ -49,7 +50,7 @@ FIELD_LABELS = {
     "composer": "Composer", "format": "Format", "folder": "Folder", "quality": "Quality", "year": "Year",
     "bits": "Bit depth", "sample_rate": "Sample rate (Hz)", "bit_rate": "Bit rate (kbps)",
     "duration": "Length (seconds)", "added_days": "Days since added", "lossless": "Lossless", "liked": "Liked",
-    "disliked": "Disliked",
+    "disliked": "Disliked", "mood": "Mood", "tempo": "Tempo", "bpm": "Tempo (BPM)",
 }
 TEXT_OPS = ("is", "is_not", "contains", "not_contains", "starts_with")
 NUMBER_OPS = ("=", "!=", ">", ">=", "<", "<=")
@@ -63,7 +64,10 @@ MATCH_LABELS = {"all": "Match all of these rules", "any": "Match any of these ru
 YES, NO = "Yes", "No"
 # the values a field offers in a menu instead of an entry
 QUALITY_VALUES = ("Hi-Res Lossless", "Lossless", "Lossy")
-VALUE_CHOICES = {"quality": QUALITY_VALUES}
+# 2.4: the labels of moods.py (moods.MOODS, moods.TEMPOS; a song not analysed yet has none)
+MOOD_VALUES = ("Happy", "Sad", "Chill", "Intense")
+TEMPO_VALUES = ("Up-tempo", "Mid-tempo", "Slow")
+VALUE_CHOICES = {"quality": QUALITY_VALUES, "mood": MOOD_VALUES, "tempo": TEMPO_VALUES}
 
 
 # the messages without values (the apps show them translated; those with values have patterns)
@@ -90,12 +94,14 @@ class TabError(ValueError):
 
 @dataclass
 class TabContext:
-    """What rules need besides the song: the liked and disliked songs and the time now
-    (Unix seconds, for `added_days`)."""
+    """What rules need besides the song: the liked and disliked songs, the time now
+    (Unix seconds, for `added_days`) and the songs' moods (2.4: path → moods.Mood, for
+    `bpm`, `mood` and `tempo`; a song not analysed yet has BPM 0 and no labels)."""
 
     liked: Set[str] = field(default_factory=set)
     disliked: Set[str] = field(default_factory=set)
     now: float = 0.0
+    moods: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------- fields ---
@@ -369,6 +375,11 @@ def field_value(field_name: str, t, ctx: TabContext):
         return t.path in ctx.liked
     if field_name == "disliked":
         return t.path in ctx.disliked
+    if field_name in ("bpm", "mood", "tempo"):
+        m = ctx.moods.get(t.path)
+        if field_name == "bpm":
+            return int(m.bpm) if m is not None else 0
+        return (m.mood if field_name == "mood" else m.tempo) if m is not None else ""
     return ""
 
 
@@ -600,8 +611,9 @@ def import_tab(path: str, folder: Optional[str] = None) -> dict:
     return save_tab(t, d)
 
 
-def context(liked: Iterable[str] = (), disliked: Iterable[str] = (), now: float = 0.0) -> TabContext:
-    return TabContext(set(liked), set(disliked), float(now))
+def context(liked: Iterable[str] = (), disliked: Iterable[str] = (), now: float = 0.0,
+            moods: Optional[dict] = None) -> TabContext:
+    return TabContext(set(liked), set(disliked), float(now), moods if moods is not None else {})
 
 
 __all__ = ["TabError", "TabContext", "FIELDS", "FIELD_LABELS", "TEMPLATES", "check_tab", "check_rule", "check_name",

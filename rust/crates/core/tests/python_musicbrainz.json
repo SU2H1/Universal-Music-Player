@@ -1713,7 +1713,7 @@
   },
   {
    "kind": "user_agent",
-   "expect": "UniversalMusicPlayer/2.3.0 ( https://github.com/SU2H1/Universal-Music-Player )"
+   "expect": "UniversalMusicPlayer/2.4.0 ( https://github.com/SU2H1/Universal-Music-Player )"
   }
  ]
 }

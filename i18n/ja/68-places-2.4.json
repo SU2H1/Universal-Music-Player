@@ -1,0 +1,36 @@
+{
+ "strings": {
+  "Places": "場所",
+  "Remember where songs were played": "曲を再生した場所を記録",
+  "Store the approximate place (city, region and country) with each song in the play history, for Your Stats. The place is asked from the location service below when the app starts and again at most every 2 hours while music plays: only that request goes out, and the service sees this computer's IP address and the app's name, never a song, path or tag. The places are kept only on this computer. Off: nothing is asked and no place is stored.": "再生履歴の各曲に、おおよその場所（市区町村、地域、国）を記録して「あなたの統計」に表示します。場所はアプリの起動時と、音楽の再生中は最大で2時間ごとに、下の位置情報サービスに問い合わせます。送信されるのはその問い合わせだけで、サービスにはこのコンピュータのIPアドレスとアプリ名がわかりますが、曲、パス、タグは決して送信されません。場所はこのコンピュータにのみ保存されます。オフ：何も問い合わせず、場所も保存しません。",
+  "Location service": "位置情報サービス",
+  "Address the approximate place is asked from: FreeIPAPI's free service, which needs no account or key (terms: freeipapi.com/terms). Another service that answers with the same kind of JSON can be used.": "おおよその場所を問い合わせるアドレスです。FreeIPAPIの無料サービスで、アカウントもキーも不要です（利用規約：freeipapi.com/terms）。同じ形式のJSONを返す別のサービスも使えます。",
+  "What is sent: one HTTPS request to {host}, with the app's name, when the app starts and at most every 2 hours while music plays. The service sees this computer's IP address; no song, path or tag is sent, and the places are kept only on this computer.": "送信される内容：アプリの起動時と、音楽の再生中は最大で2時間ごとに、アプリ名を付けたHTTPSリクエストを{host}へ1回送ります。サービスにはこのコンピュータのIPアドレスがわかります。曲、パス、タグは送信されず、場所はこのコンピュータにのみ保存されます。",
+  "What is sent: one unencrypted HTTP request to {host}, with the app's name, when the app starts and at most every 2 hours while music plays. The service sees this computer's IP address; no song, path or tag is sent, and the places are kept only on this computer.": "送信される内容：アプリの起動時と、音楽の再生中は最大で2時間ごとに、アプリ名を付けた暗号化されていないHTTPリクエストを{host}へ1回送ります。サービスにはこのコンピュータのIPアドレスがわかります。曲、パス、タグは送信されず、場所はこのコンピュータにのみ保存されます。",
+  "Turned off: no place is asked for or stored.": "オフです：場所を問い合わせることも保存することもありません。",
+  "Approximate place now: {place} (looked up at {time}).": "現在のおおよその場所：{place}（{time}に取得）。",
+  "Looking up the approximate place…": "おおよその場所を問い合わせています…",
+  "No place was found: {error}": "場所が見つかりませんでした：{error}",
+  "Not looked up yet.": "まだ問い合わせていません。",
+  "Plays with a place: {n}.": "場所が記録された再生：{n}回。",
+  "No play has a place yet.": "場所が記録された再生はまだありません。",
+  "Forget play locations…": "再生した場所を消去…",
+  "Forget play locations": "再生した場所を消去",
+  "Forget where your songs were played? The plays stay in the play history and in Your Stats, only their places are removed.": "曲を再生した場所を消去しますか？再生は再生履歴と「あなたの統計」に残り、場所だけが削除されます。",
+  "Forget": "消去",
+  "Place unknown": "場所不明",
+  "No places yet in this period.": "この期間の場所はまだありません。",
+  "Turn on Settings → Playback → Remember where songs were played to see where you listen.": "どこで聴いているかを見るには、設定 → 再生 → 「曲を再生した場所を記録」をオンにしてください。",
+  "No song was played at this place in this period.": "この期間にこの場所で再生された曲はありません。",
+  "The location service sent no place.": "位置情報サービスから場所が返されませんでした。",
+  "The location service could not find this computer's place.": "位置情報サービスはこのコンピュータの場所を見つけられませんでした。",
+  "no answer in time": "時間内に応答がありません"
+ },
+ "patterns": {
+  "{host} asked to wait before the next lookup.": "{host}から、次の問い合わせまで待つよう求められました。",
+  "No answer from {host} after 3 attempts ({problem}).": "3回試しましたが{host}から応答がありません（{problem}）。",
+  "{host} sent an answer that could not be read.": "{host}から読み取れない応答が返されました。",
+  "The location server address {server} is not valid: {error}.": "位置情報サービスのアドレス{server}が正しくありません：{error}。",
+  "The location service could not find this computer's place: {why}.": "位置情報サービスはこのコンピュータの場所を見つけられませんでした：{why}。"
+ }
+}

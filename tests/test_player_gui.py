@@ -169,7 +169,9 @@ def start():
 
 def loaded():
     assert len(app.tracks) == N_SONGS, len(app.tracks)
-    assert not app.library_busy() and app.sidebar.status.cget("text") == ""
+    # (2.4: the mood analysis that starts after the update may already show its progress)
+    status = app.sidebar.status.cget("text")
+    assert not app.library_busy() and (status == "" or status.startswith("Analysing moods: ")), status
     albums = app.page("albums")
     assert len(albums.grid_w.albums) == N_ALBUMS and app.page_name == "library"  # the start page
     assert [a["title"] for a in albums.grid_w.albums][:2] == ["City Rain", "Northern Lights"]
@@ -221,6 +223,13 @@ def playing():
     wait(lambda: np.lyrics.current == 0, lyrics_ok, what="current lyrics line")
 
 def lyrics_ok():
+    # paused from here on, while Now Playing, the windows and the menus are checked: the
+    # songs last 3 s, and a slow runner (macOS Intel, with the 2.4 mood analysis busy in
+    # the background) took longer than that, so the next song (without lyrics) had
+    # started before the lyrics checks below; the checks drive the lyrics' position
+    # themselves (update_position)
+    app.play_pause()
+    assert not app.engine.playing
     np = app.page("nowplaying")
     item = np.lyrics.items[0]
     assert np.lyrics.itemcget(item, "text") == "Blue ice under a silver sky"
@@ -334,10 +343,7 @@ def lyrics_ok():
     assert app.page_name != "nowplaying"
     app.cover_clicked(); root.update()
     assert app.page_name == "nowplaying" and np.lyrics.winfo_ismapped()
-    # paused while the windows and menus are checked: the songs last 3 s, and a slow runner
-    # (macOS) took longer than that, so the next song had started before Up Next was read
-    app.play_pause()
-    assert not app.engine.playing
+    assert not app.engine.playing  # paused in lyrics_ok()
     # Playback info
     app.open_info()
     info = app.info_window.text()
@@ -731,12 +737,13 @@ root.report_callback_exception = fail
 app = player_gui.PlayerApp(root)
 
 def loaded():
-    # the Library start page: fourteen tiles, each opening its page
+    # the Library start page: fifteen tiles (2.4: Moods), each opening its page
     assert app.page_name == "library"
     page = app.page("library")
     names = [n for _, n, _ in TILES]
     assert names == ["All Songs", "Folders", "Albums", "Artists", "Album Artists", "Genres", "Years", "Composers",
-                     "Playlists", "Liked Songs", "Disliked Songs", "Recently Played", "Recently Added", "Your Stats"]
+                     "Moods", "Playlists", "Liked Songs", "Disliked Songs", "Recently Played", "Recently Added",
+                     "Your Stats"]
     shown = texts(page.c)
     assert all(n in shown for n in names) and "11 songs" in shown and "Recently Added" in shown, shown
     for key, name, _ in TILES:
@@ -775,7 +782,8 @@ def loaded():
     # a folder page with a breadcrumb
     fp = app.page("folders")
     app.show_page("folders")
-    assert [r[1] for r in fp.dirs.rows] == ["Aurora Fields", "June Harbor", "The Paper Boats", "Velvet Static"]
+    # 2.4: the subfolders are the first rows of the one list (FolderRow)
+    assert [r.name for r in fp.folder_rows()] == ["Aurora Fields", "June Harbor", "The Paper Boats", "Velvet Static"]
     fp.open(os.path.join(LIB["music"], "Aurora Fields", "Northern Lights"))
     root.update()
     assert [p[0] for p in fp.parts] == ["Music", "Aurora Fields", "Northern Lights"]
@@ -784,7 +792,7 @@ def loaded():
     crumb.event_generate("<Button-1>")
     root.update()
     assert fp.folder == os.path.join(LIB["music"], "Aurora Fields")
-    assert [r[1] for r in fp.dirs.rows] == ["Northern Lights"]
+    assert [r.name for r in fp.folder_rows()] == ["Northern Lights"]
     # a playlist: create (name dialog), add from a song's menu, play, rename, delete
     answer("Road Trip")
     pid = app.new_playlist()
@@ -1266,7 +1274,8 @@ def loaded():
     # card's menu plays the album from its first song)
     am.invoke(0)
     assert app.current == album["tracks"][0].path and app.context_name == "Northern Lights", app.context_name
-    wait(lambda: app.engine.position() > 1.3, heard, what="first song")
+    # (what was heard, not the position: a busy runner updates the position less often)
+    wait(lambda: app.listen is not None and app.listen["seconds"] > 1.1, heard, what="first song heard")
 
 def heard():
     app.next()

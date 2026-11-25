@@ -38,9 +38,9 @@ pub fn plain_lyrics_size(size: i64) -> i64 {
 /// The columns of song lists (2.1, chosen by the user per kind of list,
 /// "columns" in player.json): every column in table order, and the defaults
 /// (Python `SONG_COLUMNS`, `DEFAULT_COLUMNS`).
-pub const SONG_COLUMNS: [&str; 16] = [
+pub const SONG_COLUMNS: [&str; 18] = [
     "num", "title", "artist", "album", "album_artist", "composer", "genre", "year", "disc", "time", "quality", "format",
-    "bit_rate", "added", "file", "like",
+    "bit_rate", "bpm", "mood", "added", "file", "like",
 ];
 pub const COLUMN_KINDS: [&str; 3] = ["songs", "folders", "album"];
 

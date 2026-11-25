@@ -692,6 +692,24 @@ def draw_icon(c: tk.Canvas, name: str, cx: float, cy: float, s: float, color: st
         for dx, top in ((-0.33, 0.1), (-0.11, -0.3), (0.11, -0.05), (0.33, -0.42)):
             c.create_rectangle(cx + (dx - 0.08) * s, cy + top * s, cx + (dx + 0.08) * s, cy + 0.42 * s, fill=color,
                                outline=color, **kw)
+    elif name in ("mood", "mood_sad"):  # 2.4: a smiling or a frowning face (the Moods page)
+        r = 0.42 * s
+        c.create_oval(cx - r, cy - r, cx + r, cy + r, outline=color, width=w, **kw)
+        for dx in (-0.15, 0.15):
+            e = 0.055 * s
+            c.create_oval(cx + dx * s - e, cy - 0.13 * s - e, cx + dx * s + e, cy - 0.13 * s + e, fill=color,
+                          outline=color, **kw)
+        if name == "mood":
+            c.create_arc(cx - 0.24 * s, cy - 0.18 * s, cx + 0.24 * s, cy + 0.24 * s, start=200, extent=140,
+                         style="arc", outline=color, width=w, **kw)
+        else:
+            c.create_arc(cx - 0.24 * s, cy + 0.1 * s, cx + 0.24 * s, cy + 0.38 * s, start=20, extent=140,
+                         style="arc", outline=color, width=w, **kw)
+    elif name == "tempo":  # 2.4: a metronome (the tempo cards)
+        c.create_polygon(cx - 0.14 * s, cy - 0.42 * s, cx + 0.14 * s, cy - 0.42 * s, cx + 0.32 * s, cy + 0.4 * s,
+                         cx - 0.32 * s, cy + 0.4 * s, fill="", outline=color, width=w, joinstyle="round", **kw)
+        c.create_line(cx - 0.24 * s, cy + 0.16 * s, cx + 0.24 * s, cy + 0.16 * s, width=w, fill=color, **kw)
+        c.create_line(cx, cy + 0.16 * s, cx + 0.3 * s, cy - 0.36 * s, width=w, fill=color, capstyle="round", **kw)
     elif name == "plus":
         q = 0.36 * s
         c.create_line(cx - q, cy, cx + q, cy, width=w * 1.2, fill=color, capstyle="round", **kw)

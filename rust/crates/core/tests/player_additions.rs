@@ -89,6 +89,7 @@ fn stats_groupings_and_folders_match_python() {
                 genre: s(p, "genre"),
                 year: s(p, "year"),
                 composer: s(p, "composer"),
+                place: None,
             })
             .collect()
     };

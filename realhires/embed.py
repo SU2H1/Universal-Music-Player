@@ -398,6 +398,30 @@ def embed_lyrics(path: str, synced: str, plain: str) -> None:
     replace_file(path, new)
 
 
+# 2.4: on Windows a file that another program has open (FFmpeg reading it for the mood
+# analysis or a scan, an antivirus scanner, the search indexer) cannot be replaced for a
+# moment; os.replace() then fails with a sharing violation, so it is tried again briefly
+REPLACE_RETRY_S = 5.0
+
+
+def replace_retrying(tmp: str, path: str, timeout: float = REPLACE_RETRY_S) -> None:
+    """os.replace(tmp, path), tried again for up to `timeout` seconds while Windows says
+    the file is in use (PermissionError); elsewhere a rename never waits for readers."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    delay = 0.05
+    while True:
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if os.name != "nt" or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.4)
+
+
 def replace_file(path: str, data: bytes) -> None:
     """Write `data` over the file through a temporary file in its folder (keeping its
     permissions), so a failure never leaves half a file."""
@@ -411,7 +435,7 @@ def replace_file(path: str, data: bytes) -> None:
             os.chmod(tmp, os.stat(path).st_mode & 0o7777)
         except OSError:
             pass
-        os.replace(tmp, path)
+        replace_retrying(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)

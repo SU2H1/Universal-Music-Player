@@ -616,7 +616,7 @@ fn ffmpeg_replace(path: &str, make_args: impl FnOnce(&str) -> Vec<String>, what:
         if let Ok(meta) = std::fs::metadata(path) {
             let _ = std::fs::set_permissions(&tmp, meta.permissions());
         }
-        std::fs::rename(&tmp, path).map_err(|e| TagError(e.to_string()))
+        crate::embed::rename_retrying(std::path::Path::new(&tmp), path).map_err(|e| TagError(e.to_string()))
     })();
     if res.is_err() {
         let _ = std::fs::remove_file(&tmp);

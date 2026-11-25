@@ -52,5 +52,32 @@
     ],
     "detection": "Trojan:Script/Wacatac.C!ml",
     "note": "this disk image holds exactly the same 441 files as `UniversalMusicPlayer-2.0.0-macos-x86_64.zip` (every file has the same SHA-256) and the same 28 links, plus the usual shortcut to the Applications folder, and no engine flags that .zip. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags the disk image itself, and no other engine does, so this is a false positive on the .dmg container, not on the program; the same happened to the Real-Hi-Res 1.10.0 to 1.12.1 disk images. If you prefer, download the .zip, which holds the same app."
+  },
+  "8bd86709ff7102236f3b5c48e831de3d1c8477db1e57f7a421a4ae37fcca8f08": {
+    "file": "UniversalMusicPlayer.exe (in UniversalMusicPlayer-2.3.0-windows-x64.zip)",
+    "date": "2026-11-25",
+    "engines": [
+      "Microsoft"
+    ],
+    "detection": "Trojan:Win32/Wacatac.B!ml",
+    "note": "this is the program's own launcher exactly as the Windows job of the release run built it from this tag's public source: its SHA-256 equals the one that job printed ([run 45563117792](https://github.com/SU2H1/Universal-Music-Player/actions/runs/45563117792)), it is PyInstaller 6.22.3's launcher compiled on the build machine (not the prebuilt one), it carries the program's version information (Universal Music Player 2.3.0, SU2H1), and the release's smoke test ran it. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags it; no other VirusTotal engine does, and the Rust version's Windows programs are clean. If you prefer, use the Rust version, or build the program from source."
+  },
+  "ce2146633512518496a01cedf607ef7644d3f5bb43f32add2fcce9f529d066b2": {
+    "file": "realhires-cli.exe (in UniversalMusicPlayer-2.3.0-windows-x64.zip)",
+    "date": "2026-11-25",
+    "engines": [
+      "Microsoft"
+    ],
+    "detection": "Trojan:Win32/Wacatac.B!ml",
+    "note": "this is the program's own launcher exactly as the Windows job of the release run built it from this tag's public source: its SHA-256 equals the one that job printed ([run 45563117792](https://github.com/SU2H1/Universal-Music-Player/actions/runs/45563117792)), it is PyInstaller 6.22.3's launcher compiled on the build machine (not the prebuilt one), it carries the program's version information (Universal Music Player 2.3.0, SU2H1), and the release's smoke test ran it. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags it; no other VirusTotal engine does, and the Rust version's Windows programs are clean. If you prefer, use the Rust version, or build the program from source."
+  },
+  "7f4c1430a96ef0ee28d0c58bb2f76024baf91a27ace24adb4b8f86192e35d26d": {
+    "file": "UniversalMusicPlayer-Rust-2.3.0-macos-arm64.dmg",
+    "date": "2026-11-25",
+    "engines": [
+      "Microsoft"
+    ],
+    "detection": "Trojan:Script/Wacatac.B!ml",
+    "note": "this disk image holds exactly the same 10 files as `UniversalMusicPlayer-Rust-2.3.0-macos-arm64.zip` (every file has the same SHA-256), plus the usual shortcut to the Applications folder, and no engine flags that .zip. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags the disk image itself, so this is a false positive on the .dmg container, not on the program; the same happened to earlier disk images (Real-Hi-Res 1.10.0 to 1.12.1, Universal Music Player 2.0.0). If you prefer, download the .zip, which holds the same app."
   }
 }

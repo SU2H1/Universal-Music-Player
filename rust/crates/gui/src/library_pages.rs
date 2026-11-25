@@ -13,6 +13,7 @@ use realhires::stats::{self, PERIODS};
 use realhires::{n_, tr};
 
 use crate::icons::{self, Icon};
+use crate::leaderboard::Link;
 use crate::look::{self, Palette};
 use crate::pages::elided;
 use crate::player::{count, cover, NameAction, Page, Player};
@@ -55,7 +56,7 @@ fn pill(ui: &mut Ui, pal: &Palette, icon: Icon, label: &str) -> egui::Response {
     resp
 }
 
-fn back_link(ui: &mut Ui, pal: &Palette, label: &str) -> egui::Response {
+pub(crate) fn back_link(ui: &mut Ui, pal: &Palette, label: &str) -> egui::Response {
     let font = look::text(13.0);
     let w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), font.clone(), pal.accent).size().x) + 22.0;
     let (rect, resp) = ui.allocate_exact_size(vec2(w, 24.0), Sense::click());
@@ -128,6 +129,15 @@ pub fn calendar_cell_width(width: f32) -> f32 {
 /// Whether the day's plays go to the right of the calendar (2.3).
 pub fn calendar_side_by_side(width: f32) -> bool {
     width >= 7.0 * calendar_cell_width(width) + CALENDAR_SIDE_MIN
+}
+
+/// The links of a card of Your Stats (2.4): its big text, the song it names (for the
+/// song menu), and its detail line (an artist).
+#[derive(Clone, Debug, Default)]
+struct CardLinks {
+    big: Option<Link>,
+    song: Option<String>,
+    detail: Option<Link>,
 }
 
 /// The share of the accent colour for `stats::month_levels()` 0..4.
@@ -326,7 +336,18 @@ impl Player {
         let aw = rest - tw - 16.0;
         let now = self.now.as_ref().map(|n| n.path.clone());
         let mut play = None;
-        for (i, r) in self.calendar.rows.iter().enumerate() {
+        let mut follow = None;
+        let rows = self.calendar.rows.clone();
+        // 2.4: a line naming the place of the plays under it, when the day's plays have places
+        let with_places = rows.iter().any(|r| !r.place.is_empty());
+        let mut place: Option<String> = None;
+        let mut heads = vec![];
+        for (i, r) in rows.iter().enumerate() {
+            if with_places && place.as_deref() != Some(r.place.as_str()) {
+                place = Some(r.place.clone());
+                crate::places::day_place_line(ui, pal, &r.place, width);
+                heads.push(r.place.clone());
+            }
             let (rect, _) = ui.allocate_exact_size(vec2(width, row_h), Sense::hover());
             let playable = self.lib.by_path.contains_key(&r.path);
             let resp = ui.interact(rect, ui.scope_id().with(("calendar-play", i)), if playable { Sense::click() } else { Sense::hover() });
@@ -341,20 +362,36 @@ impl Player {
             p.text(pos2(rect.left() + 12.0, mid), Align2::LEFT_CENTER, &r.time, look::text(13.0), pal.secondary);
             let color = if playing { pal.accent } else if playable { pal.text } else { pal.secondary };
             let font = if playing { look::title(13.0) } else { look::text(13.0) };
+            let mut artist_rect = Rect::NOTHING;
             for (x, g) in [
                 (70.0, elided(ui, &r.title, font, color, tw)),
                 (70.0 + tw + 16.0, elided(ui, tr_name(&r.artist), look::text(13.0), pal.secondary, aw)),
             ] {
                 let h = g.size().y;
-                p.galley(pos2(rect.left() + x, mid - h / 2.0), g, color);
+                artist_rect = Rect::from_min_size(pos2(rect.left() + x, mid - h / 2.0), g.size());
+                p.galley(artist_rect.min, g, color);
             }
             p.text(pos2(rect.right() - 12.0, mid), Align2::RIGHT_CENTER, tr_text(&r.minutes), look::text(13.0), pal.secondary);
+            if playable {
+                // 2.4: a right click on a song opens its menu
+                let path = r.path.clone();
+                resp.context_menu(|ui| self.song_menu(ui, &path));
+            }
             if playable && resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 play = Some(i);
             }
+            // 2.4: the artist is a link of its own (on top of the row)
+            let link = self.artist_link(&r.artist);
+            if let Some(l) = self.link_rect(ui, artist_rect, ("day-artist", i), link, None) {
+                follow = Some(l);
+            }
         }
+        self.places.day_heads = heads;
         if let Some(i) = play {
             self.calendar_play(i);
+        }
+        if let Some(l) = follow {
+            self.follow(l);
         }
         ui.add_space(18.0);
     }
@@ -387,7 +424,7 @@ impl Player {
 
     // -------------------------------------------------------------- library ---
 
-    /// The Library page's entries in their order (2.3): the fourteen, then the
+    /// The Library page's entries in their order (2.3): the fifteen, then the
     /// entries that come after them (`more_library_entries()`), each with its count
     /// and the page it opens.
     pub fn library_entries(&mut self) -> Vec<LibraryEntry> {
@@ -404,6 +441,7 @@ impl Player {
             entry(Icon::Genres, tr!("Genres"), count(l.genres.len(), n_!("1 genre"), n_!("{n} genres")), Page::Genres),
             entry(Icon::Calendar, tr!("Years"), count(l.years.len(), n_!("1 year"), n_!("{n} years")), Page::Years),
             entry(Icon::Composer, tr!("Composers"), count(l.composers.len(), n_!("1 composer"), n_!("{n} composers")), Page::Composers),
+            self.moods_library_entry(), // 2.4
             entry(Icon::Playlist, tr!("Playlists"), count(self.state.playlists.len(), n_!("1 playlist"), n_!("{n} playlists")), Page::Playlists),
             entry(Icon::Heart, tr!("Liked Songs"), songs(self.state.liked.len()), Page::Liked),
             entry(Icon::ThumbDown, tr!("Disliked Songs"), songs(self.state.disliked.len()), Page::Disliked),
@@ -420,7 +458,7 @@ impl Player {
         out
     }
 
-    /// Entries after the fourteen: the custom tabs (2.3), with their songs.
+    /// Entries after the fifteen: the custom tabs (2.3), with their songs.
     fn more_library_entries(&mut self) -> Vec<LibraryEntry> {
         self.tab_library_entries()
     }
@@ -612,7 +650,8 @@ impl Player {
                 .iter()
                 .map(|r| (r.clone(), r.clone(), self.lib.tracks.iter().filter(|t| under(r, t)).count()))
                 .collect();
-            self.folder_rows(ui, pal, &rows);
+            self.table_folders = rows;
+            self.song_table_kind(ui, pal, &[], tr!("Folders"), "folders", false);
             return;
         };
         // breadcrumb from the library folder that holds it
@@ -659,30 +698,16 @@ impl Player {
             });
             ui.add_space(10.0);
         }
-        if !subs.is_empty() {
-            self.folder_rows(ui, pal, &subs);
-            ui.add_space(10.0);
-        }
-        if !songs.is_empty() {
+        // 2.4 ("Folder cannot be scrolled"): the subfolders and the songs are one scrolling
+        // list (the subfolders are rows of the song table, above the songs). They used to be
+        // drawn straight into the page, which does not scroll, so a folder with more
+        // subfolders than the window holds could not be scrolled, and the songs' table
+        // below them got only the room that was left (none when the subfolders filled it).
+        if !subs.is_empty() || !songs.is_empty() {
             let list: Vec<String> = songs.iter().map(|t| t.path.clone()).collect();
             let name = file_name(&folder);
+            self.table_folders = subs;
             self.song_table_kind(ui, pal, &list, &name, "folders", false);
-        }
-    }
-
-    fn folder_rows(&mut self, ui: &mut Ui, pal: &Palette, rows: &[(String, String, usize)]) {
-        for (path, name, n) in rows {
-            let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
-            if resp.hovered() {
-                ui.painter().rect_filled(rect, CornerRadius::same(6), pal.row_hover);
-            }
-            icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 18.0, rect.center().y), vec2(20.0, 20.0)), Icon::Folder, pal.accent);
-            let g = elided(ui, name, look::text(13.5), pal.text, rect.width() - 160.0);
-            ui.painter().galley(pos2(rect.left() + 38.0, rect.center().y - g.size().y / 2.0), g, pal.text);
-            ui.painter().text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, songs(*n), look::text(12.0), pal.secondary);
-            if resp.clicked() {
-                self.go(Page::Folders(Some(path.clone())));
-            }
         }
     }
 
@@ -811,7 +836,7 @@ impl Player {
 
     // ------------------------------------------------------------ your stats ---
 
-    fn period_menu(&mut self, ui: &mut Ui) {
+    pub(crate) fn period_menu(&mut self, ui: &mut Ui) {
         let mut period = self.stats_period.clone();
         // the periods are shown translated and kept in English
         egui::ComboBox::from_id_salt("stats-period").selected_text(i18n::tr(&period)).width(150.0).show_ui(ui, |ui| {
@@ -832,7 +857,11 @@ impl Player {
         });
         ui.add_space(12.0);
         let st = self.stats();
-        let cards: Vec<(String, String, String)> = stats::cards(&st).iter().map(|(l, b, d)| shown_card(l, b, d)).collect();
+        let english = stats::cards(&st);
+        let cards: Vec<(String, String, String)> = english.iter().map(|(l, b, d)| shown_card(l, b, d)).collect();
+        // 2.4: the cards' names are links (the big text, and the artist in the detail)
+        let links: Vec<CardLinks> = english.iter().map(|(l, _, _)| self.card_links(l, &st)).collect();
+        let mut follow = None;
         egui::ScrollArea::vertical().id_salt("stats").auto_shrink([false, false]).show(ui, |ui| {
             self.calendar_ui(ui, pal);
             if cards.is_empty() {
@@ -855,18 +884,60 @@ impl Player {
                         let p = ui.painter_at(rect);
                         p.text(rect.left_top() + vec2(18.0, 16.0), Align2::LEFT_TOP, label, look::title(12.5), Color32::from_white_alpha(220));
                         let g = elided(ui, big, look::title(if k == 0 { 40.0 } else { 26.0 }), Color32::WHITE, cw - 36.0);
-                        p.galley(rect.left_top() + vec2(18.0, 38.0), g, Color32::WHITE);
+                        let big_rect = Rect::from_min_size(rect.left_top() + vec2(18.0, 38.0), g.size());
+                        p.galley(big_rect.min, g, Color32::WHITE);
                         let g = elided(ui, detail, look::text(13.0), Color32::from_white_alpha(230), cw - 36.0);
-                        p.galley(pos2(rect.left() + 18.0, rect.bottom() - 30.0), g, Color32::WHITE);
+                        let detail_rect = Rect::from_min_size(pos2(rect.left() + 18.0, rect.bottom() - 30.0), g.size());
+                        p.galley(detail_rect.min, g, Color32::WHITE);
+                        let l = links[k].clone();
+                        if let Some(x) = self.link_rect(ui, big_rect, ("card-big", k), l.big, l.song.as_deref()) {
+                            follow = Some(x);
+                        }
+                        if let Some(x) = self.link_rect(ui, detail_rect, ("card-detail", k), l.detail, None) {
+                            follow = Some(x);
+                        }
                     }
                 });
                 ui.add_space(gap - ui.spacing().item_spacing.y);
             }
+            self.leaderboard_section(ui, pal); // 2.4
             ui.add_space(8.0);
+            self.places_section(ui, pal); // 2.4: the period's places
             if pill(ui, pal, Icon::Chart, tr!("Details")).clicked() {
                 self.go(Page::StatsDetails);
             }
         });
+        if let Some(l) = follow {
+            self.follow(l);
+        }
+    }
+
+    /// The links of a summary card (2.4): the top song plays (the period's most played
+    /// songs as the queue) and its artist opens their page; the top artist, album (and its
+    /// artist) and genre open theirs.
+    fn card_links(&mut self, label: &str, st: &stats::Stats) -> CardLinks {
+        let mut out = CardLinks::default();
+        match label {
+            "Your top song" => {
+                if let Some(s) = st.top_songs.first() {
+                    let queue = stats::ranked_songs(&self.board("songs"));
+                    out.big = self.song_link(&queue, &s.key, "Your Stats");
+                    out.song = Some(s.key.clone());
+                    out.detail = self.artist_link(&s.artist);
+                }
+            }
+            "Your top artist" => out.big = st.top_artists.first().and_then(|a| self.artist_link(&a.name)),
+            "Your top album" => {
+                if let Some(a) = st.top_albums.first() {
+                    let paths = self.board("albums").into_iter().find(|r| r.key == a.key).map(|r| r.paths).unwrap_or_default();
+                    out.big = self.album_link(&a.name, &a.artist, &paths);
+                    out.detail = self.artist_link(&a.artist);
+                }
+            }
+            "Your top genre" => out.big = st.top_genres.first().and_then(|g| self.genre_link(&g.name)),
+            _ => {}
+        }
+        out
     }
 
     pub fn stats_details_page(&mut self, ui: &mut Ui, pal: &Palette) {
@@ -929,14 +1000,19 @@ impl Player {
                     bars(ui, pal, &vals, &labels);
                 }
                 ui.add_space(8.0);
+                // 2.4: the names are links
+                let mut follow = None;
                 ui.columns(2, |cols| {
-                    top_list(&mut cols[0], pal, tr!("Top songs"), &st.top_songs, true);
-                    top_list(&mut cols[1], pal, tr!("Top artists"), &st.top_artists, false);
+                    follow = follow.take().or(self.top_list(&mut cols[0], pal, tr!("Top songs"), &st.top_songs, true, "songs"));
+                    follow = follow.take().or(self.top_list(&mut cols[1], pal, tr!("Top artists"), &st.top_artists, false, "artists"));
                 });
                 ui.columns(2, |cols| {
-                    top_list(&mut cols[0], pal, tr!("Top albums"), &st.top_albums, true);
-                    top_list(&mut cols[1], pal, tr!("Top genres"), &st.top_genres, false);
+                    follow = follow.take().or(self.top_list(&mut cols[0], pal, tr!("Top albums"), &st.top_albums, true, "albums"));
+                    follow = follow.take().or(self.top_list(&mut cols[1], pal, tr!("Top genres"), &st.top_genres, false, "genres"));
                 });
+                if let Some(l) = follow {
+                    self.follow(l);
+                }
             }
             section(ui, pal, tr!("Your library"));
             let gb = lib.bytes as f64 / 1e9;
@@ -982,6 +1058,56 @@ impl Player {
     }
 }
 
+impl Player {
+    /// A top list of Details ("Top songs"…): rank, name and artist (2.4: links; a right
+    /// click on a song opens its menu), plays and minutes.
+    #[allow(clippy::too_many_arguments)]
+    fn top_list(&mut self, ui: &mut Ui, pal: &Palette, title: &str, rows: &[stats::Row], with_artist: bool, kind: &str) -> Option<Link> {
+        section(ui, pal, title);
+        let queue: Vec<String> = if kind == "songs" { rows.iter().take(50).map(|r| r.key.clone()).collect() } else { vec![] };
+        let album_paths: HashMap<String, Vec<String>> =
+            if kind == "albums" { self.board("albums").into_iter().map(|r| (r.key, r.paths)).collect() } else { HashMap::new() };
+        let mut out = None;
+        for (i, r) in rows.iter().take(50).enumerate() {
+            ui.horizontal(|ui| {
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.label(RichText::new(format!("{:>2}", i + 1)).color(pal.secondary).monospace());
+                    let artist = if with_artist && !r.artist.is_empty() { tr_name(&r.artist).to_string() } else { String::new() };
+                    let room = (ui.available_width() - 140.0).max(60.0);
+                    let name_room = if artist.is_empty() { room } else { room * 2.0 / 3.0 };
+                    let (link, song) = match kind {
+                        "songs" => (self.song_link(&queue, &r.key, "Your Stats"), Some(r.key.as_str())),
+                        "artists" => (self.artist_link(&r.name), None),
+                        "albums" => (self.album_link(&r.name, &r.artist, album_paths.get(&r.key).map(|v| v.as_slice()).unwrap_or(&[])), None),
+                        _ => (self.genre_link(&r.name), None),
+                    };
+                    if let Some(l) = self.link_label(ui, tr_name(&r.name), look::text(13.0), pal.text, name_room, link, song) {
+                        out = Some(l);
+                    }
+                    if !artist.is_empty() {
+                        ui.label(RichText::new("—").color(pal.secondary));
+                        let link = self.artist_link(&r.artist);
+                        if let Some(l) = self.link_label(ui, &artist, look::text(13.0), pal.text, room - name_room, link, None) {
+                            out = Some(l);
+                        }
+                    }
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(tr!(
+                                "{plays} · {minutes} min",
+                                plays = count(r.plays.max(0) as usize, n_!("1 play"), n_!("{n} plays")),
+                                minutes = stats::thousands((r.seconds / 60.0).round() as i64)
+                            ))
+                            .color(pal.secondary),
+                        );
+                    });
+                });
+            });
+        }
+        out
+    }
+}
+
 fn section(ui: &mut Ui, pal: &Palette, text: &str) {
     ui.add_space(14.0);
     ui.label(RichText::new(text).font(look::title(17.0)).color(pal.text));
@@ -1008,34 +1134,6 @@ fn bars(ui: &mut Ui, pal: &Palette, values: &[f64], labels: &[String]) {
         if let Some(l) = labels.get(i).filter(|l| !l.is_empty()) {
             p.text(pos2(x + slot / 2.0, rect.bottom() - 2.0), Align2::CENTER_BOTTOM, l, look::text(10.0), pal.secondary);
         }
-    }
-}
-
-fn top_list(ui: &mut Ui, pal: &Palette, title: &str, rows: &[stats::Row], with_artist: bool) {
-    section(ui, pal, title);
-    for (i, r) in rows.iter().take(50).enumerate() {
-        ui.horizontal(|ui| {
-            ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                ui.label(RichText::new(format!("{:>2}", i + 1)).color(pal.secondary).monospace());
-                let mut text = tr_name(&r.name).to_string();
-                if with_artist && !r.artist.is_empty() {
-                    text = format!("{text} — {}", tr_name(&r.artist));
-                }
-                let w = (ui.available_width() - 140.0).max(60.0);
-                let g = elided(ui, &text, look::text(13.0), pal.text, w);
-                ui.label(g);
-                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new(tr!(
-                            "{plays} · {minutes} min",
-                            plays = count(r.plays.max(0) as usize, n_!("1 play"), n_!("{n} plays")),
-                            minutes = stats::thousands((r.seconds / 60.0).round() as i64)
-                        ))
-                        .color(pal.secondary),
-                    );
-                });
-            });
-        });
     }
 }
 

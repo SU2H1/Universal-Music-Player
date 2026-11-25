@@ -39,7 +39,9 @@ sys.path.insert(0, ROOT)
 
 PY_FILES = ["realhires/gui.py", "realhires/player_gui.py", "realhires/player_pages.py",
             "realhires/player_collections.py", "realhires/player_widgets.py", "realhires/player_windows.py",
-            "realhires/player_theme.py", "realhires/player_mb.py", "realhires/player_tabs.py"]
+            "realhires/player_theme.py", "realhires/player_mb.py", "realhires/player_tabs.py",
+            "realhires/player_places.py"]
+PY_FILES += ["realhires/player_moods.py"]  # 2.4
 RUST_DIR = "rust/crates/gui/src"
 TR_NAMES = {"tr", "N_"}
 CATALOG = os.path.join(ROOT, "realhires", "assets", "lang", "ja.json")
@@ -171,6 +173,14 @@ def core_keys() -> Dict[str, List[str]]:
         add(v, "smarttabs")
     for t in smarttabs.TEMPLATES:
         add(t["name"], "smarttabs.TEMPLATES")
+    # 2.4: moods (the labels, the keys, the cards' notes and playlist names, the estimate note)
+    from realhires import moods
+
+    for v in moods.MOODS + moods.TEMPOS + moods.ENERGIES + moods.KEY_NAMES + moods.PLAYLIST_NAMES:
+        add(v, "moods")
+    for v in moods.CARD_NOTES.values():
+        add(v, "moods.CARD_NOTES")
+    add(moods.ESTIMATE_NOTE, "moods.ESTIMATE_NOTE")
     for name in i18n.PLACEHOLDER_NAMES:
         add(name, "i18n.PLACEHOLDER_NAMES")
     for v in i18n.VERDICT_NAMES:

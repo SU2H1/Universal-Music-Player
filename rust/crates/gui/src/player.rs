@@ -26,7 +26,7 @@ use crate::look::{self, Palette};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Page {
-    /// the start page with the fourteen entries
+    /// the start page with the fifteen entries
     Library,
     AllSongs,
     /// a library folder or one of its subfolders (None: the library folders)
@@ -46,14 +46,22 @@ pub enum Page {
     Disliked,
     RecentlyPlayed,
     Recent,
+    /// a place of Your Stats (2.4), by `places::place_key()`
+    Place(String),
     Stats,
     StatsDetails,
+    /// the leaderboard of Your Stats as a page of its own (2.4)
+    MostPlayed,
     Search,
     NowPlaying,
     Settings,
     Quality,
     /// a custom tab (2.3), by its name
     Tab(String),
+    /// the Moods page (2.4): a card per mood and per tempo
+    Moods,
+    /// a card's songs (2.4): ("mood" or "tempo", its label in English)
+    Mood(&'static str, String),
 }
 
 impl Page {
@@ -77,11 +85,14 @@ impl Page {
             Page::RecentlyPlayed => n_!("Recently Played"),
             Page::Recent => n_!("Recently Added"),
             Page::Stats | Page::StatsDetails => n_!("Your Stats"),
+            Page::MostPlayed => n_!("Most Played"),
             Page::Search => n_!("Search"),
             Page::NowPlaying => n_!("Now Playing"),
             Page::Settings => n_!("Settings"),
             Page::Quality => n_!("Quality check"),
             Page::Tab(_) => n_!("Tabs"),
+            Page::Place(_) => crate::places::PLACES_TITLE,
+            Page::Moods | Page::Mood(..) => n_!("Moods"),
         }
     }
 
@@ -93,10 +104,10 @@ impl Page {
 
 /// The names a queue gets from a page rather than from the library (see
 /// `Page::title()`; "Songs" is the queue of a single song).
-const PAGE_QUEUE_NAMES: [&str; 20] = [
+const PAGE_QUEUE_NAMES: [&str; 21] = [
     "Library", "All Songs", "Folders", "Albums", "Artists", "Album Artists", "Genres", "Years", "Composers",
     "Playlists", "Liked Songs", "Disliked Songs", "Recently Played", "Recently Added", "Your Stats", "Search",
-    "Now Playing", "Settings", "Quality check", n_!("Songs"),
+    "Now Playing", "Settings", "Quality check", n_!("Songs"), "Most Played",
 ];
 
 /// The queue's name as "Playing from …" shows it: the queue keeps the English
@@ -237,6 +248,8 @@ pub enum ConfirmAction {
     DeleteEqPreset(String),
     DeleteTheme(String),
     ClearHistory,
+    /// Forget play locations… (2.4)
+    ForgetPlaces,
     /// write a new genre, composer or year into these files (the question, the kind, the
     /// paths, the new name, the groups it came from)
     RetagGroup { title: String, text: String, kind: &'static str, paths: Vec<String>, name: String, from: Vec<String> },
@@ -476,6 +489,9 @@ pub enum SongCol {
     Quality,
     Format,
     BitRate,
+    /// the estimated tempo and mood (2.4, `moodpages.rs`)
+    Bpm,
+    Mood,
     Added,
     File,
     /// the heart (not sortable)
@@ -501,6 +517,8 @@ impl SongCol {
             "quality" => SongCol::Quality,
             "format" => SongCol::Format,
             "bit_rate" => SongCol::BitRate,
+            "bpm" => SongCol::Bpm,
+            "mood" => SongCol::Mood,
             "added" => SongCol::Added,
             "file" => SongCol::File,
             "like" => SongCol::Like,
@@ -525,6 +543,8 @@ impl SongCol {
             SongCol::Quality => (n_!("Quality"), n_!("Quality"), 1.15, false),
             SongCol::Format => (n_!("Format"), n_!("Format"), 0.7, false),
             SongCol::BitRate => (n_!("Bit rate"), n_!("Bit rate"), 0.9, true),
+            SongCol::Bpm => (n_!("BPM"), n_!("BPM (estimated)"), 0.55, true),
+            SongCol::Mood => (n_!("Mood"), n_!("Mood (estimated)"), 0.9, false),
             SongCol::Added => (n_!("Date added"), n_!("Date added"), 1.0, false),
             SongCol::File => (n_!("File"), n_!("File"), 1.8, false),
             SongCol::Like => ("", n_!("Heart (like)"), 0.0, false),
@@ -574,6 +594,8 @@ pub fn cell_text(t: &Track, col: SongCol) -> String {
             tr_text(&realhires::stats::day_label(&format!("{:04}-{:02}-{:02}", p.year, p.month, p.day)))
         }
         SongCol::File => realhires::paths::file_name(&t.path),
+        SongCol::Bpm => crate::moodpages::cell(&t.path, false),
+        SongCol::Mood => crate::moodpages::cell(&t.path, true),
         SongCol::Like | SongCol::Played => String::new(),
     }
 }
@@ -592,6 +614,7 @@ pub fn sort_key(t: &Track, col: SongCol) -> (String, String, String) {
         }
         SongCol::BitRate => (format!("{:012}", t.bit_rate), title, t.path.clone()),
         SongCol::Added => (format!("{:020}", t.mtime_ns), title, t.path.clone()),
+        SongCol::Bpm => (crate::moodpages::bpm_sort(&t.path), title, t.path.clone()),
         SongCol::Title => (title, casefold(&t.display_artist()), t.path.clone()),
         other => (casefold(&cell_text(t, other)), title, t.path.clone()),
     }
@@ -722,6 +745,10 @@ pub struct Player {
     listening: Option<Listening>,
     pub stats_period: String,
     stats_cache: Option<(String, u64, realhires::stats::Stats)>,
+    /// 2.4: the leaderboard's switch ("songs", "artists", "albums"), kept for the session, and
+    /// the period's leaderboards (made again when the period or the plays change)
+    pub leaderboard_kind: &'static str,
+    pub boards_cache: Option<(String, u64, crate::leaderboard::Boards)>,
     /// the calendar of Your Stats (2.1)
     pub calendar: crate::library_pages::Calendar,
     recent_cache: Option<(u64, Vec<(String, f64)>)>,
@@ -733,6 +760,9 @@ pub struct Player {
     pub eq_notes: Vec<String>,
     /// the playlist whose page is shown (its songs get Remove/Move)
     pub table_playlist: Option<String>,
+    /// 2.4: the subfolders (path, name, songs) the next song table shows above its songs,
+    /// in the same scrolling list (the Folders page); taken by the table
+    pub table_folders: Vec<(String, String, usize)>,
     /// the custom tabs of the tabs folder (2.3), the files there that are not tabs (and
     /// why), the tab window, and a number that changes with the tabs
     pub tabs: Vec<realhires::smarttabs::Tab>,
@@ -740,6 +770,10 @@ pub struct Player {
     pub tab_win: Option<crate::tabs::TabWindow>,
     pub tabs_gen: u64,
     pub tab_hits: crate::tabs::TabHits,
+    /// where songs were played (2.4): the place the plays are stored with, and its lookup
+    pub places: crate::places::PlacesState,
+    /// the songs' moods and their background analysis (2.4, `moodpages.rs`)
+    pub moods: crate::moodpages::MoodState,
 }
 
 fn seed_now() -> u64 {
@@ -868,6 +902,8 @@ impl Player {
             listening: None,
             stats_period: realhires::stats::DEFAULT_PERIOD.to_string(),
             stats_cache: None,
+            leaderboard_kind: "songs",
+            boards_cache: None,
             calendar: Default::default(),
             recent_cache: None,
             name_dialog: None,
@@ -875,11 +911,14 @@ impl Player {
             label_picker: None,
             eq_notes: vec![],
             table_playlist: None,
+            table_folders: vec![],
             tabs: vec![],
             tab_problems: vec![],
             tab_win: None,
             tabs_gen: 0,
             tab_hits: Default::default(),
+            places: Default::default(),
+            moods: Default::default(),
             seed: seed_now(),
             state,
             state_dirty: false,
@@ -888,6 +927,7 @@ impl Player {
         };
         p.file_themes = realhires::themes::load_folder(&p.custom_themes, None);
         p.reload_tabs(); // 2.3: the tabs folder
+        p.load_moods(); // 2.4: the moods analysed before
         p.covers.library_changed(&p.lib.albums);
         p.fill_choices();
         p.engine.set_device(&p.scanner.cfg.output_device.clone());
@@ -985,6 +1025,7 @@ impl Player {
                 self.scanner.quiet_scan = true;
                 self.page = page;
             }
+            self.analyse_moods(false); // 2.4: the new and changed songs' moods, in the background
             self.lookup_library(false);
         }
     }
@@ -1107,7 +1148,8 @@ impl Player {
             }
             Some(_) => None,
             None if !self.mb_summary.is_empty() => Some(tr_text(&self.mb_summary)),
-            None => None,
+            // 2.4: the mood analysis's progress, the least important text
+            None => self.mood_status_line(),
         }
     }
 
@@ -1433,6 +1475,7 @@ impl Player {
                 .map(|i| self.lib.groups(kind)[i].tracks.iter().map(|t| t.path.clone()).collect())
                 .unwrap_or_default(),
             Page::Disliked => self.lib.tracks.iter().filter(|t| self.state.is_disliked(&t.path)).map(|t| t.path.clone()).collect(),
+            Page::Mood(kind, label) => realhires::moods::card_songs(kind, label, &self.lib.tracks, &self.moods.map),
             _ => all(),
         }
     }
@@ -1465,6 +1508,12 @@ impl Player {
         }
         self.list_cache.insert(id.to_string(), (key, v.clone()));
         v
+    }
+
+    /// Forget every sorted list (2.4: the moods changed, which the BPM and Mood columns
+    /// and the tabs' mood rules use).
+    pub fn forget_lists(&mut self) {
+        self.list_cache.clear();
     }
 
     pub fn album_sort_for(&self) -> &str {
@@ -1936,7 +1985,7 @@ impl Player {
         let Some(l) = self.listening.take() else { return };
         let track = self.lib.track(&l.path).cloned().unwrap_or_else(|| Track { path: l.path.clone(), ..Default::default() });
         if let Some(h) = &self.history {
-            if h.add_play(&track, l.started, l.seconds) {
+            if h.add_play_at(&track, l.started, l.seconds, self.play_place()) {
                 self.history_gen += 1;
             }
         }
@@ -2102,6 +2151,7 @@ impl Player {
                 }
             }
             ConfirmAction::ClearHistory => self.clear_history(),
+            ConfirmAction::ForgetPlaces => self.forget_places(),
             ConfirmAction::RetagGroup { title, kind, paths, name, from, .. } => {
                 if self.tag_job.as_ref().is_none_or(|j| j.done()) {
                     // the page of the group follows it to its new name
@@ -2191,6 +2241,7 @@ impl Player {
             return;
         }
         self.scanner.apply_settings(new.clone());
+        self.places_settings_changed(&old, &new); // 2.4: turned on, off, or another location service
         if new.language != old.language {
             // the next frame is drawn in the new language (no restart needed)
             self.applied_language = new.language.clone();
@@ -2207,6 +2258,9 @@ impl Player {
             // the song playing restarts where it is, the device opened the new way
             self.engine.set_gain(engine_gain(&self.state, new.bit_perfect));
             self.engine.set_bit_perfect(new.bit_perfect);
+        }
+        if new.analyse_moods != old.analyse_moods {
+            self.moods_setting_changed(new.analyse_moods); // 2.4
         }
         if new.library_folders != old.library_folders || new.extension_set() != old.extension_set() {
             self.lib_stop.store(true, Ordering::Relaxed);
@@ -2363,8 +2417,10 @@ impl Player {
         self.covers.poll(&ctx);
         self.poll_library();
         self.poll_musicbrainz();
+        self.poll_moods(); // 2.4
         self.poll_engine();
         self.track_listening();
+        self.places_tick(); // 2.4: the place the plays are stored with
         self.apply_settings_due(&ctx);
         if let Some(at) = self.search_due {
             if Instant::now() >= at {
@@ -2506,7 +2562,7 @@ impl Player {
                 self.go(Page::Library);
             }
             section(ui, tr!("Library"));
-            let items: [(Icon, &str, Page); 8] = [
+            let items: [(Icon, &str, Page); 9] = [
                 (Icon::Note, n_!("All Songs"), Page::AllSongs),
                 (Icon::Folder, n_!("Folders"), Page::Folders(None)),
                 (Icon::Albums, n_!("Albums"), Page::Albums),
@@ -2515,10 +2571,14 @@ impl Player {
                 (Icon::Genres, n_!("Genres"), Page::Genres),
                 (Icon::Calendar, n_!("Years"), Page::Years),
                 (Icon::Composer, n_!("Composers"), Page::Composers),
+                (Icon::Mood, n_!("Moods"), Page::Moods), // 2.4
             ];
             for (icon, label, page) in items {
                 let selected = self.page == page
-                    || matches!((&self.page, &page), (Page::Album(_), Page::Albums) | (Page::Folders(Some(_)), Page::Folders(None)));
+                    || matches!(
+                        (&self.page, &page),
+                        (Page::Album(_), Page::Albums) | (Page::Folders(Some(_)), Page::Folders(None)) | (Page::Mood(..), Page::Moods)
+                    );
                 if sidebar_item(ui, pal, icon, i18n::tr(label), selected).clicked() {
                     self.back.clear();
                     self.go(page);
@@ -2773,6 +2833,13 @@ impl Player {
             }
             Page::Group(_, name) => return tr_name(name).to_string(),
             Page::Tab(name) => return name.clone(),
+            Page::Place(key) => {
+                let name = self.place_name(key);
+                if !name.is_empty() {
+                    return name;
+                }
+            }
+            Page::Mood(_, label) => return i18n::tr(label).to_string(), // 2.4
             Page::Folders(folder) => {
                 // with one library folder, Folders shows that folder (as Python's page does)
                 let roots: Vec<String> = self.scanner.cfg.library_folders.iter().map(|f| realhires::paths::abspath(f)).collect();
@@ -3155,6 +3222,13 @@ impl Player {
                 }
                 // the title and text are made (translated) by `retag_group()`
                 ConfirmAction::RetagGroup { title, text, .. } => (title.as_str(), text.clone(), tr!("Change")),
+                ConfirmAction::ForgetPlaces => (
+                    tr!("Forget play locations"),
+                    tr!("Forget where your songs were played? The plays stay in the play history and in Your Stats, only \
+                         their places are removed.")
+                    .to_string(),
+                    tr!("Forget"),
+                ),
                 ConfirmAction::ClearHistory => (
                     tr!("Clear the play history"),
                     tr!("Forget every song played so far? Recently Played and Your Stats start again from nothing.").to_string(),
@@ -3197,6 +3271,8 @@ impl Player {
         self.save_state();
         self.lib_stop.store(true, Ordering::Relaxed);
         self.mb_stop.store(true, Ordering::Relaxed);
+        crate::places::stop(&self.places);
+        self.stop_moods();
         self.engine.stop();
     }
 }
@@ -4068,6 +4144,10 @@ mod tests {
         let mut rest: Vec<&str> = before.iter().map(|(t, _)| t.as_str()).collect();
         let mut out = vec![];
         for (t, _) in after {
+            // the moods' background analysis (2.4) changes the sidebar's status at any frame
+            if t.starts_with("Analysing moods") || t.starts_with("ムードを解析中") {
+                continue;
+            }
             match rest.iter().position(|b| b == t) {
                 Some(i) => {
                     rest.remove(i);
@@ -4836,8 +4916,8 @@ mod tests {
             pages,
             [
                 Page::AllSongs, Page::Folders(None), Page::Albums, Page::Artists, Page::AlbumArtists, Page::Genres,
-                Page::Years, Page::Composers, Page::Playlists, Page::Liked, Page::Disliked, Page::RecentlyPlayed,
-                Page::Recent, Page::Stats,
+                Page::Years, Page::Composers, Page::Moods, Page::Playlists, Page::Liked, Page::Disliked,
+                Page::RecentlyPlayed, Page::Recent, Page::Stats,
             ]
         );
         p.go(Page::Library);
@@ -4852,7 +4932,7 @@ mod tests {
         assert_eq!(p.scanner.cfg.library_layout, "List");
         assert_eq!(realhires::settings::load(None).library_layout, "List", "saved at once");
         let t = placed_texts(&ctx, &mut p);
-        let names = ["All Songs", "Folders", "Albums", "Artists", "Album Artists", "Genres", "Years", "Composers", "Playlists", "Liked Songs", "Disliked Songs", "Recently Played", "Recently Added", "Your Stats"];
+        let names = ["All Songs", "Folders", "Albums", "Artists", "Album Artists", "Genres", "Years", "Composers", "Moods", "Playlists", "Liked Songs", "Disliked Songs", "Recently Played", "Recently Added", "Your Stats"];
         // the row (the page's first such text: "Recently Added" is also the albums' heading under the list)
         let rows: Vec<egui::Pos2> = names
             .iter()
@@ -5901,9 +5981,9 @@ mod tests {
         run_until(&ctx, &mut p, "the library index", |p| p.lib.tracks.len() == 3 && p.lib_rx.is_none());
         assert_eq!(p.tab_names(), vec!["Hi-Res".to_string()]);
         assert_eq!(p.tab_problems, vec![("notes.json".to_string(), "This file is not a tab of Universal Music Player.".to_string())]);
-        // the Library page lists the tab after its fourteen entries, the sidebar under "Tabs"
+        // the Library page lists the tab after its fifteen entries, the sidebar under "Tabs"
         let entries = p.library_entries();
-        assert_eq!(entries.len(), 15);
+        assert_eq!(entries.len(), 16);
         let last = entries.last().unwrap();
         assert_eq!((last.name.as_str(), last.count.as_str(), &last.page), ("Hi-Res", "1 song", &Page::Tab("Hi-Res".into())));
         let shown = texts(&ctx, &mut p);

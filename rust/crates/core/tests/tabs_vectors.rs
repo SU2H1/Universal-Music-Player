@@ -29,7 +29,20 @@ fn arr<'a>(v: &'a Value, key: &str) -> &'a Vec<Value> {
 }
 
 fn context(data: &Value) -> TabContext {
+    // 2.4: the moods of some of the songs
+    let moods: std::collections::HashMap<String, realhires::moods::Mood> = data
+        .get("moods")
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .iter()
+        .map(|(p, m)| {
+            let text = |k: &str| m.get(k).unwrap().as_str().unwrap().to_string();
+            (p.clone(), realhires::moods::Mood { bpm: m.get("bpm").unwrap().as_i64().unwrap(), mood: text("mood"), tempo: text("tempo"), ..Default::default() })
+        })
+        .collect();
     TabContext::new(&strings(data.get("liked").unwrap()), &strings(data.get("disliked").unwrap()), data.get("now").unwrap().as_f64().unwrap())
+        .with_moods(std::sync::Arc::new(moods))
 }
 
 fn tracks(data: &Value) -> Vec<Track> {

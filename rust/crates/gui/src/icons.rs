@@ -49,6 +49,12 @@ pub enum Icon {
     ListView,
     /// a custom tab: a funnel (2.3)
     Filter,
+    /// the Moods page and its happy cards: a smiling face (2.4)
+    Mood,
+    /// the Sad and Intense cards: a frowning face (2.4)
+    MoodSad,
+    /// the tempo cards: a metronome (2.4)
+    Tempo,
 }
 
 fn heart_points(c: Pos2, s: f32) -> Vec<Pos2> {
@@ -440,6 +446,38 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, color: Color32) {
                 pos2(c.x - 0.09 * s, c.y + 0.04 * s),
             ];
             poly(p, &pts, stroke, true);
+        }
+        Icon::Mood | Icon::MoodSad => {
+            p.circle_stroke(c, s * 0.36, stroke);
+            for dx in [-0.13f32, 0.13] {
+                p.circle_filled(pos2(c.x + dx * s, c.y - 0.11 * s), s * 0.05, color);
+            }
+            // the mouth: an arc below the eyes, turned up (smiling) or down
+            let sad = icon == Icon::MoodSad;
+            let pts: Vec<Pos2> = (0..=12)
+                .map(|i| {
+                    let a = std::f32::consts::PI * (0.15 + 0.7 * i as f32 / 12.0);
+                    let (x, y) = (c.x - 0.2 * s * a.cos(), 0.12 * s * a.sin());
+                    if sad {
+                        pos2(x, c.y + 0.2 * s - y)
+                    } else {
+                        pos2(x, c.y + 0.05 * s + y)
+                    }
+                })
+                .collect();
+            poly(p, &pts, stroke, false);
+        }
+        Icon::Tempo => {
+            // a metronome: its body, the base and the pendulum
+            let pts = [
+                pos2(c.x - 0.14 * s, c.y - 0.42 * s),
+                pos2(c.x + 0.14 * s, c.y - 0.42 * s),
+                pos2(c.x + 0.32 * s, c.y + 0.4 * s),
+                pos2(c.x - 0.32 * s, c.y + 0.4 * s),
+            ];
+            poly(p, &pts, stroke, true);
+            p.line_segment([pos2(c.x - 0.24 * s, c.y + 0.16 * s), pos2(c.x + 0.24 * s, c.y + 0.16 * s)], stroke);
+            p.line_segment([pos2(c.x, c.y + 0.16 * s), pos2(c.x + 0.3 * s, c.y - 0.36 * s)], stroke);
         }
     }
 }

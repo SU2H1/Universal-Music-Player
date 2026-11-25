@@ -61,6 +61,15 @@ quality colours: Hi-Res Lossless in gold), and every song, album, artist,
 genre, year, composer, playlist and tab has "Colour Label" in its menu.
 Up Next songs can be dragged to a new place or removed with a right-click.
 
+2.4: Moods (on the Library page) sorts your songs by their estimated mood
+(Happy, Sad, Chill, Intense) and tempo (Up-tempo, Mid-tempo, Slow), worked
+out on your computer from the sound; each card has "Create Playlist".  Your
+Stats' names are links, and its Leaderboard and "Most Played" rank your
+most played songs, artists and albums.  Settings > Playback > "Remember
+where songs were played" (off by default) stores the approximate city of
+each play, looked up from your IP address by FreeIPAPI (free.freeipapi.com;
+nothing else is sent), shown beside the calendar and under Places.
+
 Every other function is in Settings too:
 Settings > Library > "Scan library" checks your library for fake files in
 the quality checker described below.

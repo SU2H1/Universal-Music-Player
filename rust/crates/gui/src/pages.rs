@@ -44,7 +44,7 @@ fn pill(ui: &mut Ui, pal: &Palette, icon: Icon, label: &str) -> egui::Response {
 /// A rounded button without the minimum width of `pill()` (2.3: the Genres page's
 /// Select, Merge…, Rename… and Done): filled with the accent colour, or the LCD grey
 /// when `accent` is false; greyed out and not clickable when `enabled` is false.
-fn pill_button(ui: &mut Ui, pal: &Palette, icon: Option<Icon>, label: &str, accent: bool, enabled: bool) -> egui::Response {
+pub(crate) fn pill_button(ui: &mut Ui, pal: &Palette, icon: Option<Icon>, label: &str, accent: bool, enabled: bool) -> egui::Response {
     let font = look::title(13.0);
     let iw = if icon.is_some() { 20.0 } else { 0.0 };
     let w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE).size().x) + iw + 34.0;
@@ -323,7 +323,7 @@ impl Player {
         let needs_songs = !matches!(
             page,
             Page::Settings | Page::NowPlaying | Page::Quality | Page::Library | Page::Stats | Page::StatsDetails
-                | Page::Playlists | Page::Playlist(_) | Page::RecentlyPlayed
+                | Page::MostPlayed | Page::Playlists | Page::Playlist(_) | Page::RecentlyPlayed
         );
         if self.lib.tracks.is_empty() && needs_songs {
             self.empty_library(ui, pal);
@@ -405,11 +405,15 @@ impl Player {
             Page::RecentlyPlayed => self.recently_played_page(ui, pal),
             Page::Stats => self.stats_page(ui, pal),
             Page::StatsDetails => self.stats_details_page(ui, pal),
+            Page::MostPlayed => self.most_played_page(ui, pal),
             Page::Search => self.search_page(ui, pal),
             Page::NowPlaying => self.now_playing(ui, pal),
             Page::Settings => self.settings_page(ui, pal),
             Page::Quality => {}
             Page::Tab(name) => self.tab_page(ui, pal, &name),
+            Page::Place(key) => self.place_page(ui, pal, &key),
+            Page::Moods => self.moods_page(ui, pal),
+            Page::Mood(kind, label) => self.mood_page(ui, pal, kind, &label),
         }
     }
 
@@ -760,6 +764,26 @@ impl Player {
         self.table(ui, pal, list, name, cols, None, sortable && played.is_none(), played);
     }
 
+    /// A subfolder's row in the Folders page's list (2.4): the folder icon, its name and
+    /// its number of songs; a click opens it (the path is returned).
+    fn folder_row(&mut self, ui: &mut Ui, pal: &Palette, row: &(String, String, usize), i: usize, w: f32) -> Option<String> {
+        let (path, name, n) = row;
+        let (rect, resp) = ui.allocate_exact_size(vec2(w, 30.0), Sense::click());
+        let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+        if resp.hovered() {
+            ui.painter().rect_filled(rect, CornerRadius::same(5), pal.row_hover);
+        } else if i % 2 == 1 {
+            ui.painter().rect_filled(rect, CornerRadius::same(5), pal.zebra);
+        }
+        let p = ui.painter_at(rect);
+        icons::paint(&p, Rect::from_center_size(pos2(rect.left() + 18.0, rect.center().y), vec2(18.0, 18.0)), Icon::Folder, pal.accent);
+        let count = crate::player::plural(*n, "song");
+        let c = p.text(rect.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, count, look::text(12.5), pal.secondary);
+        let g = elided(ui, name, look::text(13.0), pal.text, (c.left() - rect.left() - 52.0).max(20.0));
+        p.galley(pos2(rect.left() + 38.0, rect.center().y - g.size().y / 2.0), g, pal.text);
+        resp.clicked().then(|| path.clone())
+    }
+
     /// The heading's menu: a check item per column (Title stays) and Reset columns.
     fn columns_menu(&mut self, ui: &mut Ui, kind: &'static str) {
         let shown = self.state.columns_of(kind);
@@ -796,6 +820,8 @@ impl Player {
         sortable: bool,
         played: Option<&HashMap<String, f64>>,
     ) {
+        // 2.4: the Folders page's subfolders, rows of the same list above the songs
+        let folders = std::mem::take(&mut self.table_folders);
         let w = ui.available_width();
         let heart = cols.contains(&SongCol::Like);
         let heart_w = if heart { 30.0 } else { 6.0 };
@@ -812,6 +838,21 @@ impl Player {
             x += cw;
         }
         let sort = kind.map(|k| self.sort_of(k)).unwrap_or(Some(self.song_sort));
+        if list.is_empty() && !folders.is_empty() {
+            // only subfolders: no headings
+            let mut open = None;
+            egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt(("songs", name)).show_rows(ui, 30.0, folders.len(), |ui, range| {
+                for i in range {
+                    if let Some(p) = self.folder_row(ui, pal, &folders[i], i, w) {
+                        open = Some(p);
+                    }
+                }
+            });
+            if let Some(p) = open {
+                self.go(Page::Folders(Some(p)));
+            }
+            return;
+        }
         // header
         let (hrect, hresp) = ui.allocate_exact_size(vec2(w, 26.0), Sense::click());
         let mut menu_open = false;
@@ -854,8 +895,19 @@ impl Player {
         let mut play = None;
         let mut like = None;
         let qcol = shown.iter().position(|c| *c == SongCol::Quality);
-        egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt(("songs", name)).show_rows(ui, 30.0, list.len(), |ui, range| {
+        let mcols: Vec<usize> = shown.iter().enumerate().filter(|(_, c)| matches!(c, SongCol::Bpm | SongCol::Mood)).map(|(i, _)| i).collect();
+        let nf = folders.len();
+        let mut open = None;
+        egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt(("songs", name)).show_rows(ui, 30.0, nf + list.len(), |ui, range| {
             for i in range {
+                if i < nf {
+                    if let Some(p) = self.folder_row(ui, pal, &folders[i], i, w) {
+                        open = Some(p);
+                    }
+                    continue;
+                }
+                let zebra = i % 2 == 1;
+                let i = i - nf;
                 let path = &list[i];
                 let Some(t) = self.lib.track(path) else {
                     // a playlist song whose file is gone
@@ -873,7 +925,7 @@ impl Player {
                 let playing = now.as_deref() == Some(path.as_str());
                 if selected {
                     ui.painter().rect_filled(rect, CornerRadius::same(5), pal.selection);
-                } else if i % 2 == 1 {
+                } else if zebra {
                     ui.painter().rect_filled(rect, CornerRadius::same(5), pal.zebra);
                 }
                 let p = ui.painter_at(rect);
@@ -921,6 +973,13 @@ impl Player {
                         resp = resp.on_hover_text_at_pointer(tr_text(&musiclib::quality_detail(t)));
                     }
                 }
+                for &m in &mcols {
+                    // 2.4: the BPM and Mood cells' tooltip: everything the analysis found, as an estimate
+                    let cell = Rect::from_min_size(pos2(rect.left() + xs[m], rect.top()), vec2(ws[m], rect.height()));
+                    if ui.rect_contains_pointer(cell) {
+                        resp = resp.on_hover_text_at_pointer(crate::moodpages::mood_tip(path));
+                    }
+                }
                 if resp.clicked() {
                     if heart && resp.interact_pointer_pos().is_some_and(|q| heart_rect.expand(5.0).contains(q)) {
                         like = Some(path.clone());
@@ -935,6 +994,9 @@ impl Player {
                 resp.context_menu(|ui| self.song_menu(ui, &p2));
             }
         });
+        if let Some(p) = open {
+            self.go(Page::Folders(Some(p)));
+        }
         if let Some(p) = like {
             self.toggle_like(&p);
         }
@@ -1699,7 +1761,8 @@ impl Player {
         let (comment, verdict) = self.details_extra(&track.path);
         let n_album = self.lib.album_of(&track.path).map(|a| a.tracks.len()).unwrap_or(0);
         let artists = if track.artist.is_empty() { vec![] } else { musiclib::split_artists(&track.artist, &self.lib.known) };
-        let rows = song_details(track, n_album, &comment, verdict.as_ref(), &artists);
+        let mut rows = song_details(track, n_album, &comment, verdict.as_ref(), &artists);
+        rows.extend(crate::moodpages::detail_rows(self.moods.map.get(&track.path))); // 2.4: the estimated mood, tempo and key
         // the labels are English (`song_details()`), shown in the language in use
         self.np_hits.details = rows.iter().map(|(k, v)| format!("{}: {v}", i18n::tr(k))).collect();
         let mut open = None;
@@ -1813,6 +1876,9 @@ impl Player {
                     if draft != before {
                         *self.settings_draft() = draft;
                         self.settings_changed();
+                    }
+                    if group == "Playback" {
+                        self.places_settings_ui(ui, pal); // 2.4: what is sent, the lookup, Forget play locations…
                     }
                     if group == "Appearance" {
                         if !self.font_used.is_empty() {

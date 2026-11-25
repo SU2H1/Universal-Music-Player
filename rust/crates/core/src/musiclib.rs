@@ -242,6 +242,25 @@ const PLAYS_TABLE: &str = "CREATE TABLE IF NOT EXISTS plays (id INTEGER PRIMARY 
      started REAL, seconds REAL, duration REAL, title TEXT, artist TEXT, album TEXT, album_artist TEXT, genre TEXT, \
      year TEXT, composer TEXT);";
 
+/// 2.4: where each song was played (`places`); older databases get the columns, their plays none.
+pub const PLACE_COLUMNS: [&str; 6] =
+    ["place_city", "place_region", "place_country", "place_country_code", "place_latitude", "place_longitude"];
+const PLACE_TYPES: [&str; 6] = ["TEXT", "TEXT", "TEXT", "TEXT", "REAL", "REAL"];
+
+fn add_place_columns(db: &Connection) -> rusqlite::Result<()> {
+    let have: Vec<String> = {
+        let mut st = db.prepare("PRAGMA table_info(plays)")?;
+        let rows = st.query_map([], |r| r.get::<_, String>(1))?;
+        rows.filter_map(Result::ok).collect()
+    };
+    for (name, kind) in PLACE_COLUMNS.iter().zip(PLACE_TYPES) {
+        if !have.iter().any(|h| h == name) {
+            db.execute(&format!("ALTER TABLE plays ADD COLUMN {name} {kind}"), [])?;
+        }
+    }
+    Ok(())
+}
+
 fn stat(path: &str) -> Option<(i64, i64)> {
     crate::store::stat(path).ok()
 }
@@ -264,6 +283,7 @@ impl Library {
              CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);",
         )?;
         db.execute_batch(PLAYS_TABLE)?;
+        add_place_columns(&db)?; // 2.4
         let version: Option<String> =
             db.query_row("SELECT value FROM meta WHERE key = 'version'", [], |r| r.get(0)).ok();
         if version.is_some_and(|v| v.trim().parse::<i64>().unwrap_or(0) < LIBRARY_VERSION) {
@@ -274,15 +294,25 @@ impl Library {
     }
 
     /// Log that `t` was listened to for `seconds` from `started` (Unix time),
-    /// with a copy of its tags (Python `Library.add_play`).
+    /// with a copy of its tags (Python `Library.add_play`), without a place.
     pub fn add_play(&self, t: &Track, started: f64, seconds: f64) -> bool {
+        self.add_play_at(t, started, seconds, None)
+    }
+
+    /// `add_play()` with the place it was played at (2.4; Python's `place=`).
+    pub fn add_play_at(&self, t: &Track, started: f64, seconds: f64, place: Option<&crate::places::Place>) -> bool {
         if seconds < MIN_LOGGED_SECONDS {
             return false;
         }
+        let text = |f: fn(&crate::places::Place) -> &String| place.map(|p| f(p).clone());
         self.db
             .execute(
-                "INSERT INTO plays (path, started, seconds, duration, title, artist, album, album_artist, genre, \
-                 year, composer) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                &format!(
+                    "INSERT INTO plays (path, started, seconds, duration, title, artist, album, album_artist, genre, \
+                     year, composer, {}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, \
+                     ?16, ?17)",
+                    PLACE_COLUMNS.join(", ")
+                ),
                 params![
                     t.path,
                     started,
@@ -294,19 +324,42 @@ impl Library {
                     t.album_artist,
                     t.genre,
                     t.year,
-                    t.composer
+                    t.composer,
+                    text(|p| &p.city),
+                    text(|p| &p.region),
+                    text(|p| &p.country),
+                    text(|p| &p.country_code),
+                    place.and_then(|p| p.latitude),
+                    place.and_then(|p| p.longitude)
                 ],
             )
             .is_ok()
     }
 
-    /// The plays that started in [since, until), oldest first.
+    /// The plays that started in [since, until), oldest first, each with its
+    /// place (None for plays logged without one, as every play before 2.4).
     pub fn plays(&self, since: f64, until: Option<f64>) -> Vec<crate::stats::Play> {
-        let q = "SELECT path, started, seconds, duration, title, artist, album, album_artist, genre, year, composer \
-                 FROM plays WHERE started >= ?1 AND started < ?2 ORDER BY started, id";
-        let Ok(mut st) = self.db.prepare(q) else { return vec![] };
+        let q = format!(
+            "SELECT path, started, seconds, duration, title, artist, album, album_artist, genre, year, composer, {} \
+             FROM plays WHERE started >= ?1 AND started < ?2 ORDER BY started, id",
+            PLACE_COLUMNS.join(", ")
+        );
+        let Ok(mut st) = self.db.prepare(&q) else { return vec![] };
         let s = |r: &rusqlite::Row, i: usize| r.get::<_, Option<String>>(i).ok().flatten().unwrap_or_default();
         let rows = st.query_map(params![since, until.unwrap_or(f64::INFINITY)], |r| {
+            let o = |i: usize| r.get::<_, Option<String>>(i).ok().flatten();
+            let n = |i: usize| r.get::<_, Option<f64>>(i).ok().flatten().map(crate::json::Value::Float);
+            let place = match (o(11), o(12), o(13)) {
+                (None, None, None) => None,
+                (city, region, country) => crate::places::make_place(
+                    &city.unwrap_or_default(),
+                    &region.unwrap_or_default(),
+                    &country.unwrap_or_default(),
+                    &o(14).unwrap_or_default(),
+                    n(15).as_ref(),
+                    n(16).as_ref(),
+                ),
+            };
             Ok(crate::stats::Play {
                 path: s(r, 0),
                 started: r.get(1)?,
@@ -319,9 +372,27 @@ impl Library {
                 genre: s(r, 8),
                 year: s(r, 9),
                 composer: s(r, 10),
+                place,
             })
         });
         rows.map(|it| it.filter_map(Result::ok).collect()).unwrap_or_default()
+    }
+
+    /// Clear the place of every play (2.4, Settings → Forget play locations…);
+    /// the plays stay.  Returns how many plays had one.
+    pub fn forget_places(&self) -> usize {
+        let set = PLACE_COLUMNS.iter().map(|c| format!("{c} = NULL")).collect::<Vec<_>>().join(", ");
+        let any = PLACE_COLUMNS.iter().map(|c| format!("{c} IS NOT NULL")).collect::<Vec<_>>().join(" OR ");
+        self.db.execute(&format!("UPDATE plays SET {set} WHERE {any}"), []).unwrap_or(0)
+    }
+
+    /// How many plays have a place.
+    pub fn places_count(&self) -> usize {
+        let any = PLACE_COLUMNS.iter().map(|c| format!("{c} IS NOT NULL")).collect::<Vec<_>>().join(" OR ");
+        self.db
+            .query_row(&format!("SELECT COUNT(*) FROM plays WHERE {any}"), [], |r| r.get::<_, i64>(0))
+            .map(|n| n as usize)
+            .unwrap_or(0)
     }
 
     /// The songs played last, newest first, each once.

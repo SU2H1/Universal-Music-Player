@@ -590,6 +590,31 @@ pub fn embed_lyrics(path: &str, synced: &str, plain: &str) -> Result<(), EmbedEr
 
 /// Write `data` over the file through a temporary file in its folder (keeping
 /// its permissions), so a failure never leaves half a file (Python `replace_file`).
+/// 2.4: on Windows a file that another program has open (FFmpeg reading it for the mood
+/// analysis or a scan, an antivirus scanner, the search indexer) cannot be replaced for a
+/// moment, so the rename is tried again for up to this long (Python `REPLACE_RETRY_S`).
+pub const REPLACE_RETRY_S: f64 = 5.0;
+
+/// `fs::rename(tmp, path)`, tried again while Windows says the file is in use (access
+/// denied or a sharing violation); elsewhere a rename never waits for readers.
+pub fn rename_retrying(tmp: &Path, path: &str) -> std::io::Result<()> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs_f64(REPLACE_RETRY_S);
+    let mut delay = std::time::Duration::from_millis(50);
+    loop {
+        match std::fs::rename(tmp, path) {
+            Ok(()) => return Ok(()),
+            Err(e) if cfg!(windows)
+                && (e.kind() == std::io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(32))
+                && std::time::Instant::now() < deadline =>
+            {
+                std::thread::sleep(delay);
+                delay = (delay * 2).min(std::time::Duration::from_millis(400));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
 pub fn replace_file(path: &str, data: &[u8]) -> std::io::Result<()> {
     let ext = extension(&file_name(path)).to_lowercase();
     let folder = crate::paths::parent(&crate::paths::abspath(path));
@@ -606,7 +631,7 @@ pub fn replace_file(path: &str, data: &[u8]) -> std::io::Result<()> {
         if let Ok(meta) = std::fs::metadata(path) {
             let _ = std::fs::set_permissions(&tmp, meta.permissions());
         }
-        std::fs::rename(&tmp, path)
+        rename_retrying(&tmp, path)
     })();
     if res.is_err() {
         let _ = std::fs::remove_file(&tmp);

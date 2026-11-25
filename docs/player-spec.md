@@ -906,3 +906,157 @@ the calendar plus 360 px, the list goes under the calendar as before.
 centred vertically in the right half (and horizontally, the labels and values kept in their two columns), as the cover
 block is in the left half; a long file path wraps within the block. When the block is taller than the page it starts
 at the top and scrolls.
+
+## 2.4 (asked for on 2026-11-25, after 2.3.0 was released)
+
+"Folder cannot be scrolled, for stats allow to click the artist and songs, stats of the most played songs (like a
+leaderboard), location of where the song was played with the calendar, analyze whether are song are sad up-tempo etc.
+and create playlist." Asked about the location's source, the user chose the approximate location from the internet
+(off until turned on in Settings, kept only on the computer). Everything below is built in both apps, with Japanese
+texts (`i18n/ja/67-stats-2.4.json`, `68-places-2.4.json`, `69-moods-2.4.json`), parity vectors for the core, and
+tests that also run at 1024 × 768.
+
+### 1. Folders scroll
+
+The Folders page must scroll with the mouse wheel, the trackpad and the scroll bar however many subfolders and songs a
+folder holds, in both apps: the subfolders and the songs of a folder form one scrolling page (the subfolders above the
+songs), not two boxes of fixed height.
+
+The causes found (2026-11-25): in the Rust app the subfolders were drawn straight into the page, which has no scroll
+area of its own, so a folder with more subfolders than the window holds could not be scrolled at all (wheel, trackpad
+or scroll bar), and the songs' table below them got only the height that was left, none when the subfolders filled
+the window. In the Tk app the subfolders were a list of their own above the songs, whose `configure(height=…)` had no
+effect (a frame takes the requested size of the widgets packed into it, 120 px), so it stayed about three rows tall
+and scrolled on its own while the songs scrolled in a second box. Both apps now show one list: the subfolders are its
+first rows (a folder icon, the name and the number of songs; one click opens one, they stay first when the songs are
+sorted), the songs follow, with the song columns' headings above the list only when the folder has songs of its own.
+
+### 2. Your Stats: names are links, and a leaderboard
+
+- Every song, artist, album and genre named on Your Stats (the cards, the top lists of Details, the day beside the
+  calendar) is a link: a song plays it (with the songs of that list as the queue), an artist opens the artist's page,
+  an album its page, a genre its page. The pointer becomes a hand over them, and the song menu opens on a right-click
+  of a song.
+- **Leaderboard**: a section of Your Stats (and a page of its own opened from it, "Most Played") ranking the most
+  played songs of the chosen period (the periods Your Stats already has): rank, cover, title, artist, plays and
+  minutes listened, the top three marked; a switch between Songs, Artists and Albums; up to 100 rows; ties share a
+  rank. Play / Shuffle play the ranked songs in rank order. The ranking is computed in the core (`stats.leaderboard()`)
+  with vectors.
+- Settled while building (2026-11-25): only rows with at least one counted play (30 s, or half of a shorter song) are
+  ranked; they are ordered by plays, then by the whole minutes listened (rounded as shown), then by name, and rows
+  with the same plays and minutes share a rank (1, 2, 2, 4); the keys are those of the top lists (an artist is the
+  song's artist field, as in Details). An artist's or album's songs are played most played first. The section on Your
+  Stats shows the first 10 rows, a "See All" link opens Most Played (with Back, the period menu, Play, Shuffle and the
+  switch); the switch is kept for the session and shared by both. The top three ranks sit on gold, silver and bronze
+  badges. The song links of a card play the period's ranked songs, those of Details' top songs that list, those of
+  the day beside the calendar the day's songs; a name the library does not hold (a song whose file is gone, an
+  artist, album or genre no longer in it) is not a link.
+
+### 3. Where a song was played
+
+- Setting `play_location` (Library or Playback group, off by default) and `location_server`. When on, the app asks a
+  free IP geolocation service for the computer's approximate place (city, region, country, and the rounded latitude and
+  longitude the service gives) once when it starts and again after at most every 2 hours while music plays, and
+  stores the place with each play in the play history (`library.sqlite`, new columns; old plays have none). Only the
+  request itself goes out (the service sees the IP address); no song, path or tag is ever sent. The client follows the
+  service's published limits, names the app in its User-Agent, honours Retry-After, never retries in a loop, and a
+  failure only leaves the place empty. Tests never contact the real service (a fake server, as for LRCLIB).
+- The calendar of Your Stats shows where music was played: the day beside the calendar names the place of each play,
+  and a "Places" part of Your Stats lists the places of the period with their plays and minutes (a click shows that
+  place's songs). Settings has **Forget play locations** (confirmed), which clears the stored places but keeps the
+  plays.
+- The service is chosen by the implementer after reading its terms (free use without a key over HTTPS, no
+  registration); the choice, its limits and its terms are recorded here and in the README, which also says plainly what
+  the setting sends.
+
+**Built (2.4).** The service is **FreeIPAPI**'s free API, `https://free.freeipapi.com/api/v1/json/`
+(`places.DEFAULT_SERVER`, the default of `location_server`), chosen on 2026-11-25 after reading the terms of FreeIPAPI,
+ipwho.is, ipapi.co and ipinfo.io. FreeIPAPI says it is "free for both commercial and non-commercial use with no account or
+API key required", its free plan includes TLS/SSL and "Commercial use allowed", and it allows 60 requests a minute (10 in
+10 seconds) per address (https://freeipapi.com/rate-limit); its terms (https://freeipapi.com/terms) ask for reasonable
+use (no scraping, no querying of large IP ranges) and say nothing against keeping the answer. ipapi.co's terms forbid
+keeping its data longer than 24 hours (a play history keeps it for good), ipinfo.io needs a token and gives only the
+country for free, and ipwho.is (1,000 requests a day, no key) grants use "for personal or internal business purposes"
+only; its answers are still understood, so `location_server` can point at it. What goes out: one GET of that address
+with the User-Agent `UniversalMusicPlayer/<version> ( <home page> )` and `Accept: application/json`, nothing else (no
+query, no song, path or tag); the service sees the IP address, which is how it finds the place. The answer's city,
+region, country, country code and latitude/longitude rounded to 2 decimals are kept (`places.Place`); everything else
+it says is dropped.
+
+- Core: `realhires/places.py` / `rust/crates/core/src/places.rs` (vectors `python_places.json`). `GeoClient` sends one
+  request at a time at least `MIN_INTERVAL_S` (2 s) apart; a 429/503 answer's Retry-After (else 10 minutes, at most 6
+  hours) is kept in `not_before` and the lookup gives up at once (no request before that time); server errors and
+  network errors are tried `MAX_ATTEMPTS` (3) times in all with a 2 s, then 4 s back-off; other 4xx answers and
+  answers without a place fail at once. `parse_place()` reads FreeIPAPI's field names (`cityName`, `regionName`,
+  `countryName`, `countryCode`, `latitude`, `longitude`) and ipwho.is's (`city`, `region`, `country`, `country_code`,
+  `success`/`message`), cleans the names (`MAX_NAME` 100 characters) and drops coordinates out of range. `place_text()`
+  ("Shinjuku, Tokyo, Japan", a region or country named like the part before it left out) and `place_key()` (the
+  names case-folded). `PlaceCache.due()`: a lookup at once the first time (the app starts with the setting on, or it is
+  turned on, or the service is changed), then only while music plays and `REFRESH_S` (2 hours) after the last one
+  began, never before `not_before`; a failure leaves the place empty and is not retried before the next 2 hours (no
+  loop). `period_places()` (the places of a period's plays: plays counted as in `stats.counted()`, minutes, songs,
+  most played first) and `place_songs()`.
+- `library.sqlite`: the `plays` table gained `place_city`, `place_region`, `place_country`, `place_country_code`,
+  `place_latitude`, `place_longitude` (added with `ALTER TABLE` to older databases; their plays have none).
+  `add_play(…, place=)` (Rust `add_play_at()`; `add_play()` keeps its three arguments), `plays()` gives each play's
+  `place` (`stats.Play.place`), `forget_places()`, `places_count()`. `stats.day_plays()` rows carry `place`.
+- Both apps: the lookup runs in a thread of its own; the Tk player's `PlacesMixin` (`realhires/player_places.py`)
+  takes its answer in every second (`_places_tick()`), the egui player's `places_tick()` every frame
+  (`rust/crates/gui/src/places.rs`); a play is stored with the place found last (`play_place()`, None while the
+  setting is off). Settings → Playback: the switch and the service (ordinary rows), then the note naming exactly what
+  is sent and to which host (HTTPS or, for an `http://` address, "unencrypted HTTP"), the lookup's state ("Approximate
+  place now: … (looked up at 14:05)", "Turned off…", or why none was found), how many plays have a place, and
+  **Forget play locations…** (confirmed). The day list of the calendar puts a line with a pin and the place's name
+  above each run of plays made at the same place ("Place unknown" for plays without one, shown only when the day has
+  places). Your Stats ends with **Places**: a row per place of the period with "N plays · M min" (a hint pointing at
+  the setting when it is off); a click opens the place's page (`show_page("place", place=key)` / `Page::Place(key)`):
+  its name, the period's minutes and plays there, Play, Shuffle and its songs, most played first, with the Played
+  column telling when each was last played there. Back and Now Playing's back link name the place.
+
+### 4. Moods, tempo and playlists
+
+- Core `realhires/moods.py` / `rust/crates/core/src/moods.rs` analyses each song on this computer, from its audio, with
+  NumPy only in Python (no new dependency): the tempo (BPM, from an onset envelope's autocorrelation), the energy
+  (loudness), the brightness and whether it is in a major or a minor key (chroma against key profiles). From these it
+  gives labels: **Up-tempo** / **Mid-tempo** / **Slow**, **Energetic** / **Calm**, and a mood among **Happy**,
+  **Sad**, **Chill**, **Intense** (thresholds as module constants, documented). The labels are estimates and the app
+  says so. Both versions give the same labels and BPM (within rounding) on the test songs (vectors).
+- Results are kept in `library.sqlite` (a `moods` table keyed by path, size and modification time), so a song is
+  analysed once until it changes. The analysis runs in the background after library updates, one song at a time at a
+  low priority (setting `analyse_moods`, on by default; its progress shows in the sidebar's status like the library
+  update).
+- A **Moods** entry on the Library page (and in the sidebar's Library list) opens a page with a card per mood and per
+  tempo (with song counts); a card opens its songs with Play, Shuffle and **Create Playlist**, which makes an ordinary
+  playlist of those songs (named e.g. "Sad songs", a taken name gets " 2"). Song lists can show **BPM** and **Mood**
+  columns (choosable, as the other columns), Details on Now Playing shows the mood, tempo and key, and custom tabs get
+  the fields `bpm` (number), `mood` and `tempo` (text, chosen from a menu like Quality).
+- **How a song is analysed** (`moods.py`'s docstring has the details; the Rust module repeats every step): FFmpeg
+  decodes at most 90 s (from 30 s in, as late as a whole 90 s stretch still fits, or all of a shorter song) as two
+  channels at 22,050 Hz, below normal priority (`nice` on macOS and Linux, the below-normal class on Windows), and
+  the two are averaged. *Tempo*: a spectral-flux onset envelope (1,024-point Hann frames every 256 samples, about
+  86 per second; log(1 + 1000·|X|), the rise summed over the bins, the 0.5 s local mean taken off), its
+  autocorrelation over 50–210 BPM weighted by a log-normal prior around 120 BPM one octave wide; the best peak must
+  lie 0.05 above the median of those lags (noise has no beat, BPM 0); a peak at half the lag at least 0.8 as strong
+  makes the tempo twice as fast; the lag is refined by parabolas through its peaks at 1–4 times the lag. *Energy*:
+  the RMS level in dBFS. *Brightness*: the spectral centroid of the average power spectrum. *Key*: a chroma vector
+  (8,192-point frames, 65–2,100 Hz, each bin to its nearest pitch class) against the 24 Krumhansl–Kessler profiles.
+- **Labels and thresholds**: Up-tempo from 120 BPM, Slow below 90, else Mid-tempo; Energetic from −16 dBFS, else
+  Calm. The mood: the valence is the mode (major positive), or the brightness (from 1,500 Hz positive) when the best
+  major and minor correlations lie less than 0.05 apart; the arousal is high when Energetic (+1), Up-tempo (+1) and
+  Slow (−1) add up to at least 1. Positive and high: Happy; positive and low: Chill; negative and high: Intense;
+  negative and low: Sad. A stretch quieter than −60 dBFS or shorter than 1 s gets no labels. On the invented test
+  songs (clicks over major and minor chord progressions, 56–200 BPM) the BPM is within ±2 and the mode right; a
+  90 s stretch takes about 0.35 s, decoding included.
+- **The table** `moods` of `library.sqlite`: path (key), size, mtime_ns, bpm, energy, brightness, key, mode, labels
+  (JSON: tempo, energy, mood) and the analyser's version (`ANALYSER_VERSION`, 1); a song is analysed again when its
+  size or modification time changes or the version is another, and its old labels are shown until then. A song that
+  cannot be decoded is not written, so it is tried again after the next library update.
+- **Details settled while building both apps**: the job's progress ("Analysing moods: 3 of 120 songs") is the least
+  important text of the sidebar's status (it never replaces another one) and is cleared when the job ends; new
+  results reach the pages at most every 2 s while it runs; the Moods page says how many songs are analysed and that
+  the labels are estimates, the column menu says "BPM (estimated)" and "Mood (estimated)", the cells' tooltip lists
+  everything found, and Details' rows are "Mood (estimated)", "Tempo (estimated)" and "Key (estimated)". The cards
+  are Happy, Sad, Chill, Intense, then Up-tempo, Mid-tempo, Slow, each in its own colour; a card's songs are sorted
+  as All Songs is in each app. Create Playlist stays on the card's page and says what it made ("Made the playlist
+  “Sad songs” with 12 songs."); the playlist's name is in the language in use. Turning `analyse_moods` off stops a
+  running job (the results are kept).

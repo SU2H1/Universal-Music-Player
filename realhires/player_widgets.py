@@ -92,6 +92,11 @@ class SongList(tk.Frame):
     while the pointer is near its top or bottom edge, and `dst` is the row's index
     after the move.
 
+    Rows for which `special(row)` is true (2.4: the subfolders of the Folders page) are
+    drawn by `draw_special(canvas, row, x0, x1, y, height, tags, selected)` instead of the
+    columns, stay first when the list is sorted, have no heart or tooltip, and a click
+    on one activates it (`on_activate`) as a link does.
+
     Only the visible rows are drawn.  A scroll step moves the drawn rows and draws
     only the rows that come into view, and moving the pointer to another row only
     recolours the two rows' backgrounds, so a library of tens of thousands of songs
@@ -115,8 +120,12 @@ class SongList(tk.Frame):
                  on_heading_context: Optional[Callable[[Any], None]] = None,
                  on_move: Optional[Callable[[int, int], None]] = None,
                  label_of: Optional[Callable[[Any], Optional[str]]] = None,
-                 cell_color: Optional[Callable[[Any, str], Optional[str]]] = None):
+                 cell_color: Optional[Callable[[Any, str], Optional[str]]] = None,
+                 special: Optional[Callable[[Any], bool]] = None,
+                 draw_special: Optional[Callable[..., None]] = None):
         super().__init__(master, bd=0, highlightthickness=0)
+        self.special, self.draw_special = special, draw_special  # 2.4: rows drawn as links
+        self._special_click: Optional[int] = None  # the event time of the last click on one
         self.on_context, self.is_dim, self.tip_value = on_context, is_dim, tip_value
         # 2.3: `label_of(row)` the colour label drawn as a dot before the title (None: no dot),
         # `cell_color(row, key)` a cell's own text colour (the Quality column's quality colour)
@@ -197,9 +206,15 @@ class SongList(tk.Frame):
             self.sort_key, self.sort_rev = None, False
         self.redraw()
 
+    def _is_special(self, row: Any) -> bool:
+        return self.special is not None and self.draw_special is not None and bool(self.special(row))
+
     def _sort(self) -> None:
         key = self.sort_key
-        self.rows.sort(key=lambda r: self.sort_value(r, key), reverse=self.sort_rev)  # type: ignore[misc]
+        first = [r for r in self.rows if self._is_special(r)]  # special rows stay first, in their order
+        rest = [r for r in self.rows if not self._is_special(r)] if first else self.rows
+        rest.sort(key=lambda r: self.sort_value(r, key), reverse=self.sort_rev)  # type: ignore[misc]
+        self.rows = first + rest if first else rest
 
     def sort_by(self, key: str) -> None:
         if self.sort_value is None:
@@ -271,8 +286,12 @@ class SongList(tk.Frame):
 
     # ----------------------------------------------------------- events ---
     def _motion(self, e) -> None:
-        self._set_hover(self._row_at(e.y))
+        i = self._row_at(e.y)
+        self._set_hover(i)
         self._tip_motion(e)
+        if self.special is not None:  # a hand over the rows that are links
+            link = i is not None and self._is_special(self.rows[i])
+            self.canvas.configure(cursor="hand2" if link else "")
 
     def _set_hover(self, i: Optional[int]) -> None:
         if i == self.hover:
@@ -301,6 +320,12 @@ class SongList(tk.Frame):
         i = self._row_at(e.y)
         if i is None:
             return
+        if self._is_special(self.rows[i]):  # a link: one click opens it
+            self.selected = i
+            self._special_click = getattr(e, "time", 0)
+            self._activate(i)
+            return
+        self._special_click = None
         col = self._column_at(e.x)
         if col is not None and col.kind == "heart" and self.on_heart is not None:
             self.on_heart(self.rows[i])
@@ -407,12 +432,16 @@ class SongList(tk.Frame):
                 self.on_heading_context(e)
             return
         i = self._row_at(e.y)
-        if i is None or self.on_context is None:
+        if i is None or self.on_context is None or self._is_special(self.rows[i]):
             return
         self.select(i)
         self.on_context(i, e)
 
     def _double(self, e) -> None:
+        if self._special_click is not None and 0 <= getattr(e, "time", 0) - self._special_click < 1000:
+            # the second click of a double click on a link: the first one opened it already
+            self._special_click = None
+            return
         i = self._row_at(e.y)
         col = self._column_at(e.x)
         if i is not None and not (col is not None and col.kind == "heart"):
@@ -434,7 +463,7 @@ class SongList(tk.Frame):
         cell = None
         if self.tip_value is not None and not (self.has_header and e.y < self.HEADER):
             i, col = self._row_at(e.y), self._column_at(e.x)
-            if i is not None and col is not None and col.tip:
+            if i is not None and col is not None and col.tip and not self._is_special(self.rows[i]):
                 cell = (i, col.key)
         if cell == self._tip_cell:
             return
@@ -502,7 +531,7 @@ class SongList(tk.Frame):
         c.itemconfigure(self._drawn[i], fill=self._row_fill(i))
         c.delete(f"hh{i}")
         if i == self.hover and i != self.selected and any(col.kind == "heart" for col, _, _ in self._cols) \
-                and i < len(self.rows):
+                and i < len(self.rows) and not self._is_special(self.rows[i]):
             row = self.rows[i]
             if not (self.is_liked(row) if self.is_liked else False):
                 head = self.HEADER if self.has_header else 0
@@ -522,6 +551,9 @@ class SongList(tk.Frame):
         current = self.is_current(row) if self.is_current else False
         self._drawn[i] = round_rect(c, 6, y + 1, W - 6, y + self.rh - 1, 6, fill=self._row_fill(i), outline="",
                                     tags=tags)
+        if self._is_special(row):
+            self.draw_special(c, row, 6, W - 6, y, self.rh, tags, sel)  # type: ignore[misc]
+            return
         dim = self.is_dim(row) if self.is_dim else False
         fg = t.c("on_accent") if sel else (t.c("accent") if current else t.c("disabled" if dim else "text"))
         fg2 = t.c("on_accent") if sel else t.c("disabled" if dim else "text2")

@@ -225,3 +225,38 @@ def test_ogg_crc_and_refusals():
         tagedit.ogg_with_tags(b"OggS" + b"\x00" * 30, {"title": "x"})
     with pytest.raises(tagedit.TagError):
         tagedit.ogg_with_tags(b"not an ogg file at all, just some bytes", {"title": "x"})
+
+
+def test_replacing_a_file_waits_while_windows_says_it_is_in_use(tmp_path, monkeypatch):
+    """2.4: on Windows a song that FFmpeg is reading (the mood analysis, a scan) or an
+    antivirus scanner holds cannot be replaced for a moment; the replace tries again
+    instead of failing the save, and gives up after REPLACE_RETRY_S."""
+    from realhires import embed
+
+    src, dst = tmp_path / "new.flac", tmp_path / "song.flac"
+    src.write_bytes(b"new")
+    dst.write_bytes(b"old")
+    real = os.replace
+    calls = []
+
+    def busy_twice(a, b):
+        calls.append(a)
+        if len(calls) <= 2:
+            raise PermissionError(32, "The process cannot access the file because it is being used by another process")
+        real(a, b)
+
+    monkeypatch.setattr(embed.os, "name", "nt")
+    monkeypatch.setattr(embed.os, "replace", busy_twice)
+    embed.replace_retrying(str(src), str(dst))
+    assert len(calls) == 3 and dst.read_bytes() == b"new"
+    # still in use after the time allowed: the error comes through
+    monkeypatch.setattr(embed.os, "replace", lambda a, b: (_ for _ in ()).throw(PermissionError(32, "in use")))
+    with pytest.raises(PermissionError):
+        embed.replace_retrying(str(src), str(dst), timeout=0.2)
+    # elsewhere a rename never waits for readers: no retry
+    monkeypatch.setattr(embed.os, "name", "posix")
+    calls.clear()
+    monkeypatch.setattr(embed.os, "replace", busy_twice)
+    with pytest.raises(PermissionError):
+        embed.replace_retrying(str(src), str(dst))
+    assert len(calls) == 1

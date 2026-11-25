@@ -1,0 +1,1731 @@
+{
+"default_server": "https://free.freeipapi.com/api/v1/json/",
+"constants": {
+"min_interval": 2.0,
+"max_attempts": 3,
+"backoff": 2.0,
+"default_retry_after": 600.0,
+"max_retry_after": 21600.0,
+"refresh": 7200.0,
+"max_name": 100
+},
+"answers": [
+{
+"ipVersion": 4,
+"ipAddress": "198.51.100.7",
+"latitude": 35.68951,
+"longitude": 139.69171,
+"countryName": "Japan",
+"countryCode": "JP",
+"cityName": "Shinjuku",
+"regionName": "Tokyo"
+},
+{
+"ip": "198.51.100.8",
+"success": true,
+"country": "Japan",
+"country_code": "jp",
+"region": "Osaka",
+"city": "Osaka",
+"latitude": 34.6937378,
+"longitude": 135.5021651
+},
+{
+"city": "  San\tFrancisco \n(Financial District) ",
+"country_name": "United States",
+"country": "US",
+"country_code": "usa",
+"latitude": "37.79",
+"longitude": -0.004
+},
+{
+"countryName": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"latitude": 91,
+"longitude": true
+},
+{
+"cityName": "A\u0000BC",
+"regionName": null,
+"region": "Kantō",
+"latitude": 1e+308,
+"longitude": -180
+},
+{
+"cityName": "",
+"regionName": "",
+"countryName": "   "
+},
+{
+"success": false,
+"message": "Reserved range"
+},
+{
+"success": false
+},
+{
+"cityName": 5,
+"countryName": [
+"Japan"
+],
+"latitude": 12.345,
+"longitude": 0.005
+},
+{
+"cityName": "Ünïcødé  名古屋",
+"countryName": "日本",
+"countryCode": "JP",
+"latitude": -33.8688,
+"longitude": 151.209
+},
+[
+1,
+2
+],
+"Tokyo"
+],
+"parsed": [
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"text": "Shinjuku, Tokyo, Japan",
+"key": "shinjuku\u0000tokyo\u0000japan"
+},
+{
+"place": {
+"city": "Osaka",
+"region": "Osaka",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 34.69,
+"longitude": 135.5
+},
+"text": "Osaka, Japan",
+"key": "osaka\u0000osaka\u0000japan"
+},
+{
+"place": {
+"city": "San Francisco (Financial District)",
+"region": "",
+"country": "United States",
+"country_code": "",
+"latitude": null,
+"longitude": 0.0
+},
+"text": "San Francisco (Financial District), United States",
+"key": "san francisco (financial district)\u0000\u0000united states"
+},
+{
+"place": {
+"city": "",
+"region": "",
+"country": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"country_code": "",
+"latitude": null,
+"longitude": null
+},
+"text": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+"key": "\u0000\u0000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+},
+{
+"place": {
+"city": "A B C",
+"region": "Kantō",
+"country": "",
+"country_code": "",
+"latitude": null,
+"longitude": -180.0
+},
+"text": "A B C, Kantō",
+"key": "a b c\u0000kantō\u0000"
+},
+{
+"error": "The location service sent no place."
+},
+{
+"error": "The location service could not find this computer's place: Reserved range."
+},
+{
+"error": "The location service could not find this computer's place."
+},
+{
+"error": "The location service sent no place."
+},
+{
+"place": {
+"city": "Ünïcødé 名古屋",
+"region": "",
+"country": "日本",
+"country_code": "JP",
+"latitude": -33.87,
+"longitude": 151.21
+},
+"text": "Ünïcødé 名古屋, 日本",
+"key": "ünïcødé 名古屋\u0000\u0000日本"
+},
+{
+"error": "The location service sent no place."
+},
+{
+"error": "The location service sent no place."
+}
+],
+"coordinates": [
+[
+35.68951,
+90,
+35.69
+],
+[
+-0.004,
+180,
+0.0
+],
+[
+0.005,
+180,
+0.01
+],
+[
+0.015,
+180,
+0.01
+],
+[
+2.675,
+90,
+2.67
+],
+[
+-90,
+90,
+-90.0
+],
+[
+90.0001,
+90,
+null
+],
+[
+180,
+180,
+180.0
+],
+[
+-180.5,
+180,
+null
+],
+[
+1.005,
+90,
+1.0
+],
+[
+139.69171,
+180,
+139.69
+]
+],
+"texts": [
+[
+[
+"Tokyo",
+"tokyo",
+"Japan"
+],
+"Tokyo, Japan",
+"tokyo\u0000tokyo\u0000japan"
+],
+[
+[
+"Singapore",
+"Singapore",
+"Singapore"
+],
+"Singapore",
+"singapore\u0000singapore\u0000singapore"
+],
+[
+[
+"",
+"",
+"Japan"
+],
+"Japan",
+"\u0000\u0000japan"
+],
+[
+[
+"Straße",
+"STRASSE",
+"Deutschland"
+],
+"Straße, Deutschland",
+"strasse\u0000strasse\u0000deutschland"
+],
+[
+[
+"Paris",
+"Île-de-France",
+"France"
+],
+"Paris, Île-de-France, France",
+"paris\u0000île-de-france\u0000france"
+],
+[
+[
+"",
+"Texas",
+"Texas"
+],
+"Texas",
+"\u0000texas\u0000texas"
+]
+],
+"plays": [
+{
+"path": "/m/a.flac",
+"started": 1700000000,
+"seconds": 120,
+"duration": 200.0,
+"title": "Alpha",
+"artist": "Ann",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+}
+},
+{
+"path": "/m/b.flac",
+"started": 1700000600,
+"seconds": 10,
+"duration": 200.0,
+"title": "Beta",
+"artist": "",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+}
+},
+{
+"path": "/m/a.flac",
+"started": 1700003600,
+"seconds": 200,
+"duration": 200.0,
+"title": "Alpha",
+"artist": "Ann",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "tokyo",
+"region": "TOKYO",
+"country": "japan",
+"country_code": "",
+"latitude": null,
+"longitude": null
+}
+},
+{
+"path": "/m/c.flac",
+"started": 1700090000,
+"seconds": 300,
+"duration": 250.0,
+"title": "Gamma",
+"artist": "",
+"album": "",
+"album_artist": "Band",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Osaka",
+"region": "Osaka",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 34.69,
+"longitude": 135.5
+}
+},
+{
+"path": "/m/d.flac",
+"started": 1700090100,
+"seconds": 999,
+"duration": 200.0,
+"title": "Delta",
+"artist": "",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/m/e.flac",
+"started": 1700090200,
+"seconds": 25,
+"duration": 40.0,
+"title": " ",
+"artist": "",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Osaka",
+"region": "Osaka",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 34.69,
+"longitude": 135.5
+}
+},
+{
+"path": "/m/f.flac",
+"started": 1700090300,
+"seconds": 61,
+"duration": 200.0,
+"title": "Zeta",
+"artist": "Zed",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "",
+"region": "",
+"country": "Japan",
+"country_code": "",
+"latitude": null,
+"longitude": null
+}
+},
+{
+"path": "/m/g.flac",
+"started": 1700090400,
+"seconds": 61,
+"duration": 200.0,
+"title": "Eta",
+"artist": "Zed",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Ōsaka",
+"region": "",
+"country": "Japan",
+"country_code": "",
+"latitude": null,
+"longitude": null
+}
+},
+{
+"path": "/m/c.flac",
+"started": 1700090500,
+"seconds": 30,
+"duration": 250.0,
+"title": "Gamma",
+"artist": "",
+"album": "",
+"album_artist": "Band",
+"genre": "",
+"year": "",
+"composer": "",
+"place": {
+"city": "Osaka",
+"region": "Osaka",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 34.69,
+"longitude": 135.5
+}
+}
+],
+"period": [
+{
+"key": "osaka\u0000osaka\u0000japan",
+"name": "Osaka, Japan",
+"city": "Osaka",
+"region": "Osaka",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 34.69,
+"longitude": 135.5,
+"plays": 3,
+"logged": 3,
+"seconds": 355.0,
+"songs": 2,
+"first": 1700090000,
+"last": 1700090500
+},
+{
+"key": "tokyo\u0000tokyo\u0000japan",
+"name": "Tokyo, Japan",
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69,
+"plays": 2,
+"logged": 3,
+"seconds": 330.0,
+"songs": 2,
+"first": 1700000000,
+"last": 1700003600
+},
+{
+"key": "\u0000\u0000japan",
+"name": "Japan",
+"city": "",
+"region": "",
+"country": "Japan",
+"country_code": "",
+"latitude": null,
+"longitude": null,
+"plays": 1,
+"logged": 1,
+"seconds": 61.0,
+"songs": 1,
+"first": 1700090300,
+"last": 1700090300
+},
+{
+"key": "ōsaka\u0000\u0000japan",
+"name": "Ōsaka, Japan",
+"city": "Ōsaka",
+"region": "",
+"country": "Japan",
+"country_code": "",
+"latitude": null,
+"longitude": null,
+"plays": 1,
+"logged": 1,
+"seconds": 61.0,
+"songs": 1,
+"first": 1700090400,
+"last": 1700090400
+}
+],
+"songs": {
+"osaka\u0000osaka\u0000japan": [
+{
+"path": "/m/c.flac",
+"title": "Gamma",
+"artist": "Band",
+"plays": 2,
+"logged": 2,
+"seconds": 330.0,
+"last": 1700090500
+},
+{
+"path": "/m/e.flac",
+"title": "e",
+"artist": "Unknown Artist",
+"plays": 1,
+"logged": 1,
+"seconds": 25.0,
+"last": 1700090200
+}
+],
+"tokyo\u0000tokyo\u0000japan": [
+{
+"path": "/m/a.flac",
+"title": "Alpha",
+"artist": "Ann",
+"plays": 2,
+"logged": 2,
+"seconds": 320.0,
+"last": 1700003600
+},
+{
+"path": "/m/b.flac",
+"title": "Beta",
+"artist": "Unknown Artist",
+"plays": 0,
+"logged": 1,
+"seconds": 10.0,
+"last": 1700000600
+}
+],
+"\u0000\u0000japan": [
+{
+"path": "/m/f.flac",
+"title": "Zeta",
+"artist": "Zed",
+"plays": 1,
+"logged": 1,
+"seconds": 61.0,
+"last": 1700090300
+}
+],
+"ōsaka\u0000\u0000japan": [
+{
+"path": "/m/g.flac",
+"title": "Eta",
+"artist": "Zed",
+"plays": 1,
+"logged": 1,
+"seconds": 61.0,
+"last": 1700090400
+}
+]
+},
+"days": [
+[
+2023,
+11,
+15,
+[
+{
+"path": "/m/a.flac",
+"started": 1700003600,
+"time": "08:13",
+"title": "Alpha",
+"artist": "Ann",
+"seconds": 200,
+"minutes": "3 min",
+"place": "tokyo, japan"
+},
+{
+"path": "/m/b.flac",
+"started": 1700000600,
+"time": "07:23",
+"title": "Beta",
+"artist": "Unknown Artist",
+"seconds": 10,
+"minutes": "<1 min",
+"place": "Tokyo, Japan"
+},
+{
+"path": "/m/a.flac",
+"started": 1700000000,
+"time": "07:13",
+"title": "Alpha",
+"artist": "Ann",
+"seconds": 120,
+"minutes": "2 min",
+"place": "Tokyo, Japan"
+}
+]
+],
+[
+2023,
+11,
+16,
+[
+{
+"path": "/m/c.flac",
+"started": 1700090500,
+"time": "08:21",
+"title": "Gamma",
+"artist": "Band",
+"seconds": 30,
+"minutes": "1 min",
+"place": "Osaka, Japan"
+},
+{
+"path": "/m/g.flac",
+"started": 1700090400,
+"time": "08:20",
+"title": "Eta",
+"artist": "Zed",
+"seconds": 61,
+"minutes": "1 min",
+"place": "Ōsaka, Japan"
+},
+{
+"path": "/m/f.flac",
+"started": 1700090300,
+"time": "08:18",
+"title": "Zeta",
+"artist": "Zed",
+"seconds": 61,
+"minutes": "1 min",
+"place": "Japan"
+},
+{
+"path": "/m/e.flac",
+"started": 1700090200,
+"time": "08:16",
+"title": "e",
+"artist": "Unknown Artist",
+"seconds": 25,
+"minutes": "<1 min",
+"place": "Osaka, Japan"
+},
+{
+"path": "/m/d.flac",
+"started": 1700090100,
+"time": "08:15",
+"title": "Delta",
+"artist": "Unknown Artist",
+"seconds": 999,
+"minutes": "17 min",
+"place": ""
+},
+{
+"path": "/m/c.flac",
+"started": 1700090000,
+"time": "08:13",
+"title": "Gamma",
+"artist": "Band",
+"seconds": 300,
+"minutes": "5 min",
+"place": "Osaka, Japan"
+}
+]
+]
+],
+"cache": [
+{
+"step": [
+"due",
+0.0,
+false,
+0.0
+],
+"out": true,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": false,
+"last": null
+},
+{
+"step": [
+"begin",
+0.0
+],
+"out": null,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": true,
+"last": 0.0
+},
+{
+"step": [
+"due",
+0.0,
+true,
+0.0
+],
+"out": false,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": true,
+"last": 0.0
+},
+{
+"step": [
+"finish",
+true,
+1000.0
+],
+"out": null,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": false,
+"last": 0.0
+},
+{
+"step": [
+"due",
+7199.0,
+true,
+0.0
+],
+"out": false,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": false,
+"last": 0.0
+},
+{
+"step": [
+"due",
+7200.0,
+false,
+0.0
+],
+"out": false,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": false,
+"last": 0.0
+},
+{
+"step": [
+"due",
+7200.0,
+true,
+7300.0
+],
+"out": false,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": false,
+"last": 0.0
+},
+{
+"step": [
+"due",
+7300.0,
+true,
+7300.0
+],
+"out": true,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": false,
+"last": 0.0
+},
+{
+"step": [
+"begin",
+7300.0
+],
+"out": null,
+"place": {
+"city": "Tokyo",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"error": "",
+"looked_up": 1000.0,
+"busy": true,
+"last": 7300.0
+},
+{
+"step": [
+"finish",
+false,
+9000.0
+],
+"out": null,
+"place": null,
+"error": "It failed.",
+"looked_up": 1000.0,
+"busy": false,
+"last": 7300.0
+},
+{
+"step": [
+"due",
+7400.0,
+true,
+0.0
+],
+"out": false,
+"place": null,
+"error": "It failed.",
+"looked_up": 1000.0,
+"busy": false,
+"last": 7300.0
+},
+{
+"step": [
+"due",
+14500.0,
+true,
+0.0
+],
+"out": true,
+"place": null,
+"error": "It failed.",
+"looked_up": 1000.0,
+"busy": false,
+"last": 7300.0
+},
+{
+"step": [
+"reset"
+],
+"out": null,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": false,
+"last": null
+},
+{
+"step": [
+"due",
+3.0,
+false,
+5.0
+],
+"out": false,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": false,
+"last": null
+},
+{
+"step": [
+"due",
+5.0,
+false,
+5.0
+],
+"out": true,
+"place": null,
+"error": "",
+"looked_up": null,
+"busy": false,
+"last": null
+}
+],
+"runs": [
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+],
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+]
+],
+"lookups": [
+0,
+0
+]
+},
+"results": [
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+},
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 2,
+"not_before": 0.0,
+"t": 102.0
+}
+],
+"slept": [
+2.0
+],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+],
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+]
+],
+"lookups": [
+0,
+5
+]
+},
+"results": [
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+},
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 2,
+"not_before": 0.0,
+"t": 105.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+429,
+{
+"retry-after": "120"
+},
+""
+],
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+],
+[
+503,
+{},
+""
+]
+],
+"lookups": [
+0,
+60,
+60,
+0
+]
+},
+"results": [
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 1,
+"not_before": 220.0,
+"t": 100.0
+},
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 1,
+"not_before": 220.0,
+"t": 160.0
+},
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 2,
+"not_before": 220.0,
+"t": 220.0
+},
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 3,
+"not_before": 822.0,
+"t": 222.0
+}
+],
+"slept": [
+2.0
+],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+500,
+{},
+""
+],
+[
+"network",
+"connection refused"
+],
+[
+502,
+{},
+""
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "No answer from free.freeipapi.com after 3 attempts (server error (HTTP 502)).",
+"requests": 3,
+"not_before": 0.0,
+"t": 106.0
+}
+],
+"slept": [
+2.0,
+4.0
+],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+"network",
+"no route"
+],
+[
+"network",
+"no route"
+],
+[
+"network",
+"no route"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "No answer from free.freeipapi.com after 3 attempts (could not reach free.freeipapi.com: no route).",
+"requests": 3,
+"not_before": 0.0,
+"t": 106.0
+}
+],
+"slept": [
+2.0,
+4.0
+],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+500,
+{},
+""
+],
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 2,
+"not_before": 0.0,
+"t": 102.0
+}
+],
+"slept": [
+2.0
+],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+403,
+{},
+"no"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "free.freeipapi.com refused the request (HTTP 403).",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+404,
+{},
+""
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "free.freeipapi.com refused the request (HTTP 404).",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"<html>"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "free.freeipapi.com sent an answer that could not be read.",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"{\"ipAddress\": \"1.2.3.4\"}"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "The location service sent no place.",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"{\"success\": false, \"message\": \"Reserved range\"}"
+]
+],
+"lookups": [
+0
+]
+},
+"results": [
+{
+"error": "The location service could not find this computer's place: Reserved range.",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+"invalid",
+"unknown url type: ftp"
+]
+],
+"lookups": [
+0
+],
+"server": "ftp://example.org/"
+},
+"results": [
+{
+"error": "The location server address 'ftp://example.org/' is not valid: unknown url type: ftp.",
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"ftp://example.org/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+503,
+{
+"retry-after": "soon"
+},
+""
+],
+[
+429,
+{
+"retry-after": "99999999"
+},
+""
+]
+],
+"lookups": [
+0,
+600,
+0
+]
+},
+"results": [
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 1,
+"not_before": 700.0,
+"t": 100.0
+},
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 2,
+"not_before": 22300.0,
+"t": 700.0
+},
+{
+"error": "free.freeipapi.com asked to wait before the next lookup.",
+"requests": 2,
+"not_before": 22300.0,
+"t": 700.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+},
+{
+"script": {
+"answers": [
+[
+200,
+{},
+"{\"ipVersion\": 4, \"ipAddress\": \"198.51.100.7\", \"latitude\": 35.68951, \"longitude\": 139.69171, \"countryName\": \"Japan\", \"countryCode\": \"JP\", \"cityName\": \"Shinjuku\", \"regionName\": \"Tokyo\"}"
+]
+],
+"lookups": [
+0
+],
+"server": "  ipwho.is/  "
+},
+"results": [
+{
+"place": {
+"city": "Shinjuku",
+"region": "Tokyo",
+"country": "Japan",
+"country_code": "JP",
+"latitude": 35.69,
+"longitude": 139.69
+},
+"requests": 1,
+"not_before": 0.0,
+"t": 100.0
+}
+],
+"slept": [],
+"seen": [
+[
+"https://ipwho.is/",
+[
+"Accept",
+"User-Agent"
+]
+]
+]
+}
+],
+"servers": [
+[
+"",
+"https://free.freeipapi.com/api/v1/json/",
+"free.freeipapi.com",
+true
+],
+[
+"  ",
+"https://free.freeipapi.com/api/v1/json/",
+"free.freeipapi.com",
+true
+],
+[
+"https://free.freeipapi.com/api/v1/json/",
+"https://free.freeipapi.com/api/v1/json/",
+"free.freeipapi.com",
+true
+],
+[
+"freeipapi.com",
+"https://freeipapi.com",
+"freeipapi.com",
+true
+],
+[
+"https://FREE.freeipapi.com./x",
+"https://FREE.freeipapi.com./x",
+"FREE.freeipapi.com.",
+true
+],
+[
+"ipwho.is/",
+"https://ipwho.is/",
+"ipwho.is",
+false
+],
+[
+"http://127.0.0.1:5000/api/v1/json/",
+"http://127.0.0.1:5000/api/v1/json/",
+"127.0.0.1:5000",
+false
+],
+[
+"https://notfreeipapi.com/",
+"https://notfreeipapi.com/",
+"notfreeipapi.com",
+false
+]
+],
+"retry_after": [
+[
+{},
+600.0
+],
+[
+{
+"retry-after": "120"
+},
+120.0
+],
+[
+{
+"retry-after": " 7.5 "
+},
+7.5
+],
+[
+{
+"retry-after": "-5"
+},
+0.0
+],
+[
+{
+"retry-after": "x"
+},
+600.0
+],
+[
+{
+"retry-after": "1e9"
+},
+21600.0
+],
+[
+{
+"retry-after": "nan"
+},
+600.0
+]
+]
+}

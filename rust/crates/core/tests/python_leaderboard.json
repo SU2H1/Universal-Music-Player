@@ -1,0 +1,1564 @@
+{
+"plays": [
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700000600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700018600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700105000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700364200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700366000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700366600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700384600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700471000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700730200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700732000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700732600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1700750600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1700837000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701096200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701098000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701098600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701116600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701203000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701462200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701464000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701464600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701482600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701569000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701828200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701830000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701830600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1701848600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1701935000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702194200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702196000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702196600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702214600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702301000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702560200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702562000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702562600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702580600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702667000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702926200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702928000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1702928600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1702946600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/x/Night Walk.flac",
+"started": 1702997940.0,
+"seconds": 75.0,
+"duration": 200.0,
+"title": "  ",
+"artist": " ",
+"album": "",
+"album_artist": " Harbour Choir ",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/x/Night Walk.flac",
+"started": 1702998000.0,
+"seconds": 29.0,
+"duration": 200.0,
+"title": "Night Walk",
+"artist": "",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/y/Long.flac",
+"started": 1703001600.0,
+"seconds": 75631.0,
+"duration": 99999.0,
+"title": "Long",
+"artist": "Ann",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703033000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1703292200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703294000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1703294600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703312600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1703399000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703658200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1703660000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703660600.0,
+"seconds": 20.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1703678600.0,
+"seconds": 5.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1703765000.0,
+"seconds": 31.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1704024200.0,
+"seconds": 30.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1704026000.0,
+"seconds": 12.5,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1704026600.0,
+"seconds": 61.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1704044600.0,
+"seconds": 5.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1704131000.0,
+"seconds": 31.0,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/A/sub/00.flac",
+"started": 1704390200.0,
+"seconds": 10.0,
+"duration": 20.0,
+"title": "Song 0",
+"artist": "Mira Calloway",
+"album": "Paper Lanterns",
+"album_artist": "Various",
+"genre": "Pop",
+"year": "2001",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/B/07.flac",
+"started": 1704392000.0,
+"seconds": 12.5,
+"duration": 61.0,
+"title": "Song 7",
+"artist": "Juniper Vale",
+"album": "Static Bloom",
+"album_artist": "",
+"genre": "Jazz",
+"year": "x",
+"composer": "Ann",
+"place": null
+},
+{
+"path": "/lib/t/Tie A.flac",
+"started": 1703100000.0,
+"seconds": 95.0,
+"duration": 200.0,
+"title": "Tie A",
+"artist": "Zoe",
+"album": "Ties",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/t/Tie B.flac",
+"started": 1703100300.0,
+"seconds": 100.0,
+"duration": 200.0,
+"title": "tie b",
+"artist": "zoe",
+"album": "ties",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/t/Short.flac",
+"started": 1703100600.0,
+"seconds": 4.0,
+"duration": 200.0,
+"title": "Short",
+"artist": "Zoe",
+"album": "Ties",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/t/Short.flac",
+"started": 1703100700.0,
+"seconds": 9.0,
+"duration": 200.0,
+"title": "Short",
+"artist": "Zoe",
+"album": "Ties",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/t/Ünnamed Song.flac",
+"started": 1703100900.0,
+"seconds": 61.0,
+"duration": 120.0,
+"title": " ",
+"artist": "Émile",
+"album": "",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+},
+{
+"path": "/lib/t/Tie A.flac",
+"started": 1703101000.0,
+"seconds": 0.0,
+"duration": 200.0,
+"title": "Tie A",
+"artist": "Zoe",
+"album": "Ties",
+"album_artist": "",
+"genre": "",
+"year": "",
+"composer": "",
+"place": null
+}
+],
+"kinds": [
+"songs",
+"artists",
+"albums"
+],
+"boards": {
+"songs": {
+"100": [
+{
+"key": "/lib/A/sub/00.flac",
+"name": "Song 0",
+"artist": "Mira Calloway",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "/lib/B/07.flac",
+"name": "Song 7",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "/lib/y/Long.flac",
+"name": "Long",
+"artist": "Ann",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 3
+},
+{
+"key": "/lib/x/Night Walk.flac",
+"name": "Night Walk",
+"artist": "Harbour Choir",
+"plays": 1,
+"seconds": 104.0,
+"minutes": 2,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 4
+},
+{
+"key": "/lib/t/Tie A.flac",
+"name": "Tie A",
+"artist": "Zoe",
+"plays": 1,
+"seconds": 95.0,
+"minutes": 2,
+"paths": [
+"/lib/t/Tie A.flac"
+],
+"rank": 4
+},
+{
+"key": "/lib/t/Tie B.flac",
+"name": "tie b",
+"artist": "zoe",
+"plays": 1,
+"seconds": 100.0,
+"minutes": 2,
+"paths": [
+"/lib/t/Tie B.flac"
+],
+"rank": 4
+},
+{
+"key": "/lib/t/Ünnamed Song.flac",
+"name": "Ünnamed Song",
+"artist": "Émile",
+"plays": 1,
+"seconds": 61.0,
+"minutes": 1,
+"paths": [
+"/lib/t/Ünnamed Song.flac"
+],
+"rank": 7
+}
+],
+"5": [
+{
+"key": "/lib/A/sub/00.flac",
+"name": "Song 0",
+"artist": "Mira Calloway",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "/lib/B/07.flac",
+"name": "Song 7",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "/lib/y/Long.flac",
+"name": "Long",
+"artist": "Ann",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 3
+},
+{
+"key": "/lib/x/Night Walk.flac",
+"name": "Night Walk",
+"artist": "Harbour Choir",
+"plays": 1,
+"seconds": 104.0,
+"minutes": 2,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 4
+},
+{
+"key": "/lib/t/Tie A.flac",
+"name": "Tie A",
+"artist": "Zoe",
+"plays": 1,
+"seconds": 95.0,
+"minutes": 2,
+"paths": [
+"/lib/t/Tie A.flac"
+],
+"rank": 4
+}
+],
+"3": [
+{
+"key": "/lib/A/sub/00.flac",
+"name": "Song 0",
+"artist": "Mira Calloway",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "/lib/B/07.flac",
+"name": "Song 7",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "/lib/y/Long.flac",
+"name": "Long",
+"artist": "Ann",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 3
+}
+],
+"0": []
+},
+"artists": {
+"100": [
+{
+"key": "mira calloway",
+"name": "Mira Calloway",
+"artist": "",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "juniper vale",
+"name": "Juniper Vale",
+"artist": "",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "zoe",
+"name": "Zoe",
+"artist": "",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+},
+{
+"key": "ann",
+"name": "Ann",
+"artist": "",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 4
+},
+{
+"key": "harbour choir",
+"name": "Harbour Choir",
+"artist": "",
+"plays": 1,
+"seconds": 75.0,
+"minutes": 1,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 5
+},
+{
+"key": "émile",
+"name": "Émile",
+"artist": "",
+"plays": 1,
+"seconds": 61.0,
+"minutes": 1,
+"paths": [
+"/lib/t/Ünnamed Song.flac"
+],
+"rank": 5
+}
+],
+"5": [
+{
+"key": "mira calloway",
+"name": "Mira Calloway",
+"artist": "",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "juniper vale",
+"name": "Juniper Vale",
+"artist": "",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "zoe",
+"name": "Zoe",
+"artist": "",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+},
+{
+"key": "ann",
+"name": "Ann",
+"artist": "",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 4
+},
+{
+"key": "harbour choir",
+"name": "Harbour Choir",
+"artist": "",
+"plays": 1,
+"seconds": 75.0,
+"minutes": 1,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 5
+}
+],
+"3": [
+{
+"key": "mira calloway",
+"name": "Mira Calloway",
+"artist": "",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "juniper vale",
+"name": "Juniper Vale",
+"artist": "",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "zoe",
+"name": "Zoe",
+"artist": "",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+}
+],
+"0": []
+},
+"albums": {
+"100": [
+{
+"key": "paper lanterns\u0000various",
+"name": "Paper Lanterns",
+"artist": "Various",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "static bloom\u0000juniper vale",
+"name": "Static Bloom",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "ties\u0000zoe",
+"name": "Ties",
+"artist": "Zoe",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+},
+{
+"key": "unknown album\u0000ann",
+"name": "Unknown Album",
+"artist": "Ann",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 4
+},
+{
+"key": "unknown album\u0000harbour choir",
+"name": "Unknown Album",
+"artist": "Harbour Choir",
+"plays": 1,
+"seconds": 75.0,
+"minutes": 1,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 5
+},
+{
+"key": "unknown album\u0000émile",
+"name": "Unknown Album",
+"artist": "Émile",
+"plays": 1,
+"seconds": 61.0,
+"minutes": 1,
+"paths": [
+"/lib/t/Ünnamed Song.flac"
+],
+"rank": 5
+}
+],
+"5": [
+{
+"key": "paper lanterns\u0000various",
+"name": "Paper Lanterns",
+"artist": "Various",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "static bloom\u0000juniper vale",
+"name": "Static Bloom",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "ties\u0000zoe",
+"name": "Ties",
+"artist": "Zoe",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+},
+{
+"key": "unknown album\u0000ann",
+"name": "Unknown Album",
+"artist": "Ann",
+"plays": 1,
+"seconds": 75631.0,
+"minutes": 1261,
+"paths": [
+"/lib/y/Long.flac"
+],
+"rank": 4
+},
+{
+"key": "unknown album\u0000harbour choir",
+"name": "Unknown Album",
+"artist": "Harbour Choir",
+"plays": 1,
+"seconds": 75.0,
+"minutes": 1,
+"paths": [
+"/lib/x/Night Walk.flac"
+],
+"rank": 5
+}
+],
+"3": [
+{
+"key": "paper lanterns\u0000various",
+"name": "Paper Lanterns",
+"artist": "Various",
+"plays": 24,
+"seconds": 471.0,
+"minutes": 8,
+"paths": [
+"/lib/A/sub/00.flac"
+],
+"rank": 1
+},
+{
+"key": "static bloom\u0000juniper vale",
+"name": "Static Bloom",
+"artist": "Juniper Vale",
+"plays": 18,
+"seconds": 840.0,
+"minutes": 14,
+"paths": [
+"/lib/B/07.flac"
+],
+"rank": 2
+},
+{
+"key": "ties\u0000zoe",
+"name": "Ties",
+"artist": "Zoe",
+"plays": 2,
+"seconds": 208.0,
+"minutes": 3,
+"paths": [
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac"
+],
+"rank": 3
+}
+],
+"0": []
+}
+},
+"ranked": {
+"songs": [
+"/lib/A/sub/00.flac",
+"/lib/B/07.flac",
+"/lib/y/Long.flac",
+"/lib/x/Night Walk.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Tie B.flac",
+"/lib/t/Ünnamed Song.flac"
+],
+"artists": [
+"/lib/A/sub/00.flac",
+"/lib/B/07.flac",
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac",
+"/lib/y/Long.flac",
+"/lib/x/Night Walk.flac",
+"/lib/t/Ünnamed Song.flac"
+],
+"albums": [
+"/lib/A/sub/00.flac",
+"/lib/B/07.flac",
+"/lib/t/Tie B.flac",
+"/lib/t/Tie A.flac",
+"/lib/t/Short.flac",
+"/lib/y/Long.flac",
+"/lib/x/Night Walk.flac",
+"/lib/t/Ünnamed Song.flac"
+]
+},
+"empty": []
+}

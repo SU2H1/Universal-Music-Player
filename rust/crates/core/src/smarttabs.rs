@@ -26,12 +26,13 @@ pub const MAX_INT: i64 = 1_000_000_000_000_000;
 /// how much of an unknown field, operator or sort a message repeats
 const SHOWN_CHARS: usize = 60;
 
-pub const TEXT_FIELDS: [&str; 9] = ["title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality"];
-pub const NUMBER_FIELDS: [&str; 6] = ["year", "bits", "sample_rate", "bit_rate", "duration", "added_days"];
+pub const TEXT_FIELDS: [&str; 11] =
+    ["title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality", "mood", "tempo"];
+pub const NUMBER_FIELDS: [&str; 7] = ["year", "bits", "sample_rate", "bit_rate", "duration", "added_days", "bpm"];
 pub const YESNO_FIELDS: [&str; 3] = ["lossless", "liked", "disliked"];
-pub const FIELDS: [&str; 18] = [
-    "title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality", "year", "bits",
-    "sample_rate", "bit_rate", "duration", "added_days", "lossless", "liked", "disliked",
+pub const FIELDS: [&str; 21] = [
+    "title", "artist", "album", "album_artist", "genre", "composer", "format", "folder", "quality", "mood", "tempo",
+    "year", "bits", "sample_rate", "bit_rate", "duration", "added_days", "bpm", "lossless", "liked", "disliked",
 ];
 pub const TEXT_OPS: [&str; 5] = ["is", "is_not", "contains", "not_contains", "starts_with"];
 pub const NUMBER_OPS: [&str; 6] = ["=", "!=", ">", ">=", "<", "<="];
@@ -40,6 +41,9 @@ pub const YES: &str = "Yes";
 pub const NO: &str = "No";
 /// the values a field offers in a menu instead of an entry
 pub const QUALITY_VALUES: [&str; 3] = ["Hi-Res Lossless", "Lossless", "Lossy"];
+/// 2.4: the labels of `moods` (a song not analysed yet has none)
+pub const MOOD_VALUES: [&str; 4] = crate::moods::MOODS;
+pub const TEMPO_VALUES: [&str; 3] = crate::moods::TEMPOS;
 /// "all" then "any", as the tab window's menu lists them
 pub const MATCH_MODES: [&str; 2] = ["all", "any"];
 
@@ -64,6 +68,9 @@ pub fn field_label(field: &str) -> &'static str {
         "lossless" => "Lossless",
         "liked" => "Liked",
         "disliked" => "Disliked",
+        "mood" => "Mood",
+        "tempo" => "Tempo",
+        "bpm" => "Tempo (BPM)",
         _ => "",
     }
 }
@@ -96,7 +103,12 @@ pub fn match_label(mode: &str) -> &'static str {
 }
 
 pub fn value_choices(field: &str) -> Option<&'static [&'static str]> {
-    (field == "quality").then_some(&QUALITY_VALUES[..])
+    match field {
+        "quality" => Some(&QUALITY_VALUES[..]),
+        "mood" => Some(&MOOD_VALUES[..]),
+        "tempo" => Some(&TEMPO_VALUES[..]),
+        _ => None,
+    }
 }
 
 /// A tab (or tab file) that cannot be used; the message says why in a full sentence.
@@ -109,18 +121,26 @@ impl std::fmt::Display for TabError {
     }
 }
 
-/// What rules need besides the song: the liked and disliked songs and the time now
-/// (Unix seconds, for `added_days`).
+/// What rules need besides the song: the liked and disliked songs, the time now
+/// (Unix seconds, for `added_days`) and the songs' moods (2.4, for `bpm`, `mood` and
+/// `tempo`; a song not analysed yet has BPM 0 and no labels).
 #[derive(Clone, Debug, Default)]
 pub struct TabContext {
     pub liked: HashSet<String>,
     pub disliked: HashSet<String>,
     pub now: f64,
+    pub moods: std::sync::Arc<std::collections::HashMap<String, crate::moods::Mood>>,
 }
 
 impl TabContext {
     pub fn new(liked: &[String], disliked: &[String], now: f64) -> TabContext {
-        TabContext { liked: liked.iter().cloned().collect(), disliked: disliked.iter().cloned().collect(), now }
+        TabContext { liked: liked.iter().cloned().collect(), disliked: disliked.iter().cloned().collect(), now, ..Default::default() }
+    }
+
+    /// The same with the songs' moods (2.4).
+    pub fn with_moods(mut self, moods: std::sync::Arc<std::collections::HashMap<String, crate::moods::Mood>>) -> TabContext {
+        self.moods = moods;
+        self
     }
 }
 
@@ -535,6 +555,9 @@ pub fn field_value(field: &str, t: &Track, ctx: &TabContext) -> FieldValue {
         "lossless" => YesNo(!t.is_lossy),
         "liked" => YesNo(ctx.liked.contains(&t.path)),
         "disliked" => YesNo(ctx.disliked.contains(&t.path)),
+        "bpm" => Number(ctx.moods.get(&t.path).map_or(0.0, |m| m.bpm as f64)),
+        "mood" => Text(ctx.moods.get(&t.path).map(|m| m.mood.clone()).unwrap_or_default()),
+        "tempo" => Text(ctx.moods.get(&t.path).map(|m| m.tempo.clone()).unwrap_or_default()),
         _ => Text(String::new()),
     }
 }

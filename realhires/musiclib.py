@@ -146,6 +146,7 @@ class Library:
                         "mtime_ns INTEGER, data TEXT)")
         self.db.execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)")
         self.db.execute(_PLAYS_TABLE)
+        _add_place_columns(self.db)  # 2.4
         row = self.db.execute("SELECT value FROM meta WHERE key = 'version'").fetchone()
         if row is not None and _int(row[0]) < LIBRARY_VERSION:
             self.db.execute("DELETE FROM tracks")  # read every file again for the new tags
@@ -213,29 +214,47 @@ class Library:
         return self.tracks()
 
     # ---------------------------------------------------------- history ---
-    def add_play(self, t: Track, started: float, seconds: float) -> bool:
+    def add_play(self, t: Track, started: float, seconds: float, place=None) -> bool:
         """Log that `t` was listened to for `seconds` from `started` (Unix time).
-        A copy of its tags is kept, so the statistics survive moved files."""
+        A copy of its tags is kept, so the statistics survive moved files; `place`
+        (2.4, a places.Place) is where it was played, None when not known."""
         if seconds < MIN_LOGGED_SECONDS:
             return False
+        where = _place_values(place)
         self.db.execute("INSERT INTO plays (path, started, seconds, duration, title, artist, album, album_artist, "
-                        "genre, year, composer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "genre, year, composer, " + ", ".join(PLACE_COLUMNS) + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, "
+                        "?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (t.path, float(started), float(seconds), float(t.duration or 0.0), t.display_title,
-                         t.artist, t.album, t.album_artist, t.genre, t.year, t.composer))
+                         t.artist, t.album, t.album_artist, t.genre, t.year, t.composer) + where)
         self.db.commit()
         return True
 
     def plays(self, since: float = 0.0, until: Optional[float] = None) -> List["Play"]:
-        """The logged plays that started in [since, until), oldest first."""
+        """The logged plays that started in [since, until), oldest first, each with
+        its place (None for plays logged without one, as every play before 2.4)."""
         from .stats import Play
 
-        q = ("SELECT path, started, seconds, duration, title, artist, album, album_artist, genre, year, composer "
-             "FROM plays WHERE started >= ?")
+        q = ("SELECT path, started, seconds, duration, title, artist, album, album_artist, genre, year, composer, "
+             + ", ".join(PLACE_COLUMNS) + " FROM plays WHERE started >= ?")
         args: list = [float(since)]
         if until is not None:
             q += " AND started < ?"
             args.append(float(until))
-        return [Play(*row) for row in self.db.execute(q + " ORDER BY started, id", args)]
+        return [Play(*row[:11], place=_place_of(row[11:])) for row in self.db.execute(q + " ORDER BY started, id", args)]
+
+    def forget_places(self) -> int:
+        """Clear the place of every play (2.4, Settings → Forget play locations…); the
+        plays stay.  Returns how many plays had one."""
+        n = self.db.execute("UPDATE plays SET " + ", ".join(f"{c} = NULL" for c in PLACE_COLUMNS)
+                            + " WHERE " + " OR ".join(f"{c} IS NOT NULL" for c in PLACE_COLUMNS)).rowcount
+        self.db.commit()
+        return n
+
+    def places_count(self) -> int:
+        """How many plays have a place."""
+        row = self.db.execute("SELECT COUNT(*) FROM plays WHERE "
+                              + " OR ".join(f"{c} IS NOT NULL" for c in PLACE_COLUMNS)).fetchone()
+        return int(row[0]) if row else 0
 
     def recently_played(self, limit: int = 200) -> List[str]:
         """The songs played last, newest first, each once."""
@@ -263,6 +282,34 @@ class Library:
 _PLAYS_TABLE = ("CREATE TABLE IF NOT EXISTS plays (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT, "
                 "started REAL, seconds REAL, duration REAL, title TEXT, artist TEXT, album TEXT, "
                 "album_artist TEXT, genre TEXT, year TEXT, composer TEXT)")
+
+
+# 2.4: where each song was played (places.py); older databases get the columns, their plays none
+PLACE_COLUMNS = ("place_city", "place_region", "place_country", "place_country_code", "place_latitude",
+                 "place_longitude")
+_PLACE_TYPES = ("TEXT", "TEXT", "TEXT", "TEXT", "REAL", "REAL")
+
+
+def _add_place_columns(db) -> None:
+    have = {row[1] for row in db.execute("PRAGMA table_info(plays)")}
+    for name, kind in zip(PLACE_COLUMNS, _PLACE_TYPES):
+        if name not in have:
+            db.execute(f"ALTER TABLE plays ADD COLUMN {name} {kind}")
+
+
+def _place_values(place) -> tuple:
+    if place is None:
+        return (None,) * len(PLACE_COLUMNS)
+    return (place.city, place.region, place.country, place.country_code, place.latitude, place.longitude)
+
+
+def _place_of(values):
+    from .places import make_place
+
+    city, region, country, code, lat, lon = values
+    if city is None and region is None and country is None:
+        return None
+    return make_place(city or "", region or "", country or "", code or "", lat, lon)
 
 
 def _int(text) -> int:

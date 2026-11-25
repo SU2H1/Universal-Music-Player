@@ -48,7 +48,10 @@ from .player_theme import (IconButton, Slider, Theme, draw_icon, fit_text, load_
 from .player_widgets import LABEL_DOT, Column, CoverCache, SongList, bind_wheel, draw_cover, draw_label_dot, fmt_time
 from .player_windows import CoverWindow, EditInfoWindow, EqualizerWindow, PlaybackInfoWindow, ask_name
 from .player_mb import MusicBrainzWindow
+from .player_stats import MostPlayedPage
+from .player_places import PlacePage, PlacesMixin
 from .player_tabs import TabPage, TabsMixin
+from .player_moods import MoodPage, MoodsMixin, MoodsPage  # noqa: E402  (2.4)
 from . import musicbrainz
 from .playqueue import REPEAT_LABELS, REPEAT_MODES, SHUFFLE_LABELS, SHUFFLE_MODES, PlayQueue, SplitMix64
 
@@ -86,6 +89,9 @@ PAGE_TITLES = {
     "played": N_("Recently Played"), "recent": N_("Recently Added"), "stats": N_("Your Stats"),
     "stats_details": N_("Your Stats"), "search": N_("Search"), "nowplaying": N_("Now Playing"),
     "settings": N_("Settings"), "quality": N_("Quality Check"), "tab": N_("Tabs"),
+    "most_played": N_("Most Played"),  # 2.4: the leaderboard's page
+    "place": N_("Places"),  # 2.4: a place of Your Stats
+    "moods": N_("Moods"), "mood": N_("Moods"),  # 2.4
 }
 
 
@@ -138,7 +144,8 @@ class Sidebar(tk.Frame):
     LIBRARY = [("songs", N_("All Songs"), "note"), ("folders", N_("Folders"), "folder"),
                ("albums", N_("Albums"), "album"), ("artists", N_("Artists"), "artist"),
                ("album_artists", N_("Album Artists"), "mic"), ("genres", N_("Genres"), "genre"),
-               ("years", N_("Years"), "calendar"), ("composers", N_("Composers"), "piano")]
+               ("years", N_("Years"), "calendar"), ("composers", N_("Composers"), "piano"),
+               ("moods", N_("Moods"), "mood")]  # 2.4
     HISTORY = [("played", N_("Recently Played"), "history"), ("recent", N_("Recently Added"), "clock"),
                ("stats", N_("Your Stats"), "stats")]
     FOOT = [("quality", N_("Quality Check"), "check"), ("settings", N_("Settings"), "gear")]
@@ -651,8 +658,9 @@ class UpNextPanel(tk.Frame):
 
 
 # ------------------------------------------------------------ the app ---
-class PlayerApp(TabsMixin):
-    """The main window (custom tabs, 2.3: TabsMixin in player_tabs.py)."""
+class PlayerApp(TabsMixin, PlacesMixin, MoodsMixin):
+    """The main window (custom tabs, 2.3: TabsMixin in player_tabs.py; where songs were
+    played, 2.4: PlacesMixin in player_places.py; moods, 2.4: MoodsMixin in player_moods.py)."""
 
     def __init__(self, root: tk.Tk, initial: Optional[List[str]] = None):
         self.root = root
@@ -715,6 +723,7 @@ class PlayerApp(TabsMixin):
         self.shuffle_var = tk.StringVar(value=self.state.shuffle)
         self.repeat_var = tk.StringVar(value=self.state.repeat)
         self.stats_period = stats.DEFAULT_PERIOD
+        self.leaderboard_kind = "songs"             # 2.4: the leaderboard's switch (songs, artists, albums)
         self.listen: Optional[dict] = None          # the song being listened to, for the play history
         self.name_dialog = None                     # an open NameDialog (tests fill it in)
         self.last_menu: Optional[tk.Menu] = None    # the song menu shown last
@@ -731,6 +740,7 @@ class PlayerApp(TabsMixin):
         self.url_opener: Callable[[str], None] = gui.open_url  # how web pages are opened (tests record them, 2.3)
         self.clipboard_reader: Optional[Callable[[], str]] = None  # the clipboard's text (tests set a fake)
         self._init_tabs()  # 2.3: the tabs folder, read before the sidebar is drawn
+        self._init_moods()  # 2.4: the moods analysed before, from library.sqlite
         self._build()
         self.qc = QualityCheck(root, self, parent=self.pages["quality"], initial=initial, cfg=cfg)
         self.qc.pack(fill="both", expand=True)
@@ -745,6 +755,7 @@ class PlayerApp(TabsMixin):
         self.show_page("quality" if initial else "library")
         if self.cfg.library_folders:
             self.refresh_library(then_check=self.cfg.scan_library_on_start)
+        self._init_places()  # 2.4: the place the plays are stored with
         self.root.after(TICK_MS, self._tick)
 
     @property
@@ -793,10 +804,14 @@ class PlayerApp(TabsMixin):
             "recent": lambda: AlbumsPage(self, tr("Recently Added"), recent=True),
             "stats": lambda: StatsPage(self),
             "stats_details": lambda: StatsDetailsPage(self),
+            "most_played": lambda: MostPlayedPage(self),
             "search": lambda: SearchPage(self),
             "nowplaying": lambda: NowPlayingPage(self),
             "settings": lambda: SettingsPage(self),
             "tab": lambda: TabPage(self),
+            "place": lambda: PlacePage(self),
+            "moods": lambda: MoodsPage(self),  # 2.4
+            "mood": lambda: MoodPage(self),
         }
 
     def _build_popups(self) -> None:
@@ -917,7 +932,7 @@ class PlayerApp(TabsMixin):
         elif name == "tab":
             self.sidebar.select(f"tab:{self.pages['tab'].name}")
         else:
-            self.sidebar.select(name if name in Sidebar.PAGES else None)
+            self.sidebar.select("moods" if name == "mood" else name if name in Sidebar.PAGES else None)
         self.bar.update_controls()
 
     def _page_args(self) -> dict:
@@ -936,6 +951,10 @@ class PlayerApp(TabsMixin):
             return {"kind": p.kind, "group": p.name}
         if self.page_name == "tab" and isinstance(p, TabPage):
             return {"tab": p.name}
+        if self.page_name == "place" and isinstance(p, PlacePage):
+            return {"place": p.key}
+        if self.page_name == "mood" and isinstance(p, MoodPage):  # 2.4
+            return {"kind": p.kind, "label": p.value}
         return {}
 
     def go_back(self) -> None:
@@ -1073,6 +1092,10 @@ class PlayerApp(TabsMixin):
             return os.path.basename(args["folder"].rstrip(os.sep)) or args["folder"]
         if name == "tab" and args.get("tab"):  # a tab's own name (2.3)
             return args["tab"]
+        if name == "place" and args.get("place"):  # a place's name (2.4)
+            return self.place_name(args["place"]) or tr(PAGE_TITLES["place"])
+        if name == "mood" and args.get("label"):  # a mood's or tempo's name (2.4)
+            return tr(args["label"])
         return tr(PAGE_TITLES.get(name, "Library"))
 
     def back_label(self) -> str:
@@ -1136,6 +1159,7 @@ class PlayerApp(TabsMixin):
         self.album_by_key = {a["key"]: a for a in self.albums}
         self._album_key = {t.path: a["key"] for a in self.albums for t in a["tracks"]}
         self.covers.library_changed(self.albums)  # covers are kept unless an album's songs changed
+        self.attach_moods()  # 2.4: each track's mood analysis
         self.tab_cache_clear()
         self.dirty = set(self.pages) - {"quality"}
         if self.page_name in self.dirty:
@@ -1198,6 +1222,7 @@ class PlayerApp(TabsMixin):
         if self.lib_then_check:
             self.lib_then_check = False
             self.check_library(switch=False)
+        self.analyse_moods()  # 2.4: the new and changed songs' moods, in the background
         self.lookup_library()
 
     def choose_music_folder(self) -> None:
@@ -1265,6 +1290,7 @@ class PlayerApp(TabsMixin):
             if page is not None:
                 page.area.redraw()
             self._settings_page_again()
+        self.moods_settings_changed(old, new)  # 2.4: analyse_moods
         if old.output_device != new.output_device:
             self.engine.set_device(new.output_device)
         if old.gapless != new.gapless:
@@ -1277,6 +1303,7 @@ class PlayerApp(TabsMixin):
                 self.eq_window.show_bypass()
             if self.info_window is not None and self.info_window.win.winfo_exists():
                 self.info_window.refresh()
+        self.places_settings_changed(old, new)  # 2.4: turned on, off, or another location service
         if (list(old.library_folders), old.extension_set(), old.recursive) != (
                 list(new.library_folders), new.extension_set(), new.recursive):
             if new.library_folders:
@@ -1619,9 +1646,11 @@ class PlayerApp(TabsMixin):
         self._refresh_pages({"playlists", "playlist", "library"})
 
     # ---- play history and stats -------------------------------------------------
-    def _listen_start(self, path: str) -> None:
+    def _listen_start(self, path: str, start: Optional[float] = None) -> None:
+        """A song starts at `start` seconds: what is heard is counted from there (as the
+        Rust app does), so the time before the first position update is not lost."""
         self._listen_end()
-        self.listen = {"path": path, "started": time.time(), "seconds": 0.0, "last": None}
+        self.listen = {"path": path, "started": time.time(), "seconds": 0.0, "last": start}
 
     def _listen_tick(self, pos: float) -> None:
         """Count the position's forward steps between updates while playing (seeking
@@ -1640,10 +1669,10 @@ class PlayerApp(TabsMixin):
             return
         t = self.by_path.get(li["path"]) or Track(li["path"])
         try:
-            self.lib.add_play(t, li["started"], li["seconds"])
+            self.lib.add_play(t, li["started"], li["seconds"], place=self.play_place())
         except Exception:  # noqa: BLE001 - the history must never stop playback
             return
-        self._refresh_pages({"played", "library", "stats", "stats_details"})
+        self._refresh_pages({"played", "library", "stats", "stats_details", "most_played", "place"})
 
     def plays(self, since: float = 0.0, until: Optional[float] = None):
         try:
@@ -1673,7 +1702,7 @@ class PlayerApp(TabsMixin):
                 parent=self.root):
             return
         self.lib.clear_history()
-        self._refresh_pages({"played", "library", "stats", "stats_details"})
+        self._refresh_pages({"played", "library", "stats", "stats_details", "most_played"})
 
     # ---- themes ----------------------------------------------------------------
     def all_themes(self) -> List[dict]:
@@ -1851,7 +1880,7 @@ class PlayerApp(TabsMixin):
         t = self.by_path.get(path)
         info = SongInfo(path, t.sample_rate, t.channels or 2, t.duration, t.bits, t.is_float, t.is_lossy) \
             if t is not None and t.sample_rate else None
-        self._listen_start(path)
+        self._listen_start(path, position)
         self.current, self.error, self.resume_pos = path, "", 0.0
         self.engine.play(path, position, info)
         self._update_next()
@@ -2042,7 +2071,7 @@ class PlayerApp(TabsMixin):
             nxt = self.queue.next(auto=True) if self.queue else None
             self._sync_repeat()
             if nxt == path:
-                self._listen_start(path)
+                self._listen_start(path, 0.0)  # a gapless join: the next song from its start
                 self.current, self.error = path, ""
                 self._update_next()
                 self._song_changed()
@@ -2467,6 +2496,8 @@ class PlayerApp(TabsMixin):
         self.save_state()
         self.lib_stop.set()
         self.mb_stop.set()
+        self._places_shutdown()
+        self.stop_moods()
         self.engine.close()
         self.covers.close()
         self.qc.shutdown()

@@ -437,7 +437,7 @@ def _ffmpeg_replace(path: str, make_args: Callable[[str], List[str]], what: str)
             os.chmod(tmp, os.stat(path).st_mode & 0o7777)
         except OSError:
             pass
-        os.replace(tmp, path)
+        embed.replace_retrying(tmp, path)
     except BaseException:
         try:
             os.unlink(tmp)

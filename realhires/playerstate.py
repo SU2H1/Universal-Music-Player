@@ -33,7 +33,7 @@ LYRICS_SIZE_STEP = 2
 # The columns of song lists (2.1, chosen by the user per kind of list, "columns" in
 # player.json): every column in the order the tables show them, and the defaults.
 SONG_COLUMNS = ("num", "title", "artist", "album", "album_artist", "composer", "genre", "year", "disc", "time",
-                "quality", "format", "bit_rate", "added", "file", "like")
+                "quality", "format", "bit_rate", "bpm", "mood", "added", "file", "like")  # bpm, mood: 2.4
 COLUMN_KINDS = ("songs", "folders", "album")
 DEFAULT_COLUMNS = {"songs": ("title", "artist", "album", "genre", "time", "quality", "like"),
                    "folders": ("title", "artist", "album", "genre", "time", "quality", "like"),

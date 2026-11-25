@@ -35,6 +35,8 @@ pub struct Play {
     pub genre: String,
     pub year: String,
     pub composer: String,
+    /// 2.4: where it was played, None when not known
+    pub place: Option<crate::places::Place>,
 }
 
 /// 30 s, or half of a shorter song.
@@ -417,6 +419,8 @@ pub struct DayPlay {
     pub seconds: f64,
     /// `minutes_label(seconds)`
     pub minutes: String,
+    /// 2.4: where it was played (`places::place_text()`, "" when not known)
+    pub place: String,
 }
 
 impl DayPlay {
@@ -430,6 +434,7 @@ impl DayPlay {
             .put("artist", self.artist.as_str())
             .put("seconds", self.seconds)
             .put("minutes", self.minutes.as_str())
+            .put("place", self.place.as_str())
             .build()
     }
 }
@@ -454,6 +459,7 @@ pub fn day_plays(plays: &[Play], year: i32, month: u32, day: u32, local: &dyn Fn
                 artist: artist.unwrap_or("Unknown Artist").to_string(),
                 seconds: p.seconds,
                 minutes: minutes_label(p.seconds),
+                place: crate::places::place_text(p.place.as_ref()),
             })
         })
         .collect();
@@ -468,6 +474,141 @@ pub fn day_summary(rows: &[DayPlay]) -> String {
     }
     let secs: f64 = rows.iter().map(|r| r.seconds).sum();
     format!("{} played, {}", plural(rows.len() as i64, "song"), plural(whole(secs / 60.0), "minute"))
+}
+
+// --------------------------------------------------------------- leaderboard ---
+
+/// The switch of the leaderboard ("Most Played", 2.4).
+pub const LEADERBOARD_KINDS: [&str; 3] = ["songs", "artists", "albums"];
+
+/// (artist, album, album artist, genre) of a play, as `compute()` names them.
+fn names(p: &Play) -> (String, String, String, String) {
+    let (a, aa) = (strip(&p.artist), strip(&p.album_artist));
+    let artist = if !a.is_empty() {
+        a.to_string()
+    } else if !aa.is_empty() {
+        aa.to_string()
+    } else {
+        "Unknown Artist".to_string()
+    };
+    let album = if strip(&p.album).is_empty() { "Unknown Album".to_string() } else { strip(&p.album).to_string() };
+    let album_artist = if aa.is_empty() { artist.clone() } else { aa.to_string() };
+    let genre = if strip(&p.genre).is_empty() { "Unknown Genre".to_string() } else { strip(&p.genre).to_string() };
+    (artist, album, album_artist, genre)
+}
+
+/// A row of the leaderboard (Python's `leaderboard()` dicts).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LeaderRow {
+    /// 1 for the most played; rows with the same plays and minutes share a rank
+    pub rank: usize,
+    pub key: String,
+    pub name: String,
+    /// a song's artist or an album's artist; empty for artists
+    pub artist: String,
+    pub plays: i64,
+    pub seconds: f64,
+    /// the whole minutes listened (rounded half up)
+    pub minutes: i64,
+    /// the row's songs, the most played first
+    pub paths: Vec<String>,
+}
+
+impl LeaderRow {
+    /// The same JSON as Python's rows (for the comparison test).
+    pub fn to_json(&self) -> Value {
+        ObjectBuilder::new()
+            .put("rank", self.rank as i64)
+            .put("key", self.key.as_str())
+            .put("name", self.name.as_str())
+            .put("artist", self.artist.as_str())
+            .put("plays", self.plays)
+            .put("seconds", self.seconds)
+            .put("minutes", self.minutes)
+            .put("paths", Value::Array(self.paths.iter().map(|p| Value::Str(p.clone())).collect()))
+            .build()
+    }
+}
+
+/// The most played songs, artists or albums of these plays (2.4, "Most Played"): the
+/// rows with at least one counted play, by plays, then the whole minutes listened, then
+/// the name; rows with the same plays and minutes share a rank (1, 2, 2, 4); at most
+/// `top` rows.  Keys are those of `compute()`; an unknown kind gives no rows.
+pub fn leaderboard(plays: &[Play], kind: &str, top: usize) -> Vec<LeaderRow> {
+    if !LEADERBOARD_KINDS.contains(&kind) {
+        return vec![];
+    }
+    struct Acc {
+        row: LeaderRow,
+        order: Vec<String>,
+        songs: HashMap<String, (i64, f64)>,
+    }
+    let mut order: Vec<String> = vec![];
+    let mut rows: HashMap<String, Acc> = HashMap::new();
+    for p in plays {
+        let (artist, album, album_artist, _genre) = names(p);
+        let (key, name, who) = match kind {
+            "songs" => {
+                let title = strip(&p.title);
+                let name = if title.is_empty() { crate::paths::stem(&p.path) } else { title.to_string() };
+                (p.path.clone(), name, artist)
+            }
+            "artists" => (casefold(&artist), artist, String::new()),
+            _ => (format!("{}\u{0}{}", casefold(&album), casefold(&album_artist)), album, album_artist),
+        };
+        let acc = rows.entry(key.clone()).or_insert_with(|| {
+            order.push(key.clone());
+            Acc {
+                row: LeaderRow { rank: 0, key, name, artist: who, plays: 0, seconds: 0.0, minutes: 0, paths: vec![] },
+                order: vec![],
+                songs: HashMap::new(),
+            }
+        });
+        let c = i64::from(counted(p));
+        acc.row.plays += c;
+        acc.row.seconds += p.seconds;
+        let s = acc.songs.entry(p.path.clone()).or_insert_with(|| {
+            acc.order.push(p.path.clone());
+            (0, 0.0)
+        });
+        s.0 += c;
+        s.1 += p.seconds;
+    }
+    let mut out: Vec<LeaderRow> = vec![];
+    for key in order {
+        let Some(mut acc) = rows.remove(&key) else { continue };
+        if acc.row.plays < 1 {
+            continue;
+        }
+        acc.row.minutes = whole(acc.row.seconds / 60.0);
+        let songs = &acc.songs;
+        acc.order.sort_by(|a, b| {
+            let (x, y) = (songs[a], songs[b]);
+            y.0.cmp(&x.0).then(y.1.partial_cmp(&x.1).unwrap_or(std::cmp::Ordering::Equal)).then(a.cmp(b))
+        });
+        acc.row.paths = acc.order;
+        out.push(acc.row);
+    }
+    out.sort_by(|a, b| {
+        b.plays
+            .cmp(&a.plays)
+            .then(b.minutes.cmp(&a.minutes))
+            .then(casefold(&a.name).cmp(&casefold(&b.name)))
+            .then(a.key.cmp(&b.key))
+    });
+    out.truncate(top);
+    for i in 0..out.len() {
+        let same = i > 0 && (out[i - 1].plays, out[i - 1].minutes) == (out[i].plays, out[i].minutes);
+        out[i].rank = if same { out[i - 1].rank } else { i + 1 };
+    }
+    out
+}
+
+/// The songs of leaderboard rows in rank order (an artist's or album's songs, the most
+/// played first), each once: what Play and Shuffle of the leaderboard play.
+pub fn ranked_songs(rows: &[LeaderRow]) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    rows.iter().flat_map(|r| r.paths.iter()).filter(|p| seen.insert(p.as_str())).cloned().collect()
 }
 
 /// What the library holds (Python `library_stats`).

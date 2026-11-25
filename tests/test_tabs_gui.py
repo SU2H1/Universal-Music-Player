@@ -114,10 +114,10 @@ def loaded():
     heads = [t for k, t, _ in items if k == "head"]
     assert heads == ["Library", "Playlists", "Tabs", "History"], heads
     assert keys.index("new_playlist") < keys.index("tab:Hi-Res") < keys.index("new_tab") < keys.index("played")
-    # the Library page lists the tab after its fourteen entries, with its songs
+    # the Library page lists the tab after its fifteen entries, with its songs
     page = app.page("library")
     entries = page.entries()
-    assert len(entries) == 15 and entries[-1][:4] == ("tab:Hi-Res", "Hi-Res", "filter", "6 songs"), entries[-1]
+    assert len(entries) == 16 and entries[-1][:4] == ("tab:Hi-Res", "Hi-Res", "filter", "6 songs"), entries[-1]
     assert "Hi-Res" in texts(page.c) and "6 songs" in texts(page.c)
     # a click on the sidebar's tab opens its page
     side_click("tab:Hi-Res")

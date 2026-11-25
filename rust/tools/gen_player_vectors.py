@@ -3,8 +3,9 @@ rust/crates/core/tests/python_eq.json, python_queue.json, python_stats.json,
 python_eqfiles.json, python_themes.json, python_playerstate.json,
 python_tagedit.json (the tag editor and the themes folder),
 python_bitperfect.json (bit-perfect playback's decisions and texts), python_covers.json
-(the names of covers kept on disk) and python_library.json (the Quality column's tooltip
-and sort, renaming groups, the EQ preset match).  Run from the repository root:
+(the names of covers kept on disk), python_library.json (the Quality column's tooltip
+and sort, renaming groups, the EQ preset match) and python_leaderboard.json (2.4: Your
+Stats' leaderboard, "Most Played").  Run from the repository root:
 
     python3 rust/tools/gen_player_vectors.py
 """
@@ -261,6 +262,25 @@ with open(os.path.join(OUT, "python_stats.json"), "w", encoding="utf-8") as fh:
                "shift_month": [[y, m, d, *stats.shift_month(y, m, d)]
                                for y, m, d in ((2026, 11, 1), (2026, 12, 1), (2026, 1, -1), (2026, 3, -27), (1999, 7, 0))]},
               fh, indent=0, ensure_ascii=False)
+
+# ------------------------------------------------- leaderboard (2.4) ---
+# the statistics' plays and the calendar's, plus ties (the same plays and whole minutes), a
+# song with only short plays (left out), a song without a title and one with a title in
+# another case: Most Played's songs, artists and albums, also cut at 3 and 5 rows
+board_plays = cal_plays + [
+    stats.Play("/lib/t/Tie A.flac", 1_703_100_000.0, 95.0, 200.0, title="Tie A", artist="Zoe", album="Ties"),
+    stats.Play("/lib/t/Tie B.flac", 1_703_100_300.0, 100.0, 200.0, title="tie b", artist="zoe", album="ties"),
+    stats.Play("/lib/t/Short.flac", 1_703_100_600.0, 4.0, 200.0, title="Short", artist="Zoe", album="Ties"),
+    stats.Play("/lib/t/Short.flac", 1_703_100_700.0, 9.0, 200.0, title="Short", artist="Zoe", album="Ties"),
+    stats.Play("/lib/t/Ünnamed Song.flac", 1_703_100_900.0, 61.0, 120.0, title=" ", artist="Émile"),
+    stats.Play("/lib/t/Tie A.flac", 1_703_101_000.0, 0.0, 200.0, title="Tie A", artist="Zoe", album="Ties"),
+]
+boards = {kind: {str(top): stats.leaderboard(board_plays, kind, top) for top in (stats.TOP, 5, 3, 0)}
+          for kind in stats.LEADERBOARD_KINDS}
+with open(os.path.join(OUT, "python_leaderboard.json"), "w", encoding="utf-8") as fh:
+    json.dump({"plays": [p.__dict__ for p in board_plays], "kinds": stats.LEADERBOARD_KINDS, "boards": boards,
+               "ranked": {kind: stats.ranked_songs(boards[kind][str(stats.TOP)]) for kind in stats.LEADERBOARD_KINDS},
+               "empty": stats.leaderboard([], "songs")}, fh, indent=0, ensure_ascii=False)
 
 # ------------------------------------------------------------- EQ files ---
 param = eq.apply_preset(eq.default_state(), "Rock")
@@ -1026,7 +1046,15 @@ tab_tracks = [
 ]
 tab_liked = ["/music/Jazz/Night/02 Échos.flac", "/music/Pop/Rain/03 rain.mp3"]
 tab_disliked = ["/music/Pop/Rain/04 Taxi Lights.m4a"]
-tab_ctx = smarttabs.context(tab_liked, tab_disliked, NOW)
+# 2.4: the moods of four of the songs (the others are not analysed yet)
+from realhires import moods as moods_mod  # noqa: E402
+
+tab_moods = {"/music/Jazz/Night/01 Blue Hour.flac": {"bpm": 72, "mood": "Sad", "tempo": "Slow"},
+             "/music/Jazz/Night/02 Échos.flac": {"bpm": 128, "mood": "Happy", "tempo": "Up-tempo"},
+             "/music/Pop/Rain/03 rain.mp3": {"bpm": 104, "mood": "Chill", "tempo": "Mid-tempo"},
+             "/music/Classical/大地/05 交響曲.wav": {"bpm": 0, "mood": "Sad", "tempo": ""}}
+tab_ctx = smarttabs.context(tab_liked, tab_disliked, NOW,
+                            {p: moods_mod.Mood(bpm=m["bpm"], mood=m["mood"], tempo=m["tempo"]) for p, m in tab_moods.items()})
 values = [{f: smarttabs.field_value(f, t, tab_ctx) for f in smarttabs.FIELDS} for t in tab_tracks]
 
 
@@ -1044,13 +1072,15 @@ texts_for = {"title": ["blue hour", " BLUE", "rain", "", "交", "coda", "Échos"
              "artist": ["mira calloway", "Mira", "paper", ""], "album": ["night", "大地", ""],
              "album_artist": ["", "the paper boats"], "genre": ["jazz", "pop", ""], "composer": ["", "bach"],
              "format": ["flac", "MP3", "PCM_"], "folder": ["/music/jazz/night", "/music/classical", "rain"],
-             "quality": ["Hi-Res Lossless", "lossless", "Lossy"]}
+             "quality": ["Hi-Res Lossless", "lossless", "Lossy"], "mood": ["Happy", "sad", "Chill", ""],
+             "tempo": ["Up-tempo", "slow", "Mid-tempo", ""]}
 for f, vals in texts_for.items():
     for v in vals:
         for op in smarttabs.TEXT_OPS:
             eval_tabs.append(T(f"{f} {op} {v}", [R(f, op, v)]))
 nums_for = {"year": [0, 1999, 2021], "bits": [0, 16, 24], "sample_rate": [44100, 48000, 96000.0],
-            "bit_rate": [0, 256, 320], "duration": [59.9, 600, 3600.0], "added_days": [-1, 3, 30, 30.0001]}
+            "bit_rate": [0, 256, 320], "duration": [59.9, 600, 3600.0], "added_days": [-1, 3, 30, 30.0001],
+            "bpm": [0, 72, 120, 128.0]}
 for f, vals in nums_for.items():
     for v in vals:
         for op in smarttabs.NUMBER_OPS:
@@ -1224,10 +1254,165 @@ with tempfile.TemporaryDirectory() as root:
         op_results.append(res)
 
 with open(os.path.join(OUT, "python_tabs.json"), "w", encoding="utf-8") as fh:
-    json.dump({"now": NOW, "liked": tab_liked, "disliked": tab_disliked,
+    json.dump({"now": NOW, "liked": tab_liked, "disliked": tab_disliked, "moods": tab_moods,
                "tracks": [x.to_json() for x in tab_tracks], "values": values, "evals": evals,
                "checks": checks_tab, "names": name_checks, "uniques": uniques, "file_names": file_names,
                "texts": texts, "parses": parses, "value_texts": value_texts, "changes": changes, "labels": labels,
                "folder": folder_loaded, "ops": ops, "op_results": op_results},
               fh, indent=0, ensure_ascii=False)
 print(len(evals), "tab evaluations,", len(checks_tab), "tab checks,", len(op_results), "tab file operations")
+
+# ------------------------------------------------- where songs were played (2.4) ---
+from realhires import places  # noqa: E402
+
+geo_answers = [
+    places_answer := {"ipVersion": 4, "ipAddress": "198.51.100.7", "latitude": 35.68951, "longitude": 139.69171,
+                      "countryName": "Japan", "countryCode": "JP", "cityName": "Shinjuku", "regionName": "Tokyo"},
+    {"ip": "198.51.100.8", "success": True, "country": "Japan", "country_code": "jp", "region": "Osaka",
+     "city": "Osaka", "latitude": 34.6937378, "longitude": 135.5021651},
+    {"city": "  San\tFrancisco \n(Financial District) ", "country_name": "United States", "country": "US",
+     "country_code": "usa", "latitude": "37.79", "longitude": -0.004},
+    {"countryName": "X" * 300, "latitude": 91, "longitude": True},
+    {"cityName": "A\x00B\x7fC", "regionName": None, "region": "Kantō", "latitude": 1e308, "longitude": -180},
+    {"cityName": "", "regionName": "", "countryName": "   "},
+    {"success": False, "message": "Reserved range"},
+    {"success": False},
+    {"cityName": 5, "countryName": ["Japan"], "latitude": 12.345, "longitude": 0.005},
+    {"cityName": "Ünïcødé  名古屋", "countryName": "日本", "countryCode": "JP", "latitude": -33.8688, "longitude": 151.209},
+    [1, 2],
+    "Tokyo",
+]
+geo_parsed = []
+for a in geo_answers:
+    try:
+        p = places.parse_place(a)
+        geo_parsed.append({"place": p.to_json(), "text": places.place_text(p), "key": places.place_key(p)})
+    except places.PlaceError as exc:
+        geo_parsed.append({"error": str(exc)})
+coords = [[v, lim, places.coordinate(v, lim)] for v, lim in
+          ((35.68951, 90), (-0.004, 180), (0.005, 180), (0.015, 180), (2.675, 90), (-90, 90), (90.0001, 90),
+           (180, 180), (-180.5, 180), (1.005, 90), (139.69171, 180))]
+texts = [[list(x), places.place_text(places.Place(*x)), places.place_key(places.Place(*x))] for x in
+         (("Tokyo", "tokyo", "Japan"), ("Singapore", "Singapore", "Singapore"), ("", "", "Japan"),
+          ("Straße", "STRASSE", "Deutschland"), ("Paris", "Île-de-France", "France"), ("", "Texas", "Texas"))]
+
+
+def gplay(path, started, seconds, place, title="", artist="", album_artist="", duration=200.0):
+    return stats.Play(path, started, seconds, duration, title, artist, album_artist=album_artist, place=place)
+
+
+TOKYO_P = places.Place("Tokyo", "Tokyo", "Japan", "JP", 35.69, 139.69)
+OSAKA_P = places.Place("Osaka", "Osaka", "Japan", "JP", 34.69, 135.5)
+place_plays = [gplay("/m/a.flac", 1_700_000_000, 120, TOKYO_P, "Alpha", "Ann"),
+               gplay("/m/b.flac", 1_700_000_600, 10, TOKYO_P, "Beta"),
+               gplay("/m/a.flac", 1_700_003_600, 200, places.Place("tokyo", "TOKYO", "japan"), "Alpha", "Ann"),
+               gplay("/m/c.flac", 1_700_090_000, 300, OSAKA_P, "Gamma", "", "Band", 250.0),
+               gplay("/m/d.flac", 1_700_090_100, 999, None, "Delta"),
+               gplay("/m/e.flac", 1_700_090_200, 25, OSAKA_P, " ", "", "", 40.0),
+               gplay("/m/f.flac", 1_700_090_300, 61, places.Place(country="Japan"), "Zeta", "Zed"),
+               gplay("/m/g.flac", 1_700_090_400, 61, places.Place("Ōsaka", "", "Japan"), "Eta", "Zed"),
+               gplay("/m/c.flac", 1_700_090_500, 30, OSAKA_P, "Gamma", "", "Band", 250.0)]
+period = places.period_places(place_plays)
+place_song_lists = {r["key"]: places.place_songs(place_plays, r["key"]) for r in period}
+day_rows = [[y, m, d, stats.day_plays(place_plays, y, m, d, localtime=tokyo)]
+            for y, m, d in ((2023, 11, 15), (2023, 11, 16))]
+# when a lookup is due: (now, playing, not_before) -> due; then begin/finish steps
+cache = places.PlaceCache()
+cache_steps = []
+for step in (("due", 0.0, False, 0.0), ("begin", 0.0), ("due", 0.0, True, 0.0), ("finish", True, 1000.0),
+             ("due", 7199.0, True, 0.0), ("due", 7200.0, False, 0.0), ("due", 7200.0, True, 7300.0),
+             ("due", 7300.0, True, 7300.0), ("begin", 7300.0), ("finish", False, 9000.0),
+             ("due", 7400.0, True, 0.0), ("due", 14500.0, True, 0.0), ("reset",), ("due", 3.0, False, 5.0),
+             ("due", 5.0, False, 5.0)):
+    if step[0] == "due":
+        out = cache.due(step[1], step[2], step[3])
+    elif step[0] == "begin":
+        out = cache.begin(step[1])
+    elif step[0] == "finish":
+        cache.finish(TOKYO_P if step[1] else None, "" if step[1] else "It failed.", wall=step[2])
+        out = None
+    else:
+        cache.reset()
+        out = None
+    cache_steps.append({"step": list(step), "out": out, "place": cache.place.to_json() if cache.place else None,
+                        "error": cache.error, "looked_up": cache.looked_up, "busy": cache.busy, "last": cache.last})
+
+
+class GeoClock:
+    def __init__(self):
+        self.t = 100.0
+        self.slept = []
+
+    def __call__(self):
+        return self.t
+
+    def sleep(self, s):
+        self.slept.append(s)
+        self.t += s
+
+
+def geo_run(script):
+    """Lookups through a fake transport: each answer is [status, headers, body] or ["network", why]
+    or ["invalid", why]; returns what each lookup gave and how the client waited."""
+    todo = [list(a) for a in script["answers"]]
+    seen = []
+
+    def transport(url, headers, timeout):
+        seen.append([url, sorted(headers)])
+        a = todo.pop(0)
+        if a[0] == "network":
+            raise OSError(a[1])
+        if a[0] == "invalid":
+            raise ValueError(a[1])
+        return a[0], a[1], a[2].encode("utf-8")
+
+    clock = GeoClock()
+    c = places.GeoClient(script.get("server", places.DEFAULT_SERVER), transport=transport, clock=clock,
+                         sleep=clock.sleep)
+    results = []
+    for advance in script["lookups"]:
+        clock.t += advance
+        try:
+            results.append({"place": c.lookup().to_json()})
+        except places.PlaceError as exc:
+            results.append({"error": str(exc)})
+        results[-1].update(requests=c.requests, not_before=c.not_before, t=clock.t)
+    return {"script": script, "results": results, "slept": clock.slept, "seen": seen}
+
+
+import json as _json  # noqa: E402
+
+GOOD = [200, {}, _json.dumps(places_answer)]
+geo_runs = [geo_run(s) for s in (
+    {"answers": [GOOD, GOOD], "lookups": [0, 0]},
+    {"answers": [GOOD, GOOD], "lookups": [0, 5]},
+    {"answers": [[429, {"retry-after": "120"}, ""], GOOD, [503, {}, ""]], "lookups": [0, 60, 60, 0]},
+    {"answers": [[500, {}, ""], ["network", "connection refused"], [502, {}, ""]], "lookups": [0]},
+    {"answers": [["network", "no route"]] * 3, "lookups": [0]},
+    {"answers": [[500, {}, ""], GOOD], "lookups": [0]},
+    {"answers": [[403, {}, "no"]], "lookups": [0]},
+    {"answers": [[404, {}, ""]], "lookups": [0]},
+    {"answers": [[200, {}, "<html>"]], "lookups": [0]},
+    {"answers": [[200, {}, '{"ipAddress": "1.2.3.4"}']], "lookups": [0]},
+    {"answers": [[200, {}, '{"success": false, "message": "Reserved range"}']], "lookups": [0]},
+    {"answers": [["invalid", "unknown url type: ftp"]], "lookups": [0], "server": "ftp://example.org/"},
+    {"answers": [[503, {"retry-after": "soon"}, ""], [429, {"retry-after": "99999999"}, ""]],
+     "lookups": [0, 600, 0]},
+    {"answers": [GOOD], "lookups": [0], "server": "  ipwho.is/  "},
+)]
+servers = [[s, places.normalize_server(s), places.host_of(s), places.is_official(s)] for s in
+           ("", "  ", places.DEFAULT_SERVER, "freeipapi.com", "https://FREE.freeipapi.com./x", "ipwho.is/",
+            "http://127.0.0.1:5000/api/v1/json/", "https://notfreeipapi.com/")]
+with open(os.path.join(OUT, "python_places.json"), "w", encoding="utf-8") as fh:
+    json.dump({"default_server": places.DEFAULT_SERVER, "constants": {
+        "min_interval": places.MIN_INTERVAL_S, "max_attempts": places.MAX_ATTEMPTS, "backoff": places.BACKOFF_S,
+        "default_retry_after": places.DEFAULT_RETRY_AFTER_S, "max_retry_after": places.MAX_RETRY_AFTER_S,
+        "refresh": places.REFRESH_S, "max_name": places.MAX_NAME},
+        "answers": geo_answers, "parsed": geo_parsed, "coordinates": coords, "texts": texts,
+        "plays": [dict(p.__dict__, place=p.place.to_json() if p.place else None) for p in place_plays],
+        "period": period, "songs": place_song_lists, "days": day_rows, "cache": cache_steps, "runs": geo_runs,
+        "servers": servers, "retry_after": [[h, places.retry_after(h)] for h in (
+            {}, {"retry-after": "120"}, {"retry-after": " 7.5 "}, {"retry-after": "-5"}, {"retry-after": "x"},
+            {"retry-after": "1e9"}, {"retry-after": "nan"})]},
+        fh, indent=0, ensure_ascii=False)
+print(len(geo_parsed), "geolocation answers,", len(period), "places,", len(geo_runs), "client runs")

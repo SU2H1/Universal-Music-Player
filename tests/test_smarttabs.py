@@ -144,7 +144,10 @@ def test_rust_vectors_hold_pythons_answers():
     module: the checks and the evaluations still give the same answers."""
     data = json.loads(VECTORS.read_text(encoding="utf-8"))
     tracks = [Track.from_json(t) for t in data["tracks"]]
-    c = smarttabs.context(data["liked"], data["disliked"], data["now"])
+    from realhires.moods import Mood  # 2.4: the moods of some of the songs
+
+    c = smarttabs.context(data["liked"], data["disliked"], data["now"],
+                          {p: Mood(bpm=m["bpm"], mood=m["mood"], tempo=m["tempo"]) for p, m in data["moods"].items()})
     for case in data["evals"]:
         t = smarttabs.check_tab(case["tab"])
         assert smarttabs.tab_songs(t, tracks, c) == case["songs"], t["name"]

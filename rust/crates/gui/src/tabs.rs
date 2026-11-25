@@ -175,7 +175,7 @@ impl Player {
 
     pub fn tab_context(&self) -> TabContext {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0);
-        TabContext::new(&self.state.liked, &self.state.disliked, now)
+        TabContext::new(&self.state.liked, &self.state.disliked, now).with_moods(self.moods.map.clone())
     }
 
     /// The songs of a tab in its order: worked out once per library, likes and tabs (and
@@ -183,11 +183,11 @@ impl Player {
     pub fn tab_list(&mut self, name: &str) -> Arc<Vec<String>> {
         let Some(tab) = self.tab(name).cloned() else { return Arc::new(vec![]) };
         let hour = self.tab_context().now as u64 / 3600;
-        let id = format!("tab:{}:{hour}:{name}", self.tabs_gen);
+        let id = format!("tab:{}:{}:{hour}:{name}", self.tabs_gen, self.moods.gen);
         self.cached_list(&id, None, |p| smarttabs::tab_songs(&tab, &p.lib.tracks, &p.tab_context()))
     }
 
-    /// The Library page's entries after its fourteen: one per tab, with its songs.
+    /// The Library page's entries after its fifteen: one per tab, with its songs.
     pub fn tab_library_entries(&mut self) -> Vec<LibraryEntry> {
         let names = self.tab_names();
         names
