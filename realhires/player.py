@@ -44,6 +44,7 @@ lets a test pull the frames by hand.
 
 from __future__ import annotations
 
+import atexit
 import collections
 import math
 import os
@@ -51,6 +52,7 @@ import subprocess
 import sys
 import threading
 import time
+import weakref
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
@@ -456,10 +458,27 @@ def _miniaudio_device(ma, fmt: str, channels: int, rate: int, device_id, backend
     return Device()
 
 
+_OPEN_OUTPUTS: "weakref.WeakSet[MiniaudioOutput]" = weakref.WeakSet()
+
+
+@atexit.register
+def _close_open_outputs() -> None:
+    """Close every device still open when Python exits.  miniaudio's own thread calls
+    into Python for each period, and a call after the interpreter has shut down
+    crashes the process (SIGSEGV in PyGILState_Ensure, seen on macOS when a window
+    was destroyed without the app's Quit).  atexit runs while Python still works."""
+    for out in list(_OPEN_OUTPUTS):
+        try:
+            out.close()
+        except Exception:  # noqa: BLE001 - exiting: nothing more to do
+            pass
+
+
 class MiniaudioOutput(Output):
     """A sound device through miniaudio.  `backends` = None: the system's real sound
     systems in miniaudio's order of preference (never the silent NULL backend, unless
-    REALHIRES_AUDIO_BACKEND=null asks for it)."""
+    REALHIRES_AUDIO_BACKEND=null asks for it).  A device still open when Python
+    exits is closed by `_close_open_outputs()`."""
 
     def __init__(self, backends=None):
         self._backends = backends
@@ -604,6 +623,7 @@ class MiniaudioOutput(Output):
             d.close()
             raise _ma_open_error(exc, "The sound output device could not be started") from exc
         self._device = d
+        _OPEN_OUTPUTS.add(self)
         self._ex_open = exclusive is not None
         if exclusive is not None:
             self.name = exclusive.label
@@ -614,6 +634,7 @@ class MiniaudioOutput(Output):
     def close(self) -> None:
         d, self._device = self._device, None
         self._ex_open = False
+        _OPEN_OUTPUTS.discard(self)
         if d is not None:
             try:
                 d.close()

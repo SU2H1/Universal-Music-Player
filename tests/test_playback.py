@@ -275,6 +275,48 @@ def test_miniaudio_null_backend_plays_in_real_time(tmp_path):
     p.close()
 
 
+EXIT_SCRIPT = r'''
+import sys, time
+sys.path.insert(0, REPO)
+import miniaudio
+from realhires import player
+out = player.MiniaudioOutput(backends=[miniaudio.Backend.NULL])
+p = player.Player(out)
+p.play(SONG)
+t0 = time.monotonic()
+while p.position() < 0.2:
+    assert time.monotonic() - t0 < 10, "not playing"
+    time.sleep(0.02)
+assert out in player._OPEN_OUTPUTS
+print("exiting while playing", flush=True)
+# no p.close(): the device is still open, and miniaudio keeps calling into Python
+'''
+
+
+@pytest.mark.skipif(_null_backend() is None, reason="miniaudio not installed")
+def test_a_device_left_open_is_closed_when_python_exits(tmp_path):
+    # The 2.4 CI's macOS arm64 run crashed (SIGSEGV in PyGILState_Ensure, called from
+    # miniaudio's thread) after a test destroyed the window without the app's Quit.
+    import sys
+    from pathlib import Path
+
+    a = song(tmp_path / "a.flac", 3.0)
+    out = player.MiniaudioOutput(backends=[_null_backend()])
+    p = Player(out)
+    p.play(a)
+    assert wait_for(lambda: p.position() > 0.1, 5)
+    assert out in player._OPEN_OUTPUTS
+    player._close_open_outputs()  # what atexit calls
+    assert out not in player._OPEN_OUTPUTS and out._device is None
+    p.close()
+    script = tmp_path / "exit.py"
+    script.write_text(f"REPO = {str(Path(__file__).resolve().parents[1])!r}\nSONG = {a!r}\n" + EXIT_SCRIPT,
+                      encoding="utf-8")
+    for _ in range(3):  # the crash came only now and then
+        proc = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=60)
+        assert proc.returncode == 0 and "exiting while playing" in proc.stdout, proc.stdout + proc.stderr
+
+
 # ------------------------------------------------------------ bit-perfect (2.1) ---
 def int_song(path, seconds, rate, bits, channels=2, seed=5):
     """Noise at -6 dBFS as a `bits`-bit FLAC (16 or 24)."""
