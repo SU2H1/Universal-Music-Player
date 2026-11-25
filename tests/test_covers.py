@@ -245,22 +245,49 @@ theme = Theme(root)
 theme.styles()
 
 def pump(cond, what, timeout=60):
+    """Run Tk's event loop, as the app does, until cond() holds.  This script used to
+    call Tk's update in a loop, and on Apple Silicon runners one of those calls sometimes
+    never returned: the main thread sat in a single update for five minutes after every
+    cover had been made and saved.  The app itself never calls update."""
     t0 = time.time()
-    while not cond():
-        assert time.time() - t0 < timeout, "timed out: " + (what() if callable(what) else what)
-        u0 = time.time()
-        root.update()
-        if time.time() - u0 > 2:  # (to find where a hang on a macOS runner sits)
-            print("root.update() took %.1f s" % (time.time() - u0), file=sys.stderr, flush=True)
-        time.sleep(0.01)
+    failed = []
+    def check():
+        try:
+            if cond():
+                root.quit()
+                return
+            assert time.time() - t0 < timeout, "timed out: " + (what() if callable(what) else what)
+        except BaseException as exc:
+            failed.append(exc)
+            root.quit()
+            return
+        root.after(10, check)
+    root.after(0, check)
+    root.mainloop()
+    if failed:
+        raise failed[0]
+
+def settle():
+    """Let a scroll be drawn: the idle tasks, then the events waiting."""
+    root.update_idletasks()
+    pump(lambda: True, "settle")
 
 def watchdog():
     # every 30 s: the progress of the covers made ahead and every thread's stack, so a
     # hang shows where it sits (the CI's Apple Silicon runners hung here twice)
-    import threading, traceback
+    import subprocess, threading, traceback
     start = time.time()
+    sampled = False
     while True:
         time.sleep(30)
+        if sys.platform == "darwin" and not sampled and time.time() - start > 50:
+            sampled = True  # the native stacks once, to see where Tk sits (the whole script takes seconds)
+            try:
+                out = subprocess.run(["/usr/bin/sample", str(os.getpid()), "1"], capture_output=True, text=True,
+                                     timeout=60)
+                print("--- sample:\n" + (out.stdout or out.stderr)[:30000], file=sys.stderr, flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print("--- sample failed: %r" % (exc,), file=sys.stderr, flush=True)
         print("--- %.0f s: %s" % (time.time() - start, made_report() if "cache" in globals() else "starting"),
               file=sys.stderr, flush=True)
         for tid, frame in sys._current_frames().items():
@@ -279,7 +306,7 @@ def scroll_through(grid, cache):
     steps = 25
     for i in range(steps + 1):
         grid._yview("moveto", i / steps)
-        root.update()
+        settle()
         top = grid.canvas.canvasy(0)
         bottom = top + grid.canvas.winfo_height()
         visible = [a["key"] for a in albums if top <= grid.positions[a["key"]][1] < bottom]
@@ -312,15 +339,15 @@ def made_report():
 cache = CoverCache(root)
 cache.library_changed(albums)
 cache.prefetch(albums)
-t_made = time.time()
-while not (cache.prefetching() == 0 and all(saved(a) for a in albums)):
+def made_ahead():
+    if cache.prefetching() == 0 and all(saved(a) for a in albums):
+        return True
     if cache.prefetching() == 0 and len(made_log) >= ALBUMS:
         time.sleep(0.5)
         if not all(saved(a) for a in albums):
             raise AssertionError("the background pass ended without saving every cover:\n" + made_report())
-    assert time.time() - t_made < 150, "timed out: " + made_report()
-    root.update()
-    time.sleep(0.01)
+    return False
+pump(made_ahead, made_report, timeout=150)
 made = len(runs)
 assert made >= ALBUMS, made
 assert cache.images == {}, "made ahead only on disk"
@@ -334,7 +361,7 @@ assert len(runs) == made, f"FFmpeg ran {len(runs) - made} times while scrolling"
 assert all((a["key"], grid.COVER) in cache.images for a in albums)  # all kept for the session
 t0 = time.perf_counter()
 grid._yview("moveto", 0)
-root.update()
+settle()
 assert len(runs) == made
 
 # the library is read again: unchanged albums keep their covers, a changed one is made again
