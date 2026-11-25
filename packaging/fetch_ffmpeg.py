@@ -28,6 +28,14 @@ import zipfile
 BTBN = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
 RIEDL = "https://ffmpeg.martin-riedl.de/redirect/latest/macos/{arch}/release/{tool}.zip"
 EVERMEET_INFO = "https://evermeet.cx/ffmpeg/info/{tool}/release"
+# When evermeet.cx refuses (it answered HTTP 429 for half an hour to GitHub's macOS
+# runners on 2026-11-25), the same evermeet.cx binaries are taken from this
+# repository's latest release, whose Rust macOS Intel package carries them unchanged.
+REPO = "SU2H1/Universal-Music-Player"
+LATEST_RELEASE = "https://github.com/{repo}/releases/latest"
+RELEASE_ASSET = "https://github.com/{repo}/releases/download/{tag}/UniversalMusicPlayer-Rust-{version}-macos-x86_64.zip"
+EVERMEET_ATTEMPTS = 3   # then the release's copy
+EVERMEET_MAX_WAIT_S = 60
 
 NOTICE = """FFmpeg is bundled with this package as separate, unmodified executables
 (ffmpeg, ffprobe) that Real-Hi-Res runs as external programs.
@@ -46,7 +54,7 @@ ATTEMPTS = 6          # a download is tried this many times
 MAX_WAIT_S = 300      # the longest wait between two tries (also for Retry-After)
 
 
-def _wait_before_retry(error: Exception, attempt: int) -> float:
+def _wait_before_retry(error: Exception, attempt: int, max_wait: float = MAX_WAIT_S) -> float:
     """Seconds to wait after a failed try: the server's Retry-After for 429/503
     (evermeet.cx answers 429 when several CI jobs download at once), else
     15, 30, 60... seconds."""
@@ -58,28 +66,33 @@ def _wait_before_retry(error: Exception, attempt: int) -> float:
             wait = max(float(retry_after), 1.0)
         except ValueError:
             pass
-    return min(wait, MAX_WAIT_S)
+    return min(wait, max_wait)
 
 
-def download(url: str) -> bytes:
+def download(url: str, attempts: int = ATTEMPTS, max_wait: float = MAX_WAIT_S, final_url: list = None) -> bytes:
+    """The body of `url`, tried `attempts` times after HTTP 429, 5xx or network
+    errors.  `final_url`, when given, receives the address after redirects."""
     import time
     import urllib.error
 
-    for attempt in range(ATTEMPTS):
+    for attempt in range(attempts):
         print(f"Downloading {url}", flush=True)
         req = urllib.request.Request(url, headers={"User-Agent": "realhires-build"})
         try:
             with urllib.request.urlopen(req, timeout=300) as r:
-                return r.read()
+                data = r.read()
+                if final_url is not None:
+                    final_url.append(r.geturl())
+                return data
         except urllib.error.HTTPError as e:
-            if e.code != 429 and e.code < 500 or attempt == ATTEMPTS - 1:
+            if e.code != 429 and e.code < 500 or attempt == attempts - 1:
                 raise
             error: Exception = e
         except (urllib.error.URLError, OSError) as e:  # network trouble, a cut-off transfer
-            if attempt == ATTEMPTS - 1:
+            if attempt == attempts - 1:
                 raise
             error = e
-        wait = _wait_before_retry(error, attempt)
+        wait = _wait_before_retry(error, attempt, max_wait)
         print(f"  failed ({error}); trying again in {wait:.0f} s", flush=True)
         time.sleep(wait)
     raise AssertionError("unreachable")
@@ -134,17 +147,50 @@ def fetch_riedl_macos(dest: str, arch: str) -> None:
 
 
 def fetch_evermeet_macos(dest: str) -> None:
-    """Intel-only static builds that support older macOS than most others."""
+    """Intel-only static builds that support older macOS than most others; when
+    evermeet.cx refuses, the same builds from the latest release (`fetch_released_macos()`)."""
     import json
+    import urllib.error
 
-    for tool in ("ffmpeg", "ffprobe"):
-        info = json.loads(download(EVERMEET_INFO.format(tool=tool)))
-        data = download(info["download"]["zip"]["url"])
-        with zipfile.ZipFile(io.BytesIO(data)) as z:
-            for m in z.namelist():
-                if os.path.basename(m) == tool:
-                    with z.open(m) as src:
-                        _save(src, dest, tool, executable=True)
+    try:
+        for tool in ("ffmpeg", "ffprobe"):
+            info = json.loads(download(EVERMEET_INFO.format(tool=tool), EVERMEET_ATTEMPTS, EVERMEET_MAX_WAIT_S))
+            data = download(info["download"]["zip"]["url"], EVERMEET_ATTEMPTS, EVERMEET_MAX_WAIT_S)
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                for m in z.namelist():
+                    if os.path.basename(m) == tool:
+                        with z.open(m) as src:
+                            _save(src, dest, tool, executable=True)
+    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+        print(f"evermeet.cx refused ({e}); taking its FFmpeg from the latest release instead", flush=True)
+        fetch_released_macos(dest)
+
+
+def released_asset(final_url: str, repo: str = REPO) -> str:
+    """The Rust macOS Intel package of the release that `releases/latest` led to
+    (".../releases/tag/v2.3.0" -> ".../download/v2.3.0/UniversalMusicPlayer-Rust-2.3.0-macos-x86_64.zip")."""
+    tag = final_url.rstrip("/").rsplit("/", 1)[-1]
+    if not tag.startswith("v") or "/releases/tag/" not in final_url:
+        raise ValueError(f"no release tag in {final_url}")
+    return RELEASE_ASSET.format(repo=repo, tag=tag, version=tag[1:])
+
+
+def fetch_released_macos(dest: str, repo: str = REPO) -> None:
+    """ffmpeg and ffprobe from the latest release's Rust macOS Intel package, which
+    carries evermeet.cx's builds as they are (ad-hoc signed; the packaging signs
+    them again).  check_compat.py then checks their architecture and minimum macOS."""
+    where: list = []
+    download(LATEST_RELEASE.format(repo=repo), final_url=where)
+    url = released_asset(where[-1], repo)
+    data = download(url)
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        for tool in ("ffmpeg", "ffprobe"):
+            member = next((m for m in z.namelist() if m.endswith("/Contents/MacOS/" + tool)), None)
+            if member is None:
+                raise SystemExit(f"{url} holds no {tool}")
+            with z.open(member) as src:
+                _save(src, dest, tool, executable=True)
+    print(f"FFmpeg taken from {url}", flush=True)
 
 
 def main() -> int:

@@ -520,7 +520,7 @@ The Rust version has its own tests, including one that drives the whole desktop 
 
 The release packages are built by GitHub Actions ([`.github/workflows/build.yml`](.github/workflows/build.yml)) in six jobs: Windows x64, macOS Apple Silicon, macOS Intel, Linux x64 and Linux ARM64. The Linux jobs run inside an AlmaLinux 8 container so that the packages only need glibc 2.28. Every job runs [`packaging/ci_build.sh`](packaging/ci_build.sh), which goes through the following steps in order:
 
-1. It downloads a static FFmpeg.
+1. It downloads a static FFmpeg ([`packaging/fetch_ffmpeg.py`](packaging/fetch_ffmpeg.py)), trying again when a server is busy. For macOS Intel it comes from evermeet.cx; when that site refuses the build machines, the same evermeet.cx programs are taken from the Rust macOS Intel package of the latest release, and the next step checks them like any other.
 2. It runs the test suite with that FFmpeg.
 3. It builds the package with PyInstaller.
 4. It runs [`packaging/check_compat.py`](packaging/check_compat.py), which fails the build if any bundled file needs a newer glibc or macOS than the package claims, or (on macOS) lacks the right CPU architecture. On Windows it runs [`packaging/check_windows.py`](packaging/check_windows.py) instead, which fails the build if an executable carries its program archive inside it again or lacks version information, and logs the hash of the PyInstaller launcher, which the Windows job compiles on the build machine.
