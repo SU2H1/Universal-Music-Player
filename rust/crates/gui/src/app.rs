@@ -3012,7 +3012,8 @@ mod tests {
         w.hidden = true;
         app.fix_win = Some(w);
         run_until(&ctx, &mut app, "the fix", |a| a.status.starts_with("Fix: "));
-        assert_eq!(app.status, "Fix: 1 fixed.");
+        // (the pop-up names the first failure: once on the Windows runner the fix failed)
+        assert_eq!(app.status, "Fix: 1 fixed.", "{:?}", app.fix_done.as_ref().map(|d| (&d.headline, &d.lines)));
         assert!(music.join("Real-Hi-Res backups").join("03 fake.wav").exists());
         let fixed = app.results.values().find(|r| r.path.ends_with("03 fake.wav")).unwrap();
         assert_eq!((fixed.verdict, fixed.claimed()), (Verdict::NotHires, "16/44.1".to_string()));

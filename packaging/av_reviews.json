@@ -52,5 +52,23 @@
     ],
     "detection": "Trojan:Script/Wacatac.C!ml",
     "note": "this disk image holds exactly the same 441 files as `UniversalMusicPlayer-2.0.0-macos-x86_64.zip` (every file has the same SHA-256) and the same 28 links, plus the usual shortcut to the Applications folder, and no engine flags that .zip. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags the disk image itself, and no other engine does, so this is a false positive on the .dmg container, not on the program; the same happened to the Real-Hi-Res 1.10.0 to 1.12.1 disk images. If you prefer, download the .zip, which holds the same app."
+  },
+  "95da74143573d9dd25a0f39776a145ba2b472408908664d8de85b3e0bd5c8198": {
+    "file": "UniversalMusicPlayer.exe (inside UniversalMusicPlayer-2.2.0-windows-x64.zip)",
+    "date": "2026-11-25",
+    "engines": [
+      "Microsoft"
+    ],
+    "detection": "Trojan:Win32/Wacatac.B!ml",
+    "note": "this is the program's small launcher (the Python code sits in `UniversalMusicPlayer.pkg` next to it). Compared with the 2.1.0 launcher, which no engine flags (0 / 70 on VirusTotal, Green zone at Kaspersky), it has the same size, and its program code, data, relocations and manifest are byte for byte the same. The only differences are the build time stamps, the header checksum, the version information (2.1.0 became 2.2.0) and the icon images, which are the new app icon (the maki roll of `realhires/assets/icon.png`) stored as uncompressed bitmaps. No engine flags the .zip that contains this launcher, Microsoft included, and the Hybrid Analysis sandbox found no specific threat in it. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags the launcher, and no other engine does, so this is a false positive, not malware."
+  },
+  "5f65e92aec0d8fe30c5e1a8e0bb1862f3d00c42e6d99f9a6fd361a93af0468d3": {
+    "file": "UniversalMusicPlayer-2.2.0-macos-arm64.dmg",
+    "date": "2026-11-25",
+    "engines": [
+      "Microsoft"
+    ],
+    "detection": "Trojan:Script/Wacatac.B!ml",
+    "note": "this disk image holds exactly the same 442 files as `UniversalMusicPlayer-2.2.0-macos-arm64.zip` (every file has the same SHA-256) and the same 28 links, plus the usual shortcut to the Applications folder, and no engine flags that .zip. Only Microsoft's machine-learning heuristic (the `!ml` in the name) flags the disk image itself, and no other engine does, so this is a false positive on the .dmg container, not on the program; the same happened to the Real-Hi-Res 1.10.0 to 1.12.1 and the Universal Music Player 2.0.0 disk images. If you prefer, download the .zip, which holds the same app."
   }
 }

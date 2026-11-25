@@ -222,6 +222,12 @@ def playing():
 
 def lyrics_ok():
     np = app.page("nowplaying")
+    # paused while Now Playing, the windows and the menus are checked: the songs last 3 s, and
+    # every check up to the album menus needs Glacier Song to stay the song playing. Slow macOS
+    # runners took longer than that: once the next song had started before Up Next was read,
+    # and once (2.2, Intel) before Details was read, which then described Midnight Sun
+    app.play_pause()
+    assert not app.engine.playing and app.current == glacier
     item = np.lyrics.items[0]
     assert np.lyrics.itemcget(item, "text") == "Blue ice under a silver sky"
     assert str(np.lyrics.itemcget(item, "font")) == str(app.theme.f("lyrics_b"))
@@ -334,10 +340,7 @@ def lyrics_ok():
     assert app.page_name != "nowplaying"
     app.cover_clicked(); root.update()
     assert app.page_name == "nowplaying" and np.lyrics.winfo_ismapped()
-    # paused while the windows and menus are checked: the songs last 3 s, and a slow runner
-    # (macOS) took longer than that, so the next song had started before Up Next was read
-    app.play_pause()
-    assert not app.engine.playing
+    assert not app.engine.playing and app.current == glacier  # still paused (see lyrics_ok)
     # Playback info
     app.open_info()
     info = app.info_window.text()
