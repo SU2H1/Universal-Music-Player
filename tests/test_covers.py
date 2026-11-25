@@ -244,15 +244,33 @@ root.geometry("900x560")
 theme = Theme(root)
 theme.styles()
 
+import _tkinter
+
+def events(limit=1000):
+    """Handle the Tk events waiting now, at most `limit` of them.  Not Tk's update:
+    on the macOS arm64 runner its first call sometimes never returned (for over 7
+    minutes, with the covers made long before), so neither the test's own timeout
+    nor its diagnostics could fire."""
+    for _ in range(limit):
+        if not root.tk.dooneevent(_tkinter.ALL_EVENTS | _tkinter.DONT_WAIT):
+            break
+
 def pump(cond, what, timeout=60):
     t0 = time.time()
     while not cond():
         assert time.time() - t0 < timeout, "timed out: " + (what() if callable(what) else what)
         u0 = time.time()
-        root.update()
+        events()
         if time.time() - u0 > 2:  # (to find where a hang on a macOS runner sits)
-            print("root.update() took %.1f s" % (time.time() - u0), file=sys.stderr, flush=True)
+            print("handling Tk events took %.1f s" % (time.time() - u0), file=sys.stderr, flush=True)
         time.sleep(0.01)
+
+def settle(cond, what, timeout=60):
+    """Wait for background threads only, without Tk (the covers made ahead go to disk)."""
+    t0 = time.time()
+    while not cond():
+        assert time.time() - t0 < timeout, "timed out: " + (what() if callable(what) else what)
+        time.sleep(0.02)
 
 def watchdog():
     # every 30 s: the progress of the covers made ahead and every thread's stack, so a
@@ -279,7 +297,7 @@ def scroll_through(grid, cache):
     steps = 25
     for i in range(steps + 1):
         grid._yview("moveto", i / steps)
-        root.update()
+        events()
         top = grid.canvas.canvasy(0)
         bottom = top + grid.canvas.winfo_height()
         visible = [a["key"] for a in albums if top <= grid.positions[a["key"]][1] < bottom]
@@ -300,7 +318,7 @@ todo = albums
 for attempt in range(3):
     finished.clear()
     cache.prefetch(todo)
-    pump(lambda: len(finished) >= len(todo) and cache.prefetching() == 0,
+    settle(lambda: len(finished) >= len(todo) and cache.prefetching() == 0,
          lambda: "made ahead: %d FFmpeg runs, %d of %d covers looked at, %d queued" % (
              len(runs), len(finished), len(todo), cache.prefetching()), timeout=300)
     todo = unsaved()
@@ -330,7 +348,7 @@ assert len(runs) == made, f"FFmpeg ran {len(runs) - made} times while scrolling"
 assert all((a["key"], grid.COVER) in cache.images for a in albums)  # all kept for the session
 t0 = time.perf_counter()
 grid._yview("moveto", 0)
-root.update()
+events()
 assert len(runs) == made
 
 # the library is read again: unchanged albums keep their covers, a changed one is made again
