@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 from . import APP_NAME, embed, i18n
 from . import lyrics as lyrics_mod
 from . import musiclib, playerstate, stats, tagedit
+from . import themes as themes_mod
 from . import settings as settings_mod
 from .i18n import N_, tr, tr_name, tr_text
 from .musiclib import Track
@@ -34,6 +35,63 @@ def label(parent, theme: Theme, text: str = "", font: str = "body", fg: str = "t
 
 def frame(parent, theme: Theme, bg: str = "bg", **kw) -> tk.Frame:
     return theme.reg(tk.Frame(parent, bd=0, highlightthickness=0, **kw), bg=bg)
+
+
+class FlowRow(tk.Frame):
+    """A row of buttons that goes on in a further line when the page is too narrow for one
+    (2.3: on the 1024 px screens of the Windows CI runner the album page's buttons did not fit
+    beside its cover, and pack hid the last ones). Widgets are made as children of the row,
+    then given to add(); each line is a frame of the row, and the widgets are packed into it."""
+
+    def __init__(self, parent, theme: Theme, gap: int = 10, vgap: int = 8):
+        super().__init__(parent, bd=0, highlightthickness=0)
+        self.theme = theme
+        theme.reg(self, bg="bg")
+        self.gap, self.vgap = gap, vgap
+        self.items: List[tk.Widget] = []
+        self.lines: List[tk.Frame] = []
+        self._width = 0
+        self.bind("<Configure>", self._resized)
+
+    def add(self, *widgets: tk.Widget) -> None:
+        self.items.extend(widgets)
+        self.relayout()
+
+    def _resized(self, e) -> None:  # (not _configure: that name is Tk's own)
+        if e.width != self._width:
+            self._width = e.width
+            self.relayout()
+
+    def relayout(self) -> None:
+        width = self.winfo_width()
+        if width <= 1:  # not laid out yet: one line
+            width = 1 << 30
+        lines: List[List[tk.Widget]] = []
+        cur: List[tk.Widget] = []
+        x = 0
+        for w in self.items:
+            need = w.winfo_reqwidth()
+            if cur and x + self.gap + need > width:
+                lines.append(cur)
+                cur, x = [], 0
+            x += (self.gap if cur else 0) + need
+            cur.append(w)
+        if cur:
+            lines.append(cur)
+        for w in self.items:
+            w.pack_forget()
+        for f in self.lines:
+            f.pack_forget()
+        while len(self.lines) < len(lines):
+            self.lines.append(self.theme.reg(tk.Frame(self, bd=0, highlightthickness=0), bg="bg"))
+        for i, ws in enumerate(lines):
+            f = self.lines[i]
+            f.pack(anchor="w", pady=(self.vgap if i else 0, 0))
+            for j, w in enumerate(ws):
+                w.pack(in_=f, side="left", padx=(self.gap if j else 0, 0))
+                # made before the line's frame, so raised above it in the stacking order (Tk's
+                # window `raise`: a Canvas's own lift() raises the items drawn on it)
+                w.tk.call("raise", str(w), str(f))
 
 
 def format_label(t: Track) -> str:
@@ -227,6 +285,8 @@ def song_table(page: Page, parent, columns=None, value=None, extra_menu=None, so
 
     if kind is not None:
         columns = list(prefix) + song_columns(app.state.columns_of(kind))
+    kw.setdefault("label_of", lambda r: app.label_of("song", r.path))  # 2.3: the colour label's dot
+    kw.setdefault("cell_color", lambda r, key: track_color(page.theme, r, key))
     table = SongList(parent, page.theme, columns or SONG_COLUMNS, value or track_value, sort_value or track_sort,
                      on_heart=lambda r: app.toggle_like(r.path), is_liked=lambda r: app.is_liked(r.path),
                      is_current=lambda r: r.path == app.current, on_context=context,
@@ -281,6 +341,14 @@ def set_columns(app, kind: str, names: List[str]) -> None:
             table.set_columns(table.column_prefix + song_columns(names))
 
 
+def track_color(theme, t: Track, key: str) -> Optional[str]:
+    """A cell's own text colour (2.3): the Quality column in the quality's colour (gold for
+    Hi-Res Lossless, the accent for Lossless, grey for lossy, unless the theme sets them)."""
+    if key == "quality" and not getattr(t, "missing", False):
+        return theme.c(themes_mod.QUALITY_COLOR_KEYS[themes_mod.quality_kind(t)])
+    return None
+
+
 def track_tip(t: Track, key: str) -> str:
     """The tooltip of a cell: the Quality column's resolution ("24-bit/96 kHz")."""
     if key == "quality" and not getattr(t, "missing", False):
@@ -290,9 +358,10 @@ def track_tip(t: Track, key: str) -> str:
 
 # --------------------------------------------------------------- albums ---
 def album_menu(app, album: dict) -> tk.Menu:
-    """The menu of an album card (right click, 2.2): Play, Shuffle, Play Next, Add to
-    Queue, then Acquire Metadata… (the MusicBrainz window for the album, as the album
-    page's button) and Album Properties… (the Properties window for its songs)."""
+    """The menu of an album card (right click, 2.2) and of the album page's "…" button
+    (2.3): Play, Shuffle, Play Next, Add to Queue, then Album Properties… (the Properties
+    window for its songs), Acquire Metadata… (the MusicBrainz window for the album, as the
+    album page's button) and Change Cover… (the Cover window of the album, 2.3)."""
     m = tk.Menu(app.root, tearoff=False)
     name = tr_name(album["title"])  # "Playing from …", as the album page
     paths = [t.path for t in album["tracks"]]  # in track order
@@ -301,8 +370,12 @@ def album_menu(app, album: dict) -> tk.Menu:
     m.add_command(label=tr("Play Next"), command=lambda: app.queue_songs(paths, first=True))
     m.add_command(label=tr("Add to Queue"), command=lambda: app.queue_songs(paths, first=False))
     m.add_separator()
-    m.add_command(label=tr("Acquire Metadata…"), command=lambda: app.album_musicbrainz(album))
     m.add_command(label=tr("Album Properties…"), command=lambda: app.edit_album_info(album))
+    m.add_command(label=tr("Acquire Metadata…"), command=lambda: app.album_musicbrainz(album))
+    first = next((t.path for t in album["tracks"] if not getattr(t, "missing", False)), "")
+    m.add_command(label=tr("Change Cover…"), command=lambda: app.open_cover_window(first))
+    m.add_separator()
+    app.add_label_menu(m, "album", album["key"])  # 2.3
     app.theme_menu(m)
     app.last_menu = m
     return m
@@ -335,7 +408,8 @@ class AlbumsPage(Page):
         self.choose = PillButton(self.empty, t, tr("Choose a music folder…"), command=app.choose_music_folder)
         self.choose.pack()
         self.grid_w = AlbumGrid(self, t, app.covers, app.open_album,
-                                on_context=album_context(app, lambda: self.grid_w))
+                                on_context=album_context(app, lambda: self.grid_w),
+                                label_of=lambda a: app.label_of("album", a["key"]))
         self.albums: List[dict] = []
         self.refresh()
 
@@ -394,16 +468,17 @@ class AlbumPage(Page):
         self.artist_l: Optional[tk.Label] = None  # the first link
         self.meta_l = label(info, t, "", "body", fg="text2")
         self.meta_l.pack(anchor="w", pady=(2, 14))
-        btns = frame(info, t)
-        btns.pack(anchor="w")
-        PillButton(btns, t, tr("Play"), icon="play", command=lambda: self._play(False)).pack(side="left")
-        PillButton(btns, t, tr("Shuffle"), icon="shuffle", command=lambda: self._play(True)).pack(side="left",
-                                                                                                  padx=(10, 0))
+        btns = FlowRow(info, t)  # wraps on a narrow page instead of hiding the last buttons (2.3)
+        btns.pack(anchor="w", fill="x")
+        play_b = PillButton(btns, t, tr("Play"), icon="play", command=lambda: self._play(False))
+        shuffle_b = PillButton(btns, t, tr("Shuffle"), icon="shuffle", command=lambda: self._play(True))
         self.edit_b = PillButton(btns, t, tr("Album Properties…"), kind="plain", command=self.edit_info)
-        self.edit_b.pack(side="left", padx=(10, 0))
         self.mb_b = PillButton(btns, t, tr("Acquire Metadata…"), kind="plain",
                                command=self.musicbrainz)
-        self.mb_b.pack(side="left", padx=(10, 0))
+        # 2.3: the album's menu (as an album card's right-click menu, with Change Cover…)
+        self.more_b = IconButton(btns, t, "dots", command=self.show_menu, size=32, icon_size=18,
+                                 tooltip=lambda: tr("More"))
+        btns.add(play_b, shuffle_b, self.edit_b, self.mb_b, self.more_b)
         # the columns the user chose for album pages (the track number first by default),
         # sortable; in track order at first
         self.table = song_table(self, self, kind="album",
@@ -439,6 +514,16 @@ class AlbumPage(Page):
         if self.album is not None:
             return self.app.album_musicbrainz(self.album)
         return None
+
+    def menu(self) -> Optional[tk.Menu]:
+        """The "…" button's menu: the album card's menu (album_menu())."""
+        return album_menu(self.app, self.album) if self.album is not None else None
+
+    def show_menu(self) -> None:
+        m = self.menu()
+        if m is not None:
+            b = self.more_b
+            m.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
 
     def _fill(self) -> None:
         a = self.album
@@ -569,8 +654,10 @@ class GroupPage(Page):
     """Artists, Album Artists, Genres, Years, Composers: a card each (a mosaic of up to
     four of its album covers, the name in bold, "N albums · M songs" in grey), in the
     grouping's order; a click opens its page ("group").  A card's menu (right click)
-    plays it, and on Genres, Composers and Years renames it; on Genres several cards can
-    be selected with Ctrl/Cmd-click and merged ("Merge N genres…")."""
+    plays it, and on Genres, Composers and Years renames it.  On Genres (2.3) the title
+    row has Select: in select mode a click selects a card, and the row shows "N
+    selected", Merge… (two or more), Rename… (one) and Done; Ctrl-click (Cmd-click on
+    macOS) selects without select mode."""
 
     def __init__(self, app, kind: str):
         super().__init__(app)
@@ -581,36 +668,65 @@ class GroupPage(Page):
         self.list_name = self.title
         head, self.title_l, self.sub = self.heading(self, self.title, buttons=False)
         head.pack(fill="x", padx=28, pady=(22, 6))
-        self.merge_b = PillButton(head, t, tr("Merge genres…"), command=lambda: self.merge_selected())
-        self.clear_b = PillButton(head, t, tr("Clear selection"), kind="plain",
-                                  command=lambda: self.grid_w.clear_selection())
+        # the title row's buttons of Genres (2.3)
+        self.select_b = PillButton(head, t, tr("Select"), icon="check", kind="plain", command=self.start_selecting)
+        self.done_b = PillButton(head, t, tr("Done"), command=self.done_selecting)
+        self.rename_b = PillButton(head, t, tr("Rename…"), kind="plain", command=lambda: self.rename_selected())
+        self.merge_b = PillButton(head, t, tr("Merge…"), kind="plain", command=lambda: self.merge_selected())
+        self.count_l = label(head, t, "", "body", fg="text2")
         self.items: List[dict] = []
         self.grid_w = AlbumGrid(self, t, app.covers, self._open, on_context=self._context,
                                 multi=kind == "genres", on_selection=self._selection,
-                                empty_text=tr(GROUP_TEXTS[kind][0]))
+                                empty_text=tr(GROUP_TEXTS[kind][0]),
+                                label_of=lambda a: app.label_of(app.GROUP_LABEL_KINDS[kind], a.get("name", "")))
         self.grid_w.pack(fill="both", expand=True)
+        self.grid_w.canvas.bind("<Escape>", lambda e: self.done_selecting())
         self.refresh()
+
+    def show(self, **kw) -> None:
+        if self.grid_w.select_mode or self.grid_w.selected:  # a page shown again starts without a selection
+            self.done_selecting()
 
     def refresh(self) -> None:
         self.items = library_groups(self.app, self.kind)
         self.grid_w.set_albums([group_card(self.app, self.kind, g) for g in self.items], keep=True)
         self._selection()
 
+    def selecting(self) -> bool:
+        """The title row shows the selection's buttons: in select mode, or with cards
+        selected by Ctrl/Cmd-click."""
+        return self.grid_w.multi and (self.grid_w.select_mode or bool(self.grid_w.selected))
+
     def _selection(self) -> None:
         n = len(self.grid_w.selected)
         text = plural(len(self.items), self.noun) if self.items else ""
-        if self.kind == "genres" and self.items:
-            text += " · " + (tr("{n} selected", n=n) if n else
-                             tr("{mod}-click genres to select several and merge them", mod=MOD_NAME))
+        if self.grid_w.multi and self.items:
+            text += " · " + (tr("Click genres to select them") if self.grid_w.select_mode else
+                             tr("Press Select or {mod}-click genres to merge or rename them", mod=MOD_NAME))
         self.sub.configure(text=text)
-        if n >= 2:
-            self.merge_b.set(text=tr("Merge {n} genres…", n=n))
-            if not self.merge_b.winfo_ismapped():
-                self.clear_b.pack(side="right")
-                self.merge_b.pack(side="right", padx=(0, 10))
-        else:
-            self.merge_b.pack_forget()
-            self.clear_b.pack_forget()
+        for w in (self.select_b, self.done_b, self.rename_b, self.merge_b, self.count_l):
+            w.pack_forget()
+        if self.selecting():
+            self.count_l.configure(text=tr("{n} selected", n=n))
+            self.merge_b.set(enabled=n >= 2)
+            self.rename_b.set(enabled=n == 1)
+            self.done_b.pack(side="right")
+            self.rename_b.pack(side="right", padx=(0, 10))
+            self.merge_b.pack(side="right", padx=(0, 10))
+            self.count_l.pack(side="right", padx=(0, 14))
+        elif self.grid_w.multi and self.items:
+            self.select_b.pack(side="right")
+
+    def start_selecting(self) -> None:
+        """Select: a click on a card now selects it."""
+        self.grid_w.set_select_mode(True)
+        self._selection()
+
+    def done_selecting(self) -> None:
+        """Done (or Esc): out of select mode, nothing selected."""
+        self.grid_w.set_select_mode(False)
+        self.grid_w.clear_selection()
+        self._selection()
 
     def _open(self, card: dict) -> None:
         self.app.show_page("group", kind=self.kind, group=card["name"])
@@ -640,12 +756,25 @@ class GroupPage(Page):
         return m
 
     def merge_selected(self, target: Optional[str] = None, confirm: bool = True):
+        """Merge… (or Merge N genres…): the selected genres become one; its name is asked
+        for in one dialog (the selected genres to choose from, the biggest first, or a new
+        name), then the number of files is confirmed."""
         names = [c["name"] for c in self.grid_w.selected_items()]
         if len(names) < 2:
             return None
         job = merge_groups(self.app, self.kind, names, target, confirm)
         if job is not None:
-            self.grid_w.clear_selection()
+            self.done_selecting()
+        return job
+
+    def rename_selected(self, new: Optional[str] = None, confirm: bool = True):
+        """Rename… with exactly one genre selected."""
+        names = [c["name"] for c in self.grid_w.selected_items()]
+        if len(names) != 1:
+            return None
+        job = rename_group(self.app, self.kind, names[0], new, confirm)
+        if job is not None:
+            self.done_selecting()
         return job
 
 
@@ -665,7 +794,8 @@ class GroupItemPage(Page):
                                  tooltip=lambda: tr("More"))
         self.more_b.pack(side="right", padx=(0, 10))
         self.grid_w = AlbumGrid(self, t, app.covers, app.open_album,
-                                on_context=album_context(app, lambda: self.grid_w))
+                                on_context=album_context(app, lambda: self.grid_w),
+                                label_of=lambda a: app.label_of("album", a["key"]))
         self.table = song_table(self, self, kind="songs",
                                 on_activate=lambda i: app.play_list(self.table.rows, i, self.list_name))
 
@@ -741,6 +871,9 @@ def group_menu(app, kind: str, name: str, here: bool = False) -> tk.Menu:
         m.add_command(label=tr(RENAME_TEXTS[kind]["menu"]), command=lambda: rename_group(app, kind, name))
         if kind == "genres":
             m.add_command(label=tr("Merge into…"), command=lambda: merge_groups(app, kind, [name]))
+    if kind in app.GROUP_LABEL_KINDS:  # 2.3
+        m.add_separator()
+        app.add_label_menu(m, app.GROUP_LABEL_KINDS[kind], name)
     app.theme_menu(m)
     app.last_menu = m
     return m
@@ -947,7 +1080,8 @@ class SearchPage(Page):
         self.grid_box.pack(fill="x")
         self.grid_box.pack_propagate(False)
         self.grid_w = AlbumGrid(self.grid_box, t, app.covers, app.open_album,
-                                on_context=album_context(app, lambda: self.grid_w))
+                                on_context=album_context(app, lambda: self.grid_w),
+                                label_of=lambda a: app.label_of("album", a["key"]))
         self.grid_w.pack(fill="both", expand=True)
         self.song_head = label(self, t, tr("Songs"), "h2")
         self.song_head.pack(anchor="w", padx=28, pady=(4, 2))
@@ -1193,6 +1327,7 @@ class LyricsView(tk.Canvas):
         self.total = 1.0
         self.away = False      # the user scrolled the current line out of view
         self.followed = -2     # the line scrolled to last (-2: none yet)
+        self.wide = False      # Lyrics only (2.3): the lines centred across the whole page
         self._anim: Optional[str] = None
         self.bind("<Configure>", lambda e: self.layout())
         self.bind("<Button-1>", self._click)
@@ -1226,11 +1361,13 @@ class LyricsView(tk.Canvas):
             return
         width = max(100, W - 2 * self.PAD)
         y = self.PAD / 2
+        # Lyrics only (2.3): each line centred on the page
+        x, anchor, justify = (W / 2, "n", "center") if self.wide else (self.PAD, "nw", "left")
         if self.kind == lyrics_mod.SYNCED:
             bold, normal = t.f("lyrics_b"), t.f("lyrics")
             for i, (_, line) in enumerate(self.entries):
-                item = self.create_text(self.PAD, y, text=line or " ", anchor="nw", width=width, font=bold,
-                                        fill=t.c("text2"), tags=("line",))
+                item = self.create_text(x, y, text=line or " ", anchor=anchor, width=width, font=bold,
+                                        fill=t.c("text2"), tags=("line",), justify=justify)
                 box = self.bbox(item)
                 h = (box[3] - box[1]) if box else bold.metrics("linespace")
                 if i != self.current:
@@ -1243,8 +1380,9 @@ class LyricsView(tk.Canvas):
                 y += h + self.GAP
         else:
             text = self.plain if self.kind == lyrics_mod.PLAIN else tr("This song is instrumental.")
-            item = self.create_text(self.PAD, y, text=text, anchor="nw", width=width, font=t.f("plain"),
-                                    fill=t.c("text") if self.kind == lyrics_mod.PLAIN else t.c("text2"))
+            item = self.create_text(x, y, text=text, anchor=anchor, width=width, font=t.f("plain"),
+                                    fill=t.c("text") if self.kind == lyrics_mod.PLAIN else t.c("text2"),
+                                    justify=justify)
             box = self.bbox(item)
             y += (box[3] - box[1]) if box else 0
         self.total = y + self.PAD + (H * 2 / 3 if self.kind == lyrics_mod.SYNCED else 0)
@@ -1359,10 +1497,13 @@ class LyricsView(tk.Canvas):
 
 
 class DetailsView(tk.Canvas):
-    """Now Playing's Details: two columns, the labels grey on the left, scrollable.  The
-    artists of the Artist row are links (`on_artist(name)`)."""
+    """Now Playing's Details: two columns, the labels grey on the left, as one block centred
+    in the view (2.3; a long value such as the file's path wraps within it), scrollable
+    when it is taller than the view.  The artists of the Artist row are links
+    (`on_artist(name)`)."""
 
     PAD = 28
+    MAX_VALUE_W = 420  # the values' column at most this wide (pixels)
 
     def __init__(self, master, theme: Theme, on_artist: Optional[Callable[[str], None]] = None):
         super().__init__(master, highlightthickness=0, bd=0)
@@ -1373,6 +1514,7 @@ class DetailsView(tk.Canvas):
         self.hover: Optional[int] = None
         self.offset = 0.0
         self.total = 1.0
+        self.block = (0.0, 0.0, 0.0, 0.0)  # where the rows are drawn (x0, y0, x1, y1), for the tests
         theme.reg(self, bg="bg")
         self.bind("<Configure>", lambda e: self.layout())
         self.bind("<Motion>", lambda e: self._hov(self._link_at(e)))
@@ -1428,25 +1570,35 @@ class DetailsView(tk.Canvas):
     def layout(self) -> None:
         t = self.theme
         self.delete("all")
-        W = self.winfo_width()
+        W, H = self.winfo_width(), self.winfo_height()
         if W <= 1:
             return
         lf, vf = t.f("body"), t.f("body")
         lw = max([lf.measure(tr(k)) for k, _ in self.rows] or [80]) + 18
-        y = self.PAD / 2
+        # the values' column: as wide as the longest value, at most MAX_VALUE_W and the room left
+        widest = max([vf.measure(line) for _, v in self.rows for line in str(v).splitlines()] or [80])
+        vw = max(80, min(widest, self.MAX_VALUE_W, W - self.PAD * 2 - lw))
+        x0 = max(self.PAD, (W - lw - vw) / 2)
+        y = 0.0
         self.links, self.hover = [], None
         for k, v in self.rows:
-            self.create_text(self.PAD, y, text=tr(k), anchor="nw", font=lf, fill=t.c("text2"))
+            self.create_text(x0, y, text=tr(k), anchor="nw", font=lf, fill=t.c("text2"), tags=("block",))
             if k == "Artist" and self.artists and v == ", ".join(self.artists):
-                h = self._artist_row(self.PAD + lw, y, W - self.PAD)
+                h = self._artist_row(x0 + lw, y, x0 + lw + vw)
             else:
-                item = self.create_text(self.PAD + lw, y, text=v, anchor="nw", font=vf, fill=t.c("text"),
-                                        width=max(80, W - self.PAD * 2 - lw))
+                item = self.create_text(x0 + lw, y, text=v, anchor="nw", font=vf, fill=t.c("text"), width=vw,
+                                        tags=("block",))
                 box = self.bbox(item)
                 h = (box[3] - box[1]) if box else 0
             y += max(h, lf.metrics("linespace")) + 9
-        self.total = y + self.PAD
-        self.configure(scrollregion=(0, 0, W, max(self.total, self.winfo_height())))
+        block = max(0.0, y - 9)
+        # in the middle of the view; from the top (and scrolling) when it is taller
+        top = (H - block) / 2 if block + self.PAD <= H else self.PAD / 2
+        self.move("all", 0, top)
+        self.links = [(a, b + top, c, d + top, n) for a, b, c, d, n in self.links]
+        self.block = (x0, top, x0 + lw + vw, top + block)
+        self.total = top + block + self.PAD / 2
+        self.configure(scrollregion=(0, 0, W, max(self.total, H)))
         self._scroll_to(self.offset)
 
     def _scroll_to(self, offset: float) -> None:
@@ -1455,16 +1607,72 @@ class DetailsView(tk.Canvas):
         self.yview_moveto(self.offset / max(self.total, H, 1))
 
 
+from .player_theme import draw_icon  # noqa: E402
+
+LYRICS_WIDE_EXTRA = 4   # Lyrics only: the lyrics this many pixels larger than the chosen size (2.3)
+SWIPE_PX = 60           # a sideways drag this long turns Now Playing's left half (2.3)
+DRAG_START_PX = 5       # a press that moves further is a drag, not a click
+
+
+class BackLink(tk.Canvas):
+    """Now Playing's way back (2.3): a chevron and the name of the page it returns to, in
+    the accent colour, underlined under the pointer; a click calls `command`."""
+
+    H = 28
+
+    def __init__(self, master, theme: Theme, command: Callable[[], None]):
+        super().__init__(master, height=self.H, width=40, highlightthickness=0, bd=0, cursor="hand2")
+        self.theme, self.command, self.text, self.hover = theme, command, "", False
+        theme.reg(self, bg="bg")
+        theme.on_change(self.redraw, self)
+        self.bind("<Enter>", lambda e: self._hov(True))
+        self.bind("<Leave>", lambda e: self._hov(False))
+        self.bind("<ButtonRelease-1>", self._click)
+
+    def _hov(self, on: bool) -> None:
+        self.hover = on
+        self.redraw()
+
+    def _click(self, e) -> None:
+        if 0 <= e.x <= int(self.cget("width")) and 0 <= e.y <= self.H:
+            self.command()
+
+    def set(self, text: str) -> None:
+        if text != self.text:
+            self.text = text
+            self.redraw()
+
+    def redraw(self) -> None:
+        t = self.theme
+        font = t.f("body_b")
+        w = 24 + font.measure(self.text) + 6
+        self.configure(width=w)
+        self.delete("all")
+        color = t.c("accent")
+        draw_icon(self, "back", 10, self.H / 2, 16, color)
+        self.create_text(24, self.H / 2, text=self.text, anchor="w", fill=color, font=font, tags=("label",))
+        if self.hover:
+            y = self.H / 2 + font.metrics("linespace") / 2
+            self.create_line(24, y, w - 6, y, fill=color)
+
+
 class NowPlayingPage(Page):
     """The cover with the title and "Artist — Album" under it, as one block in the middle of
     the left half (the album name opens the album, each artist name that artist, the cover
     the Cover window);
     on the right a switch Lyrics | Up Next | Details (`app.np_tab`).  Lyrics: a label
-    ("Synced lyrics" / "Lyrics (not synced)", where they come from), A− / A+ and the lyrics;
-    without lyrics "Get lyrics".  With the lyrics hidden (the Lyrics button on this page,
-    `app.lyrics_hidden`) only the block, in the middle of the page."""
+    ("Synced lyrics" / "Lyrics (not synced)", where they come from), A− / A+, Lyrics only
+    and the lyrics; without lyrics "Get lyrics".  With the lyrics hidden (the Lyrics button
+    on this page, `app.lyrics_hidden`) only the block, in the middle of the page.
+
+    2.3: an instrumental song's Lyrics view is the block in the middle too, with
+    "Instrumental" under it (`mode()`); Lyrics only (`app.lyrics_wide`) hides the cover and
+    the lyrics fill the page; a sideways drag (or a horizontal scroll) turns the left half
+    to the album's songs (`app.np_side`, two dots under it); a back link at the top left
+    names the page it returns to (`app.back_label()`); Details is one centred block."""
 
     SIZES = (160, 200, 240, 280, 320, 360, 400, 440, 480)
+    SONG_ROW = 36  # the album's songs in the left half (2.3)
 
     def __init__(self, app):
         super().__init__(app)
@@ -1473,10 +1681,27 @@ class NowPlayingPage(Page):
         t.reg(self.art, bg="bg")
         self.links: List[tuple] = []          # (what, x0, y0, x1, y1) on the art canvas
         self.hover_link: Optional[str] = None
+        self.song_rows: List[tuple] = []      # the album's songs shown: (index, x0, y0, x1, y1)
+        self.dots: List[tuple] = []           # the two dots: (side, x0, y0, x1, y1)
+        self.songs_first = 0                  # the first of the album's songs shown (scrolled)
+        self.songs_key: Optional[str] = None  # the album they are of
+        self.songs_hover: Optional[int] = None
+        self.press: Optional[tuple] = None    # where the button went down (x, y), for the swipe
+        self.dragged = False                  # the press moved: no click
+        self.swiped = False                   # this press turned the left half already
         self.art.bind("<Configure>", lambda e: self.draw_art())
         self.art.bind("<Motion>", self._art_motion)
-        self.art.bind("<Leave>", lambda e: self._art_hover(None))
+        self.art.bind("<Leave>", lambda e: self._art_leave())
+        self.art.bind("<ButtonPress-1>", self._art_press)
+        self.art.bind("<B1-Motion>", self._art_drag)
         self.art.bind("<ButtonRelease-1>", self._art_click)
+        self.art.bind("<Double-Button-1>", self._art_double)
+        bind_wheel(self.art, self._art_wheel)
+        self.art.bind("<Shift-MouseWheel>", lambda e: self.swipe(-1 if e.delta > 0 else 1))
+        if self.art.tk.call("tk", "windowingsystem") == "x11":
+            # a sideways scroll (X11 buttons 6 and 7, which Tk reports as Shift-Button-4/5)
+            self.art.bind("<Shift-Button-4>", lambda e: self.swipe(-1))
+            self.art.bind("<Shift-Button-5>", lambda e: self.swipe(1))
         self.right = frame(self, t)
         self.switch = Segmented(self.right, t, NP_TABS, app.set_np_tab, app.np_tab)
         self.switch.pack(side="top", pady=(18, 6))
@@ -1490,6 +1715,10 @@ class NowPlayingPage(Page):
         self.kind_l.pack(side="left")
         self.source_l = label(head, t, "", font="small", fg="text2")
         self.source_l.pack(side="left", padx=(8, 0))
+        # Lyrics only (2.3): the cover goes and the lyrics fill the page; on while they do
+        self.wide_btn = IconButton(head, t, "expand", command=app.toggle_lyrics_wide, size=28, icon_size=15,
+                                   tooltip=lambda: tr("Lyrics only"))
+        self.wide_btn.pack(side="right", padx=(6, 0))
         self.bigger = PillButton(head, t, "A+", kind="plain", height=26, command=lambda: app.lyrics_size_step(1))
         self.bigger.pack(side="right")
         self.smaller = PillButton(head, t, "A−", kind="plain", height=26, command=lambda: app.lyrics_size_step(-1))
@@ -1511,7 +1740,9 @@ class NowPlayingPage(Page):
         self.queue_list = SongList(self.upnext_pane, t, [Column("title", "", 200, True, kind="two", key2="artist")],
                                    lambda r, k: r.display_title if k == "title" else tr_name(r.display_artist),
                                    header=False, zebra=False, row_height=48, on_activate=app.jump_to,
-                                   empty_text=tr("Nothing comes after this song."))
+                                   empty_text=tr("Nothing comes after this song."), on_move=app.move_in_up_next,
+                                   on_context=lambda i, e: app.up_next_menu(i).tk_popup(e.x_root, e.y_root),
+                                   label_of=lambda r: app.label_of("song", r.path))
         self.queue_list.pack(side="top", fill="both", expand=True, padx=(12, 8))
         self.queue_paths: Optional[list] = None
         # Details
@@ -1521,6 +1752,8 @@ class NowPlayingPage(Page):
         self.kind = ""
         self.label = ("", "")
         self.path: Optional[str] = None
+        # the way back, at the top left (2.3): "‹ All Songs", "‹ Search", "‹ <album>"…
+        self.back_link = BackLink(self, t, command=app.go_back)
         app.covers.listeners.append(lambda key, size: self.draw_art())
         t.on_change(self.draw_art)
         self._place()
@@ -1528,6 +1761,18 @@ class NowPlayingPage(Page):
     # ---- state -------------------------------------------------------------
     def show(self, **kw) -> None:
         self.song_changed(force=True)
+        self.update_back()
+
+    def update_back(self) -> None:
+        """The back link at the top left, naming the page it returns to; none when there
+        is no page to go back to (2.3)."""
+        text = self.app.back_label()
+        if text:
+            self.back_link.set(text)
+            self.back_link.place(x=16, y=10)
+            tk.Misc.tkraise(self.back_link)  # (Canvas.tkraise raises canvas items)
+        else:
+            self.back_link.place_forget()
 
     def song_changed(self, force: bool = False) -> None:
         path = self.app.current
@@ -1557,8 +1802,25 @@ class NowPlayingPage(Page):
         self.draw_art()
         self.update_position(self.app.position())
 
+    def mode(self) -> str:
+        """How the page is laid out: "none" (nothing plays), "centred" (only the block in the
+        middle: the lyrics hidden), "instrumental" (an instrumental song's Lyrics: the
+        block in the middle, the switch above it), "wide" (Lyrics only: the lyrics fill
+        the page) or "halves" (2.3)."""
+        if self.path is None:
+            return "none"
+        if self.app.lyrics_hidden:
+            return "centred"
+        if self.app.np_tab == "lyrics":
+            if self.kind == lyrics_mod.INSTRUMENTAL:
+                return "instrumental"
+            if self.kind and self.app.lyrics_wide:
+                return "wide"
+        return "halves"
+
     def showing_right(self) -> bool:
-        return self.path is not None and not self.app.lyrics_hidden
+        """The right half (the switch and Lyrics, Up Next or Details) is shown."""
+        return self.mode() in ("halves", "wide")
 
     def showing_lyrics(self) -> bool:
         return self.showing_right() and self.app.np_tab == "lyrics" and bool(self.kind)
@@ -1570,10 +1832,12 @@ class NowPlayingPage(Page):
         self.update_position(self.app.position())
 
     def size_changed(self) -> None:
-        """A− / A+: the lyrics fonts have a new size."""
+        """A− / A+ or Lyrics only: the lyrics fonts have a new size."""
         size = self.app.state.lyrics_size
         self.smaller.set(enabled=size > playerstate.LYRICS_SIZE_MIN)
         self.bigger.set(enabled=size < playerstate.LYRICS_SIZE_MAX)
+        self.wide_btn.set(on=self.app.lyrics_wide)
+        self.lyrics.wide = self.mode() == "wide"
         self.lyrics.layout()
 
     def _away(self, away: bool) -> None:
@@ -1583,13 +1847,36 @@ class NowPlayingPage(Page):
         else:
             self.back_btn.place_forget()
 
+    def _raise_back(self) -> None:
+        if self.back_link.winfo_manager():
+            tk.Misc.tkraise(self.back_link)
+
     def _place(self) -> None:
-        if not self.showing_right():
-            self.right.place_forget()
+        mode = self.mode()
+        wide = mode == "wide"
+        if self.lyrics.wide != wide:
+            self.lyrics.wide = wide
+            self.lyrics.layout()
+        if mode in ("none", "centred", "instrumental"):
             self.art.place(relx=0, rely=0, relwidth=1, relheight=1)
+            if mode == "instrumental":  # only the switch, above the block (Up Next and Details stay at hand)
+                self.body.pack_forget()
+                self.right.place_forget()  # (forgets relwidth and relheight: the switch's own size)
+                self.right.place(relx=0.5, rely=0, anchor="n")
+                tk.Misc.tkraise(self.right)
+            else:
+                self.right.place_forget()
+            self._raise_back()
             return
-        self.art.place(relx=0, rely=0, relwidth=0.5, relheight=1)
-        self.right.place(relx=0.5, rely=0, relwidth=0.5, relheight=1)
+        if not self.body.winfo_manager():
+            self.body.pack(side="top", fill="both", expand=True)
+        if wide:  # Lyrics only: no cover, the lyrics use the whole page
+            self.art.place_forget()
+            self.right.place(relx=0, rely=0, relwidth=1, relheight=1, anchor="nw")
+        else:
+            self.art.place(relx=0, rely=0, relwidth=0.5, relheight=1)
+            self.right.place(relx=0.5, rely=0, relwidth=0.5, relheight=1, anchor="nw")
+        self._raise_back()
         tab = self.app.np_tab
         for pane, on in ((self.lyrics_pane, tab == "lyrics"), (self.upnext_pane, tab == "upnext"),
                          (self.details, tab == "details")):
@@ -1615,13 +1902,14 @@ class NowPlayingPage(Page):
             self.refresh_details()
 
     # ---- Up Next and Details -----------------------------------------------------
-    def refresh_queue(self) -> None:
+    def refresh_queue(self, keep: bool = False) -> None:
+        """`keep`: the scroll position and the selected song stay (Up Next was edited)."""
         app = self.app
         q = app.queue
-        paths = [p for p in (q.up_next(50) if q is not None else []) if p in app.by_path]
+        paths = app._shown_up_next()
         if paths != self.queue_paths:
             self.queue_paths = paths
-            self.queue_list.set_rows([app.by_path[p] for p in paths])
+            self.queue_list.set_rows([app.by_path[p] for p in paths], keep=keep)
         self.source.configure(text=tr("Playing from {name}", name=app.context_name)
                               if q is not None and app.context_name else "")
 
@@ -1682,9 +1970,11 @@ class NowPlayingPage(Page):
 
     # ---- the cover block ---------------------------------------------------------
     def draw_art(self) -> None:
+        """The left half (or the whole page in the centred layouts): the cover block, or
+        the album's songs (`app.np_side`, 2.3), and the two dots that switch between them."""
         t, c = self.theme, self.art
         c.delete("all")
-        self.links = []
+        self.links, self.song_rows, self.dots = [], [], []
         W, H = c.winfo_width(), c.winfo_height()
         if W <= 1:
             return
@@ -1692,15 +1982,29 @@ class NowPlayingPage(Page):
         if trk is None:
             c.create_text(W / 2, H / 2, text=tr("Nothing is playing"), fill=t.c("text2"), font=t.f("h2"))
             return
-        text_h = 80  # the title and "Artist — Album" under the cover, one block in the middle
-        room = min(W - 80, H - 80 - text_h)
-        size = max([s for s in self.SIZES if s <= room] or [self.SIZES[0]])
         album = self.app.album_of(trk)
+        if album is not None and self.app.np_side == "songs":
+            self._draw_songs(album, W, H)
+        else:
+            self._draw_block(trk, album, W, H)
+        if album is not None:
+            self._draw_dots(W, H)
+        self._underline()
+
+    def _draw_block(self, trk: Track, album: Optional[dict], W: int, H: int) -> None:
+        """The cover with the title and "Artist — Album" under it (and "Instrumental" for an
+        instrumental song's Lyrics), one block in the middle."""
+        t, c = self.theme, self.art
+        instrumental = self.mode() == "instrumental"
+        text_h = 80 + (26 if instrumental else 0)  # the lines under the cover
+        top = 56 if instrumental else 0  # below the switch
+        room = min(W - 80, H - top - 80 - text_h)
+        size = max([s for s in self.SIZES if s <= room] or [self.SIZES[0]])
         key = album["key"] if album else trk.path
         paths = [x.path for x in album["tracks"]] if album else [trk.path]
         img = self.app.covers.get(key, paths, size)
         x = (W - size) / 2
-        y = (H - size - text_h) / 2
+        y = top + (H - top - size - text_h) / 2
         draw_cover(c, t, img, x, y, size)
         self.links.append(("cover", x, y, x + size, y + size, None))  # the Cover window
         fit: dict = {}
@@ -1715,20 +2019,104 @@ class NowPlayingPage(Page):
             if what:
                 self.links.append((what, left, ty - h / 2, left + font.measure(text), ty + h / 2, name))
             left += font.measure(text)
-        self._underline()
+        if instrumental:
+            c.create_text(W / 2, ty + 28, text=tr("Instrumental"), fill=t.c("text2"), font=t.f("body"),
+                          tags=("instrumental",))
+
+    def _draw_songs(self, album: dict, W: int, H: int) -> None:
+        """The album's songs in track order: number (the speaker for the song playing, whose
+        title is bold), title, time; hover; a double-click plays one with the album as the
+        list (2.3)."""
+        t, c = self.theme, self.art
+        rows = list(album["tracks"])
+        if album["key"] != self.songs_key:  # another album: from the top, with the song playing in view
+            self.songs_key, self.songs_first = album["key"], 0
+            self._songs_to_current(rows, H)
+        width = min(W - 80, 560)
+        x0 = (W - width) / 2
+        fit: dict = {}
+        top = 52 + (40 if self.mode() == "instrumental" else 0)  # under the back link (and the switch)
+        c.create_text(x0 + 10, top, text=fit_text(t.f("h2"), tr_name(album["title"]), width - 20, fit), anchor="nw",
+                      fill=t.c("text"), font=t.f("h2"))
+        list_top = top + 44
+        shown = self._songs_shown(H - (top - 52))
+        self.songs_first = min(max(self.songs_first, 0), max(0, len(rows) - shown))
+        body, bold = t.f("body"), t.f("body_b")
+        R = self.SONG_ROW
+        for k in range(shown):
+            i = self.songs_first + k
+            if i >= len(rows):
+                break
+            r = rows[i]
+            y0 = list_top + k * R
+            mid = y0 + R / 2
+            if i == self.songs_hover:
+                round_rect(c, x0, y0 + 1, x0 + width, y0 + R - 1, 6, fill=t.c("hover"), outline="")
+            playing = r.path == self.path
+            if playing:
+                draw_icon(c, "speaker", x0 + 22, mid, 13, t.c("accent"))
+            elif r.track:
+                c.create_text(x0 + 30, mid, text=str(r.track), anchor="e", fill=t.c("text2"), font=body)
+            when = fmt_time(r.duration) if r.duration else ""
+            c.create_text(x0 + width - 12, mid, text=when, anchor="e", fill=t.c("text2"), font=body)
+            room = width - 44 - body.measure(when) - 28
+            c.create_text(x0 + 44, mid, text=fit_text(bold if playing else body, r.display_title, room, fit),
+                          anchor="w", fill=t.c("text"), font=bold if playing else body,
+                          tags=("song", "playing") if playing else ("song",))
+            self.song_rows.append((i, x0, y0, x0 + width, y0 + R))
+
+    def _songs_shown(self, H: int) -> int:
+        """How many of the album's songs fit between the album's name and the dots."""
+        return max(1, int((H - 52 - 44 - 44) // self.SONG_ROW))
+
+    def _songs_to_current(self, rows: List[Track], H: int) -> None:
+        i = next((k for k, r in enumerate(rows) if r.path == self.path), 0)
+        shown = self._songs_shown(H)
+        if i >= self.songs_first + shown:
+            self.songs_first = i - shown + 1
+
+    def _draw_dots(self, W: int, H: int) -> None:
+        """Two dots at the bottom: the cover, the album's songs; the one shown is filled."""
+        t, c = self.theme, self.art
+        y = H - 22
+        for k, side in enumerate(("cover", "songs")):
+            x = W / 2 + (k - 0.5) * 18
+            on = self.app.np_side == side
+            r = 4
+            c.create_oval(x - r, y - r, x + r, y + r, fill=t.c("text") if on else t.c("disabled"), outline="",
+                          tags=("dot", side))
+            self.dots.append((side, x - 9, y - 10, x + 9, y + 10))
 
     def _link_at(self, x: float, y: float) -> Optional[int]:
         return next((i for i, (_, x0, y0, x1, y1, _) in enumerate(self.links) if x0 <= x <= x1 and y0 <= y <= y1),
                     None)
 
+    def _song_at(self, x: float, y: float) -> Optional[int]:
+        return next((i for i, x0, y0, x1, y1 in self.song_rows if x0 <= x <= x1 and y0 <= y <= y1), None)
+
+    def _dot_at(self, x: float, y: float) -> Optional[str]:
+        return next((side for side, x0, y0, x1, y1 in self.dots if x0 <= x <= x1 and y0 <= y <= y1), None)
+
     def _art_motion(self, e) -> None:
         self._art_hover(self._link_at(e.x, e.y))
+        song = self._song_at(e.x, e.y)
+        if song != self.songs_hover:
+            self.songs_hover = song
+            self.draw_art()
+        if self.hover_link is None:
+            self.art.configure(cursor="hand2" if self._dot_at(e.x, e.y) else "")
 
     def _art_hover(self, i: Optional[int]) -> None:
         if i != self.hover_link:
             self.hover_link = i
             self.art.configure(cursor="hand2" if i is not None else "")
             self._underline()
+
+    def _art_leave(self) -> None:
+        self._art_hover(None)
+        if self.songs_hover is not None:
+            self.songs_hover = None
+            self.draw_art()
 
     def _underline(self) -> None:
         """The artist or album name under the pointer is underlined (not the cover)."""
@@ -1738,7 +2126,41 @@ class NowPlayingPage(Page):
             _, x0, _, x1, y1, _ = self.links[i]
             self.art.create_line(x0, y1 - 1, x1, y1 - 1, fill=self.theme.c("text2"), tags="underline")
 
+    # ---- the swipe (2.3) ------------------------------------------------------------
+    def _art_press(self, e) -> None:
+        self.press, self.dragged, self.swiped = (e.x, e.y), False, False
+
+    def _art_drag(self, e) -> None:
+        if self.press is None:
+            return
+        dx, dy = e.x - self.press[0], e.y - self.press[1]
+        if abs(dx) > DRAG_START_PX or abs(dy) > DRAG_START_PX:
+            self.dragged = True
+        if not self.swiped and abs(dx) > SWIPE_PX and abs(dx) > abs(dy):
+            self.swiped = True  # one turn per drag, either way
+            self.app.set_np_side("cover" if self.app.np_side == "songs" else "songs")
+
+    def swipe(self, direction: int) -> None:
+        """A sideways scroll or trackpad swipe: to the right (1) the album's songs, to the
+        left (-1) the cover again."""
+        if self.path is not None:
+            self.app.set_np_side("songs" if direction > 0 else "cover")
+
+    def _art_wheel(self, n: int) -> None:
+        if self.app.np_side != "songs" or not self.song_rows:
+            return
+        self.songs_first += n * 3
+        self.draw_art()
+
     def _art_click(self, e) -> None:
+        dragged, self.press = self.dragged, None
+        self.dragged = False
+        if dragged:
+            return  # a drag (or a swipe) is not a click
+        side = self._dot_at(e.x, e.y)
+        if side is not None:
+            self.app.set_np_side(side)
+            return
         i = self._link_at(e.x, e.y)
         trk = self.app.track(self.path) if self.path else None
         if i is None or trk is None:
@@ -1752,6 +2174,19 @@ class NowPlayingPage(Page):
             album = self.app.album_of(trk)
             if album is not None:
                 self.app.open_album(album)
+
+    def _art_double(self, e) -> None:
+        self._art_press(e)  # (a second press soon after a click comes here, not to _art_press)
+        i = self._song_at(e.x, e.y)
+        if i is not None:
+            self.play_song(i)
+
+    def play_song(self, i: int) -> None:
+        """The album's song i (track order) plays, with the album as the list."""
+        trk = self.app.track(self.path) if self.path else None
+        album = self.app.album_of(trk) if trk is not None else None
+        if album is not None and 0 <= i < len(album["tracks"]):
+            self.app.play_list(list(album["tracks"]), i, tr_name(album["title"]))
 
     # ---- every tick ----------------------------------------------------------------
     def update_position(self, seconds: float) -> None:
@@ -1821,24 +2256,53 @@ class ThemeEditor(tk.Frame):
         grid = frame(self, t)
         grid.pack(anchor="w", pady=(10, 0))
         self.swatches: Dict[str, tk.Canvas] = {}
+        self.values: Dict[str, tk.Label] = {}      # the hex value under each label
+        self.resets: Dict[str, PillButton] = {}    # More colours: Reset, for each colour the theme sets
+        all_colors = themes.colors(theme)
         for i, key in enumerate(themes.COLOR_KEYS):
-            cell = frame(grid, t)
-            cell.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 28), pady=4)
-            sw = tk.Canvas(cell, width=30, height=30, highlightthickness=0, bd=0, cursor="hand2")
-            t.reg(sw, bg="bg")
-            sw.pack(side="left")
-            value = theme["colors"][key]
-            round_rect(sw, 1, 1, 29, 29, 7, fill=value, outline=t.c("sep"))
-            sw.bind("<Button-1>", lambda e, k=key: self._pick(k))
-            box = frame(cell, t)
-            box.pack(side="left", padx=(10, 0))
-            label(box, t, tr(themes.COLOR_LABELS[key]), "body").pack(anchor="w")
-            label(box, t, value, "small", fg="text2").pack(anchor="w")
-            self.swatches[key] = sw
+            self._swatch_cell(grid, i, key, theme["colors"][key], own)
+        # 2.3: every other colour the app draws; unset, its swatch shows the derived colour
+        label(self, t, tr("More colours"), "body_b").pack(anchor="w", pady=(16, 0))
+        label(self, t, tr("Unless the theme sets them, these follow the colours above. Reset makes a colour follow "
+                          "them again."), "small", fg="text2", wraplength=SettingsPage.HELP_WIDTH - 80,
+              justify="left").pack(anchor="w", pady=(2, 4))
+        more = frame(self, t)
+        more.pack(anchor="w")
+        for i, key in enumerate(themes.EXTRA_COLOR_KEYS):
+            set_here = key in theme["colors"]
+            self._swatch_cell(more, i, key, all_colors[key], own, derived=not set_here)
         self.own = own
 
+    def _swatch_cell(self, grid, i: int, key: str, value: str, own: bool, derived: bool = False) -> None:
+        """A colour of the editor: its swatch (a click changes it), its name and value, and
+        for an extra colour the theme sets, Reset (2.3)."""
+        from . import themes
+
+        t = self.app.theme
+        cell = frame(grid, t)
+        cell.grid(row=i // 2, column=i % 2, sticky="w", padx=(0, 28), pady=4)
+        sw = tk.Canvas(cell, width=30, height=30, highlightthickness=0, bd=0, cursor="hand2")
+        t.reg(sw, bg="bg")
+        sw.pack(side="left")
+        round_rect(sw, 1, 1, 29, 29, 7, fill=value, outline=t.c("sep"))
+        sw.bind("<Button-1>", lambda e, k=key: self._pick(k))
+        box = frame(cell, t)
+        box.pack(side="left", padx=(10, 0))
+        label(box, t, tr(themes.color_label(key)), "body").pack(anchor="w")
+        line = frame(box, t)
+        line.pack(anchor="w")
+        shown = tr("{color} (automatic)", color=value) if derived else value
+        self.values[key] = label(line, t, shown, "small", fg="text2")
+        self.values[key].pack(side="left")
+        if key in themes.EXTRA_COLOR_KEYS and not derived and own:
+            b = PillButton(line, t, tr("Reset"), kind="plain", height=20,
+                           command=lambda k=key: self.app.set_theme_color(self.name, k, None))
+            b.pack(side="left", padx=(8, 0))
+            self.resets[key] = b
+        self.swatches[key] = sw
+
     def _pick(self, key: str) -> None:
-        from tkinter import colorchooser, messagebox
+        from tkinter import messagebox
 
         from . import themes as themes_mod
 
@@ -1855,11 +2319,11 @@ class ThemeEditor(tk.Frame):
                 return
             self.name = name
         theme = app.current_theme()
-        color = key.capitalize() if i18n.language() == "en" else tr(themes_mod.COLOR_LABELS[key])
-        got = colorchooser.askcolor(color=theme["colors"][key], parent=app.root,
-                                    title=f"{theme_label(theme['name'])}: {color}")
-        if got and got[1]:
-            app.set_theme_color(self.name, key, got[1])
+        color = key.capitalize() if i18n.language() == "en" and key in themes_mod.COLOR_KEYS \
+            else tr(themes_mod.color_label(key))
+        got = app.ask_color(themes_mod.colors(theme)[key], f"{theme_label(theme['name'])}: {color}")
+        if got:
+            app.set_theme_color(self.name, key, got)
 
 
 class SettingsPage(Page):
@@ -2120,7 +2584,9 @@ class SettingsPage(Page):
                     (tr("Download lyrics for the whole library…"), app.lyrics_for_library),
                     (tr("Look up the library on MusicBrainz now"), lambda: app.lookup_library(force=True)),
                     (tr("Open the quality checker"), lambda: app.show_page("quality")),
-                    (tr("Clear the play history…"), app.clear_history)]
+                    (tr("Clear the play history…"), app.clear_history),
+                    (tr("Import tab…"), app.import_tab_file),  # 2.3: custom tabs
+                    (tr("Open tabs folder"), app.open_tabs_folder)]
         elif self.group == "Playback":
             acts = [(tr("Equalizer…"), app.open_eq)]
         elif self.group == "Saved results":
@@ -2141,6 +2607,14 @@ class SettingsPage(Page):
             for i, (text, cmd) in enumerate(acts):  # two per row, so they never run off the page
                 PillButton(row, t, text, kind="accent" if i == 0 else "plain", command=cmd).grid(
                     row=i // 2, column=i % 2, sticky="w", padx=(0, 10), pady=(0, 8))
+        if self.group == "Library":  # 2.3: where tab files go, and the files there that are not tabs
+            label(parent, t, tr("Tab files (.json) put into the tabs folder appear in the sidebar and on the "
+                                "Library page."), "small", fg="text2", wraplength=self.HELP_WIDTH,
+                  justify="left").pack(anchor="w", pady=(4, 0))
+            self.tab_note = label(parent, t, app.tab_problems_text(), "small", fg="error",
+                                  wraplength=self.HELP_WIDTH, justify="left")
+            if app.tab_problems:
+                self.tab_note.pack(anchor="w", pady=(4, 0))
 
     # ---- saving ---------------------------------------------------------
     def _set_number(self, name: str, var: tk.StringVar, kind: Optional[str]) -> None:

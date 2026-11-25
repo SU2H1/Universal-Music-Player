@@ -4,10 +4,12 @@
 //!
 //! With the setting `bit_perfect` on, the player sends each song's samples to
 //! the sound device as they are in the file: at the song's own sample rate,
-//! without the equalizer, the volume or resampling, and with the device to
-//! itself where the system allows it (WASAPI exclusive mode on Windows, the
-//! ALSA hardware device on Linux; on macOS the device is switched to the
-//! song's rate).  The engine asks the device what it offers (`Mode`s), `plan()`
+//! without the volume or resampling, and with the device to itself where the
+//! system allows it (WASAPI exclusive mode on Windows, the ALSA hardware device
+//! on Linux; on macOS the device is switched to the song's rate).  Since 2.3 the
+//! equalizer is applied when it is on (in 64-bit float, with TPDF dither of
+//! ±1 LSB when the device takes integers, `dithered_int_sample()`); everything
+//! else stays, and `status_eq(…, true)` says so.  The engine asks the device what it offers (`Mode`s), `plan()`
 //! chooses the output rate and sample format, and `status()` and
 //! `output_label()` give the Playback info's lines.
 //!
@@ -92,7 +94,10 @@ pub const OFF: &str = "Off";
 pub const ON_IDLE: &str = "On";
 pub const BUSY: &str = "The device is in use by another program, so the sound is mixed by the system.";
 pub const LOSSY_NOTE: &str = "The song is decoded from a lossy format, so it is played as decoded.";
-pub const EQ_BYPASSED: &str = "Bypassed while bit-perfect playback is on.";
+/// 2.3: the equalizer works with bit-perfect playback (it was bypassed before).
+pub const EQ_ON: &str = "The equalizer is on, so the samples are changed.";
+pub const EQ_NOTE: &str = "Bit-perfect playback is on: with the equalizer on, the sound is not bit-perfect. \
+                           The device still gets the song's own sample rate.";
 /// The Python app on Windows: miniaudio opens a WASAPI exclusive stream only in the device's Default Format.
 pub const WASAPI_FORMAT_NOTE: &str = "Windows gives the device to this app alone only in the format chosen in its \
                                       Sound settings (the device's Properties, Advanced, Default Format).";
@@ -225,16 +230,42 @@ pub fn rate_reason(song_rate: u32, out_rate: u32) -> String {
     format!("The device cannot play {}, so the song is resampled to {}.", fmt_khz(song_rate), fmt_khz(out_rate))
 }
 
+/// What bit-perfect playback still does while the equalizer changes the samples:
+/// the device at the plan's rate, reached as `access` says.
+pub fn still_runs(rate: u32, access: Access, device: &str) -> String {
+    let khz = fmt_khz(rate);
+    match access {
+        Access::Wasapi => format!("The device still runs at {khz} in exclusive mode."),
+        Access::Alsa if !device.trim().is_empty() => format!("The ALSA hardware device {device} still runs at {khz}."),
+        Access::Alsa => format!("The ALSA hardware device still runs at {khz}."),
+        Access::CoreAudio => format!("The device still runs at {khz} (CoreAudio)."),
+        Access::Direct => format!("The device still runs at {khz}."),
+    }
+}
+
 /// The Playback info's "Bit-perfect" line: "Off", "Yes: 24-bit, 96 kHz,
 /// exclusive mode (WASAPI)", "Yes (decoded lossy audio): …", or "No: " and
 /// every reason that applies.  `song`/`plan` None: nothing plays ("On").
 pub fn status(song: Option<&Song>, plan: Option<&Plan>, access: Access, device: &str, enabled: bool) -> String {
+    status_eq(song, plan, access, device, enabled, false)
+}
+
+/// `status()` with `eq_on`: the equalizer changes the song's samples (2.3); when that
+/// is the only reason, the line also says what the device still does ("… The device
+/// still runs at 96 kHz in exclusive mode.").
+pub fn status_eq(song: Option<&Song>, plan: Option<&Plan>, access: Access, device: &str, enabled: bool, eq_on: bool) -> String {
     if !enabled {
         return OFF.into();
     }
     let (Some(song), Some(plan)) = (song, plan) else { return ON_IDLE.into() };
-    if !plan.reasons.is_empty() {
+    if !plan.reasons.is_empty() || eq_on {
         let mut reasons = plan.reasons.clone();
+        if eq_on {
+            reasons.push(EQ_ON.into());
+            if plan.reasons.is_empty() {
+                reasons.push(still_runs(plan.rate, access, device));
+            }
+        }
         if song.is_lossy {
             reasons.push(LOSSY_NOTE.into());
         }
@@ -366,6 +397,20 @@ pub fn int_sample(x: f64, format: Format) -> i32 {
         return 0;
     }
     v.clamp(-top, top - 1.0).round_ties_even() as i32
+}
+
+/// A float sample changed by the equalizer as the device's integer: round(x *
+/// 2^(bits - 1) + d), clamped, where `d` is the TPDF dither in LSB (the sum of
+/// two uniform numbers in [-0.5, 0.5), so within ±1 LSB).  The engines add it
+/// only to samples the equalizer changed, so with the equalizer off the output
+/// stays bit-exact (`int_sample()`).  NaN gives 0.
+pub fn dithered_int_sample(x: f64, format: Format, d: f64) -> i32 {
+    let top = (1i64 << (format.container_bits() - 1)) as f64;
+    let v = x * top;
+    if v.is_nan() {
+        return 0;
+    }
+    (v + d).clamp(-top, top - 1.0).round_ties_even() as i32
 }
 
 /// The same for the audio callback (f32 in, no NaN check needed beyond it).

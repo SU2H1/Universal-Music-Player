@@ -18,6 +18,8 @@ pub enum Icon {
     Speaker,
     SpeakerMuted,
     Lyrics,
+    /// two corners pointing outwards (Now Playing's Lyrics only, 2.3)
+    Expand,
     UpNext,
     Equalizer,
     Clock,
@@ -41,6 +43,12 @@ pub enum Icon {
     ChevronUp,
     ChevronDown,
     Close,
+    /// the Library page as tiles (2.3)
+    Tiles,
+    /// the Library page as a list (2.3)
+    ListView,
+    /// a custom tab: a funnel (2.3)
+    Filter,
 }
 
 fn heart_points(c: Pos2, s: f32) -> Vec<Pos2> {
@@ -212,6 +220,14 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, color: Color32) {
             ));
             for dx in [-0.3f32, 0.3] {
                 p.circle_filled(pos2(r.center().x + dx * h, r.center().y), w * 0.9, color);
+            }
+        }
+        Icon::Expand => {
+            let (q, k) = (s * 0.32, s * 0.15);
+            for d in [-1.0f32, 1.0] {
+                let corner = pos2(c.x + d * q, c.y + d * q);
+                poly(p, &[pos2(corner.x - d * k, corner.y), corner, pos2(corner.x, corner.y - d * k)], stroke, false);
+                p.line_segment([corner, pos2(c.x + d * s * 0.08, c.y + d * s * 0.08)], stroke);
             }
         }
         Icon::UpNext => {
@@ -399,6 +415,32 @@ pub fn paint(p: &Painter, rect: Rect, icon: Icon, color: Color32) {
             p.line_segment([pos2(c.x - h, c.y - h), pos2(c.x + h, c.y + h)], stroke);
             p.line_segment([pos2(c.x - h, c.y + h), pos2(c.x + h, c.y - h)], stroke);
         }
+        Icon::Tiles => {
+            let (q, g) = (s * 0.38, s * 0.07);
+            let radius = egui::CornerRadius::same((s * 0.07).round() as u8);
+            for (x0, y0) in [(-q, -q), (g, -q), (-q, g), (g, g)] {
+                p.rect_filled(Rect::from_min_size(pos2(c.x + x0, c.y + y0), Vec2::splat(q - g)), radius, color);
+            }
+        }
+        Icon::ListView => {
+            let q = s * 0.07;
+            for dy in [-0.3f32, 0.0, 0.3] {
+                let y = c.y + dy * s;
+                p.rect_filled(Rect::from_min_max(pos2(c.x - 0.42 * s, y - q), pos2(c.x - 0.28 * s, y + q)), 0.0, color);
+                p.line_segment([pos2(c.x - 0.14 * s, y), pos2(c.x + 0.42 * s, y)], stroke);
+            }
+        }
+        Icon::Filter => {
+            let pts = [
+                pos2(c.x - 0.38 * s, c.y - 0.32 * s),
+                pos2(c.x + 0.38 * s, c.y - 0.32 * s),
+                pos2(c.x + 0.09 * s, c.y + 0.04 * s),
+                pos2(c.x + 0.09 * s, c.y + 0.36 * s),
+                pos2(c.x - 0.09 * s, c.y + 0.26 * s),
+                pos2(c.x - 0.09 * s, c.y + 0.04 * s),
+            ];
+            poly(p, &pts, stroke, true);
+        }
     }
 }
 
@@ -410,7 +452,7 @@ pub fn button(ui: &mut Ui, icon: Icon, size: f32, active: bool, enabled: bool, t
         ui.painter().circle_filled(rect.center(), size * 0.5, pal.hover);
     }
     let color = if !enabled {
-        pal.secondary.gamma_multiply(0.5)
+        pal.disabled
     } else if active {
         pal.accent
     } else {

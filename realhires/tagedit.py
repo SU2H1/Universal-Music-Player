@@ -1030,3 +1030,70 @@ def folder_failed_note(path: str, error) -> str:
 def folder_kept_note(path: str) -> str:
     return (f"{os.path.basename(path)} in the album's folder was not deleted; it is shown for the songs "
             f"that have no cover inside.")
+
+
+# ------------------------------------- Properties: searching the web (2.3) ---
+# Every field of the Properties window has a Search button: it opens the browser at a
+# Google search for the field (`web_search_url()`), and the window then fills in the
+# first text copied within WATCH_SECONDS (`clipboard_value()`), until Save.
+WEB_SEARCH_URL = "https://www.google.com/search"
+WATCH_SECONDS = 120     # how long the window watches the clipboard after a Search
+WATCH_POLL_MS = 500     # how often it looks
+# The field's name in a search, in lower case, and in Japanese (as the window's labels:
+# "トラック" and "ディスク" with 番号, as "track number" and "disc number" in English).
+SEARCH_NAMES = {"title": "title", "artist": "artist", "album": "album", "album_artist": "album artist",
+                "genre": "genre", "date": "release date", "track": "track number", "disc": "disc number",
+                "composer": "composer"}
+SEARCH_NAMES_JA = {"title": "タイトル", "artist": "アーティスト", "album": "アルバム",
+                   "album_artist": "アルバムアーティスト", "genre": "ジャンル", "date": "リリース日",
+                   "track": "トラック番号", "disc": "ディスク番号", "composer": "作曲者"}
+
+
+def search_name(field: str, language: str = "en") -> str:
+    """The field's name in a web search: "composer", "release date", "track number"…, or its
+    Japanese name when `language` is Japanese (a code or the setting's value)."""
+    from .i18n import code_of
+
+    names = SEARCH_NAMES_JA if code_of(language) == "ja" else SEARCH_NAMES
+    return names.get(field, field.replace("_", " "))
+
+
+def _unquoted(value) -> str:
+    """A value to put in double quotes: one line, without double quotes of its own."""
+    return clean_value(clean_value(value).replace('"', ""))
+
+
+def web_search_query(field: str, values, language: str = "en") -> str:
+    """What the Search button of `field` looks for.  `values` holds the window's title,
+    artist, album and album artist (None or "" when unknown): with a title (one song)
+    '"<title>" <artist> <field>', else (several songs, Album Properties) '"<album>"
+    <album artist> <field>'; the artist and the album artist stand in for each other, and
+    unknown parts are left out."""
+    def get(key):
+        return values.get(key) if hasattr(values, "get") else None
+
+    title = _unquoted(get("title"))
+    if title:
+        parts = [f'"{title}"', clean_value(get("artist")) or clean_value(get("album_artist"))]
+    else:
+        album = _unquoted(get("album"))
+        parts = [f'"{album}"' if album else "", clean_value(get("album_artist")) or clean_value(get("artist"))]
+    parts.append(search_name(field, language))
+    return " ".join(p for p in parts if p)
+
+
+def web_search_url(field: str, values, language: str = "en") -> str:
+    """The Google search the Search button of `field` opens (`web_search_query()`)."""
+    import urllib.parse
+
+    return WEB_SEARCH_URL + "?" + urllib.parse.urlencode([("q", web_search_query(field, values, language))])
+
+
+def clipboard_value(text) -> str:
+    """What a text copied to the clipboard puts into a field: its first line that is not
+    empty, as one line (`clean_value()`), cut to MAX_VALUE characters; "" for none."""
+    for line in str(text or "").splitlines():
+        value = clean_value(line)
+        if value:
+            return clean_value(value[:MAX_VALUE])
+    return ""

@@ -109,7 +109,18 @@ def test_core_texts_of_2_2_in_japanese():
         "デバイスがほかのプログラムで使用中のため、音はシステムでミックスされます。"
         "デバイスに24ビットの形式がないため、サンプルを変換します。")
     assert i18n.tr_text(bp.status(song, bp.plan(song, []), bp.WASAPI)) == "はい：24ビット、96 kHz、排他モード（WASAPI）"
-    assert i18n.tr(bp.EQ_BYPASSED) == "ビットパーフェクト再生がオンの間はバイパスされます。"
+    assert i18n.tr(bp.EQ_NOTE).startswith("ビットパーフェクト再生がオンです：")
+    # 2.3: the equalizer with bit-perfect playback, for every way of reaching the device
+    eq_status = bp.status(song, bp.plan(song, []), bp.WASAPI, eq_on=True)
+    assert i18n.tr_text(eq_status) == "いいえ：イコライザがオンのため、サンプルが変更されます。デバイスは引き続き排他モードの96 kHzで動作します。"
+    for access, device, want in ((bp.ALSA, "hw:1", "ALSAのハードウェアデバイスhw:1は引き続き44.1 kHzで動作します。"),
+                                 (bp.ALSA, "", "ALSAのハードウェアデバイスは引き続き44.1 kHzで動作します。"),
+                                 (bp.COREAUDIO, "", "デバイスは引き続き44.1 kHzで動作します（CoreAudio）。"),
+                                 (bp.DIRECT, "Test output", "デバイスは引き続き44.1 kHzで動作します。")):
+        assert i18n.tr_text(bp.still_runs(44100, access, device)) == want
+    busy = bp.status(song, bp.plan(song, [bp.Mode(bp.F32, 96000, 96000)], bp.BUSY), bp.DIRECT, eq_on=True)
+    assert i18n.tr_text(busy) == ("いいえ：デバイスがほかのプログラムで使用中のため、音はシステムでミックスされます。"
+                                  "イコライザがオンのため、サンプルが変更されます。")
     assert i18n.tr_text(bp.output_label(96000, bp.I32, 24)) == "96 kHz、24ビット整数（32ビットのコンテナ）、ステレオ"
     track = musiclib.Track(path="/m/a.flac", sample_rate=96000, bits=24)
     assert i18n.tr_text(musiclib.quality_detail(track)) == "24ビット/96 kHz"

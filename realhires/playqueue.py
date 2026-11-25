@@ -9,6 +9,13 @@ it ends) and "stop" (stop when the current song ends; it then switches back to
 "off").  Disliked songs (`disliked`) are left out whenever the order is
 shuffled, unless one of them is the song that was chosen.
 
+Up Next can be edited (2.3): `move_upcoming()` moves one of its songs to
+another place and `remove_upcoming()` takes one out, in any of its three parts
+(the songs stepped back over with Previous, the queued songs, the rest of the
+order).  A removed song (`removed`) stays out when the order is built again
+(another shuffle mode, repeat album) until a new list is started with
+`start()`.
+
 The shuffled order comes from SplitMix64 and a Fisher-Yates shuffle with a
 seed, so the Rust version (`rust/crates/core/src/playqueue.rs`) plays exactly
 the same order for the same seed; `rust/crates/core/tests/python_queue.json`
@@ -18,7 +25,7 @@ holds this module's answers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 SHUFFLE_MODES = ["off", "songs", "library", "genre", "artist", "album"]
 SHUFFLE_LABELS = {"off": "Off", "songs": "Songs in this list", "library": "All songs in the library",
@@ -108,6 +115,9 @@ class PlayQueue:
     # positions in `order` that hold queued songs: repeat album ignores them (a queued song
     # from another album is an interruption, and the album being repeated goes on after it)
     inserted: Set[int] = field(default_factory=set)
+    # songs taken out of Up Next by the user: left out whenever the order is built again,
+    # until the next start()
+    removed: Set[str] = field(default_factory=set)
 
     def __post_init__(self):
         self.by_path: Dict[str, Song] = {s.path: s for s in self.library}
@@ -120,6 +130,7 @@ class PlayQueue:
     # ---------------------------------------------------------------- start ---
     def start(self, path: str) -> str:
         """Play `path` now and build the order of the songs after it."""
+        self.removed = set()
         self.order = [path] + self._upcoming(path)
         self.pos = self.top = 0
         self.inserted = set()
@@ -150,10 +161,10 @@ class PlayQueue:
         pool = self._pool(path)
         if self.shuffle == "off":
             if path in pool:
-                i = pool.index(path)
-                return pool[i + 1:]
-            return pool
-        return shuffled([p for p in pool if p != path and p not in self.disliked], self.rng)
+                pool = pool[pool.index(path) + 1:]
+            return [p for p in pool if p not in self.removed]
+        return shuffled([p for p in pool if p != path and p not in self.disliked and p not in self.removed],
+                        self.rng)
 
     def set_shuffle(self, mode: str) -> None:
         self.shuffle = mode if mode in SHUFFLE_MODES else "off"
@@ -169,6 +180,7 @@ class PlayQueue:
         if cur is not None:
             self.order = self.order[:self.pos + 1] + self._upcoming(cur)
             self.top = self.pos
+            self.inserted = {i for i in self.inserted if i <= self.pos}  # the songs after it are new
 
     # ----------------------------------------------------------------- moves ---
     def next(self, auto: bool = False) -> Optional[str]:
@@ -185,16 +197,18 @@ class PlayQueue:
             return None
         if self.queued and self.pos >= self.top:
             nxt = self.queued.pop(0)
-            self.order.insert(self.pos + 1, nxt)
+            self._insert_order(self.pos + 1, nxt, True)
             self.pos = self.top = self.pos + 1
-            self.inserted.add(self.pos)
             return nxt
         if self.pos + 1 < len(self.order):
             nxt = self.order[self.pos + 1]
             if self.repeat == "album" and self.pos + 1 not in self.inserted:
-                a, b = self.by_path.get(self._album_song()), self.by_path.get(nxt)
+                base = self._album_song()
+                a, b = self.by_path.get(base), self.by_path.get(nxt)
                 if a is not None and b is not None and a.album_key != b.album_key:
-                    return self._restart_album(cur)
+                    # the album being repeated starts again (as in the Rust version; it was the
+                    # current song's album, which is another one when that song was queued)
+                    return self._restart_album(base)
             self.pos += 1
             self.top = max(self.top, self.pos)
             return nxt
@@ -214,10 +228,12 @@ class PlayQueue:
         song = self.by_path.get(cur)
         if song is None:
             return None
-        tracks = [s.path for s in album_order(x for x in self.library if x.album_key == song.album_key)]
+        tracks = [s.path for s in album_order(x for x in self.library if x.album_key == song.album_key)
+                  if s.path == cur or s.path not in self.removed]
         if self.shuffle != "off":
             tracks = shuffled(tracks, self.rng)
         self.order = self.order[:self.pos + 1] + tracks
+        self.inserted = {i for i in self.inserted if i <= self.pos}
         self.pos += 1
         self.top = self.pos
         return self.order[self.pos]
@@ -258,9 +274,8 @@ class PlayQueue:
             k = index - back
             song = self.queued[k]
             del self.queued[:k + 1]
-            self.order.insert(top + 1, song)
+            self._insert_order(top + 1, song, True)
             self.pos = self.top = top + 1
-            self.inserted.add(self.pos)
             return song
         i = top + 1 + index - back - n
         if i >= len(self.order):
@@ -268,3 +283,78 @@ class PlayQueue:
         self.queued.clear()
         self.pos = self.top = i
         return self.order[i]
+
+    # ------------------------------------------------------- editing Up Next ---
+    def _insert_order(self, i: int, path: str, mark: bool = False) -> None:
+        """Put `path` at order[i]; `inserted` keeps pointing at the same songs (`mark`:
+        this one counts as queued, an interruption for repeat album)."""
+        self.inserted = {p + 1 if p >= i else p for p in self.inserted}
+        self.order.insert(i, path)
+        if mark:
+            self.inserted.add(i)
+
+    def _pop_order(self, i: int) -> Tuple[str, bool]:
+        """Take order[i] out: (its path, whether it counted as queued)."""
+        mark = i in self.inserted
+        self.inserted = {p - 1 if p > i else p for p in self.inserted if p != i}
+        return self.order.pop(i), mark
+
+    def _take_upcoming(self, index: int) -> Optional[Tuple[str, bool, bool]]:
+        """Take Up Next's song number `index` out of its part: (path, whether it counted
+        as queued, whether it came from the list), or None when `index` is outside."""
+        self.top = max(self.top, self.pos)
+        back, n = self.top - self.pos, len(self.queued)
+        if index < 0 or self.current is None:
+            return None
+        if index < back:            # a song stepped back over with Previous
+            path, mark = self._pop_order(self.pos + 1 + index)
+            self.top -= 1
+            return path, mark, True
+        if index < back + n:        # a queued song
+            return self.queued.pop(index - back), True, False
+        i = self.top + 1 + index - back - n
+        if i >= len(self.order):
+            return None
+        path, mark = self._pop_order(i)
+        return path, mark, True
+
+    def upcoming_count(self) -> int:
+        """How many songs Up Next holds in all (up_next() shows the first ones)."""
+        top = max(self.top, self.pos)
+        return (top - self.pos) + len(self.queued) + max(0, len(self.order) - top - 1)
+
+    def move_upcoming(self, src: int, dst: int) -> bool:
+        """Move Up Next's song number `src` (0 = the next song) to place `dst` (counted in
+        the list after the move), into the part of the song it is now placed before (at
+        the very end: the rest of the order).  So a song moved before the queued songs
+        becomes queued, and a queued song moved among the list's songs becomes part of the
+        order (still an interruption for repeat album).  False when either is outside Up
+        Next or they are equal."""
+        total = self.upcoming_count()
+        if not (0 <= src < total and 0 <= dst < total) or src == dst:
+            return False
+        taken = self._take_upcoming(src)
+        if taken is None:
+            return False
+        path, mark, _ = taken
+        back, n = self.top - self.pos, len(self.queued)
+        if dst < back:
+            self._insert_order(self.pos + 1 + dst, path, mark)
+            self.top += 1
+        elif dst < back + n:
+            self.queued.insert(dst - back, path)
+        else:
+            self._insert_order(self.top + 1 + dst - back - n, path, mark)
+        return True
+
+    def remove_upcoming(self, index: int) -> Optional[str]:
+        """Take Up Next's song number `index` out of the queue and return its path (None
+        when outside).  A song of the list (stepped back over, or still to come) stays out
+        when the order is built again, unless it is the song playing."""
+        taken = self._take_upcoming(index)
+        if taken is None:
+            return None
+        path, _, from_list = taken
+        if from_list and path != self.current:
+            self.removed.add(path)
+        return path

@@ -11,15 +11,18 @@
 //!
 //! Bit-perfect playback (`set_bit_perfect`, 2.1): FFmpeg decodes without `-ar`
 //! and without filters (only `pan` copies a mono song to both channels), the
-//! equalizer is bypassed and the gain is exactly 1, and the device is opened at
-//! the song's rate in the format `realhires::bitperfect::plan()` picks from what
-//! it offers: WASAPI exclusive mode (`audio_wasapi.rs`) on Windows, the ALSA
-//! hardware device through cpal on Linux, and on macOS the device at the song's
-//! rate (cpal's CoreAudio backend sets the device's nominal rate).  The floats
-//! become the device's integers exactly (`bitperfect::int_sample`).  When the
-//! device cannot be had, the song plays through the normal path and
-//! `OutputInfo::bit_perfect` says why.  Gapless joins only songs with the same
-//! rate and format.
+//! gain is exactly 1, and the device is opened at the song's rate in the format
+//! `realhires::bitperfect::plan()` picks from what it offers: WASAPI exclusive
+//! mode (`audio_wasapi.rs`) on Windows, the ALSA hardware device through cpal on
+//! Linux, and on macOS the device at the song's rate (cpal's CoreAudio backend
+//! sets the device's nominal rate).  The floats become the device's integers
+//! exactly (`bitperfect::int_sample`, in `render_ints()`).  Since 2.3 the
+//! equalizer is not bypassed: when it is on, `render_ints()` runs it in 64-bit
+//! float and turns the result into the device's integers with TPDF dither of
+//! ±1 LSB (`bitperfect::dithered_int_sample`), clamped; with the equalizer off
+//! the output stays bit-exact.  When the device cannot be had, the song plays
+//! through the normal path and `OutputInfo::bit_perfect` says why.  Gapless
+//! joins only songs with the same rate and format.
 
 use std::collections::VecDeque;
 use std::io::{BufRead, Read};
@@ -119,7 +122,7 @@ pub(crate) struct Shared {
     paused: AtomicBool,
     gain_bits: AtomicU32,
     eq: Mutex<(u64, EqState)>,
-    /// bit-perfect playback: no equalizer, gain exactly 1 (0 when muted)
+    /// bit-perfect playback: gain exactly 1 (0 when muted); the equalizer is dithered (2.3)
     bit_perfect: AtomicBool,
     heard_seg: AtomicU64,
     heard_frames: AtomicU64,
@@ -145,20 +148,52 @@ pub(crate) struct RenderState {
     eq: EqProcessor,
     eq_version: u64,
     scratch: Vec<f32>,
+    /// the equalizer's 64-bit output before it is dithered (bit-perfect playback, 2.3)
+    wide: Vec<f64>,
+    /// SplitMix64 state of the TPDF dither
+    dither: u64,
 }
 
 impl RenderState {
     pub(crate) fn new(shared: &Shared, rate: u32) -> RenderState {
         let (version, state) = shared.eq.lock().unwrap().clone();
-        RenderState { eq: EqProcessor::new(&state, rate as f64, CHANNELS), eq_version: version, scratch: vec![] }
+        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(1);
+        RenderState {
+            eq: EqProcessor::new(&state, rate as f64, CHANNELS),
+            eq_version: version,
+            scratch: vec![],
+            wide: vec![],
+            dither: seed ^ 0x5DEE_CE66_D1CE_4E5B,
+        }
+    }
+
+    /// A uniform number in [0, 1).
+    fn uniform(&mut self) -> f64 {
+        self.dither = self.dither.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.dither;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((z ^ (z >> 31)) >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    }
+
+    /// TPDF dither in LSB: the sum of two uniform numbers in [-0.5, 0.5), within ±1.
+    fn tpdf(&mut self) -> f64 {
+        self.uniform() + self.uniform() - 1.0
+    }
+
+    /// The equalizer as it is set now (taken over between callbacks, never waited for).
+    fn update_eq(&mut self, shared: &Shared) {
+        if let Ok(eq) = shared.eq.try_lock() {
+            if eq.0 != self.eq_version {
+                self.eq.set(&eq.1);
+                self.eq_version = eq.0;
+            }
+        }
     }
 }
 
-/// Fill `out` (interleaved, `dev_channels` per frame; channels after the first
-/// two stay silent) with what is due.
-pub(crate) fn render(shared: &Shared, st: &mut RenderState, out: &mut [f32], dev_channels: usize) {
-    let dev_channels = dev_channels.max(1);
-    let frames = out.len() / dev_channels;
+/// Take the stereo frames that are due into `st.scratch` (silence where nothing is).
+fn take_due(shared: &Shared, st: &mut RenderState, frames: usize) {
     st.scratch.clear();
     st.scratch.resize(frames * CHANNELS, 0.0);
     if !shared.paused.load(Ordering::Relaxed) {
@@ -191,20 +226,32 @@ pub(crate) fn render(shared: &Shared, st: &mut RenderState, out: &mut [f32], dev
             marker(shared, item);
         }
     }
-    let exact = shared.bit_perfect.load(Ordering::Relaxed);
-    let mut gain = f32::from_bits(shared.gain_bits.load(Ordering::Relaxed));
-    if exact {
-        // the samples as they are: no equalizer, and a gain of exactly 1 (or silence)
-        gain = if gain > 0.0 { 1.0 } else { 0.0 };
-    } else {
-        if let Ok(eq) = shared.eq.try_lock() {
-            if eq.0 != st.eq_version {
-                st.eq.set(&eq.1);
-                st.eq_version = eq.0;
-            }
+}
+
+/// The gain of what is due: the volume, or with bit-perfect playback exactly 1 (0 when muted).
+fn render_gain(shared: &Shared) -> f32 {
+    let gain = f32::from_bits(shared.gain_bits.load(Ordering::Relaxed));
+    if shared.bit_perfect.load(Ordering::Relaxed) {
+        if gain > 0.0 {
+            1.0
+        } else {
+            0.0
         }
-        st.eq.process(&mut st.scratch);
+    } else {
+        gain
     }
+}
+
+/// Fill `out` (interleaved, `dev_channels` per frame; channels after the first
+/// two stay silent) with what is due, as floats: the equalizer and the gain (with
+/// bit-perfect playback a gain of exactly 1, and the equalizer only when it is on).
+pub(crate) fn render(shared: &Shared, st: &mut RenderState, out: &mut [f32], dev_channels: usize) {
+    let dev_channels = dev_channels.max(1);
+    let frames = out.len() / dev_channels;
+    take_due(shared, st, frames);
+    let gain = render_gain(shared);
+    st.update_eq(shared);
+    st.eq.process(&mut st.scratch);
     for (f, frame) in out.chunks_exact_mut(dev_channels).enumerate() {
         let l = (st.scratch[f * 2] * gain).clamp(-1.0, 1.0);
         let r = (st.scratch[f * 2 + 1] * gain).clamp(-1.0, 1.0);
@@ -215,6 +262,46 @@ pub(crate) fn render(shared: &Shared, st: &mut RenderState, out: &mut [f32], dev
             frame[1] = r;
             for x in frame[2..].iter_mut() {
                 *x = 0.0;
+            }
+        }
+    }
+}
+
+/// Fill `out` with what is due as the integers of `format` (I16, I24 or I32 at the
+/// container's scale), for a device that bit-perfect playback opened: the floats as
+/// they are (`bitperfect::int_sample`), so the device gets the file's own integers;
+/// with the equalizer on, its 64-bit output with TPDF dither of ±1 LSB, rounded and
+/// clamped (`bitperfect::dithered_int_sample`).
+pub(crate) fn render_ints(shared: &Shared, st: &mut RenderState, out: &mut [i32], dev_channels: usize, format: Format) {
+    let dev_channels = dev_channels.max(1);
+    let frames = out.len() / dev_channels;
+    take_due(shared, st, frames);
+    let gain = render_gain(shared) as f64;
+    st.update_eq(shared);
+    let eq_on = st.eq.is_active() && gain > 0.0;
+    if eq_on {
+        st.wide.clear();
+        st.wide.extend(st.scratch.iter().map(|x| *x as f64 * gain));
+        st.eq.process_f64(&mut st.wide);
+    }
+    for (f, frame) in out.chunks_exact_mut(dev_channels).enumerate() {
+        let mut lr = [0i32; 2];
+        for (c, v) in lr.iter_mut().enumerate() {
+            let i = f * CHANNELS + c;
+            *v = if eq_on {
+                let d = st.tpdf();
+                bitperfect::dithered_int_sample(st.wide[i], format, d)
+            } else {
+                bitperfect::int_sample(st.scratch[i] as f64 * gain, format)
+            };
+        }
+        if dev_channels == 1 {
+            frame[0] = ((lr[0] as i64 + lr[1] as i64) / 2) as i32;
+        } else {
+            frame[0] = lr[0];
+            frame[1] = lr[1];
+            for x in frame[2..].iter_mut() {
+                *x = 0;
             }
         }
     }
@@ -756,6 +843,12 @@ impl Engine {
         self.shared.gapless.store(on, Ordering::Relaxed);
     }
 
+    /// Tests: the song set to follow gaplessly.
+    #[cfg(test)]
+    pub fn next_path(&self) -> Option<String> {
+        self.shared.next.lock().unwrap().as_ref().map(|n| n.path.clone())
+    }
+
     /// The song to go on with gaplessly when this one ends (None = stop there).
     pub fn set_next(&self, next: Option<(&str, Song)>) {
         let next = next.map(|(p, song)| {
@@ -781,7 +874,7 @@ impl Engine {
             let native = plan.rate == song.rate;
             return Opened { rate: plan.rate, key: (plan.rate, plan.format, plan.channels as u16, true), plan: Some(plan), native };
         }
-        // bit-perfect playback could not have the device: the normal path (no EQ, gain 1)
+        // bit-perfect playback could not have the device: the normal path (gain 1)
         let rate = self.rate_for(song.rate);
         let plan = bitperfect::plan(song, &[Mode::new(Format::F32, rate, rate, 2)], &bp.failure);
         Opened { rate, plan: Some(plan), native: false, key: (rate, key.1, key.2, false) }
@@ -829,7 +922,12 @@ impl Engine {
         } else {
             let bp = self.output.bp().cloned().unwrap_or_default();
             match seg.as_ref().filter(|s| s.plan.is_some() && s.rate > 0) {
-                Some(s) => bitperfect::status(Some(&s.song), s.plan.as_ref(), bp.access(), &bp.label, true),
+                Some(s) => {
+                    // 2.3: the equalizer is heard with bit-perfect playback too, and then says so
+                    let eq = self.shared.eq.lock().unwrap().1.clone();
+                    let eq_on = EqProcessor::new(&eq, s.rate as f64, CHANNELS).is_active();
+                    bitperfect::status_eq(Some(&s.song), s.plan.as_ref(), bp.access(), &bp.label, true, eq_on)
+                }
                 None => bitperfect::ON_IDLE.into(),
             }
         };
@@ -1002,7 +1100,7 @@ impl Engine {
 
     /// The normal path: the song's rate when the device runs at it, else its
     /// default rate (FFmpeg resamples).  `bp`: bit-perfect playback could not
-    /// have the device (gain 1 and no EQ even so; the Playback info says why).
+    /// have the device (gain 1 even so; the Playback info says why).
     fn open_shared(&mut self, song: &Song, bp: Option<BpDevice>) -> Result<Opened, String> {
         let song_rate = song.rate;
         let Some(device) = self.cpal_device() else {
@@ -1302,7 +1400,11 @@ impl Engine {
     pub fn pull_ints(&mut self, frames: usize) -> Vec<i32> {
         let format = self.output.key().map(|k| k.1).unwrap_or(Format::F32);
         assert!(format != Format::F32, "the test output takes floats");
-        self.pull(frames).into_iter().map(|x| bitperfect::int_sample_f32(x, format)).collect()
+        let mut out = vec![0i32; frames * CHANNELS];
+        if let Output::Manual { state, .. } = &mut self.output {
+            render_ints(&self.shared, state, &mut out, CHANNELS, format);
+        }
+        out
     }
 }
 
@@ -1412,7 +1514,7 @@ fn build_stream(
 }
 
 /// A stream that writes the floats as the device's integers exactly
-/// (`bitperfect::int_sample`: round(x * 2^(bits - 1)), clamped).
+/// (`render_ints()`: round(x * 2^(bits - 1)), clamped; with the equalizer on, dithered).
 #[cfg(not(windows))]
 fn build_exact_stream(
     device: &cpal::Device,
@@ -1422,12 +1524,43 @@ fn build_exact_stream(
 ) -> Result<cpal::Stream, cpal::Error> {
     match format {
         Format::F32 => stream_of::<f32>(device, config, shared, |x| x),
-        Format::I16 => stream_of::<i16>(device, config, shared, |x| bitperfect::int_sample_f32(x, Format::I16) as i16),
-        Format::I32 => stream_of::<i32>(device, config, shared, |x| bitperfect::int_sample_f32(x, Format::I32)),
-        Format::I24 => stream_of::<cpal::I24>(device, config, shared, |x| {
-            cpal::I24::new_unchecked(bitperfect::int_sample_f32(x, Format::I24))
-        }),
+        Format::I16 => int_stream_of::<i16>(device, config, shared, Format::I16, |x| x as i16),
+        Format::I32 => int_stream_of::<i32>(device, config, shared, Format::I32, |x| x),
+        Format::I24 => int_stream_of::<cpal::I24>(device, config, shared, Format::I24, cpal::I24::new_unchecked),
     }
+}
+
+/// A stream of the device's integers (`render_ints()` in `format`, then `convert`ed
+/// to cpal's sample type).
+#[cfg(not(windows))]
+fn int_stream_of<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    shared: Arc<Shared>,
+    format: Format,
+    convert: fn(i32) -> T,
+) -> Result<cpal::Stream, cpal::Error>
+where
+    T: cpal::SizedSample + Send + 'static,
+{
+    let channels = config.channels as usize;
+    let mut st = RenderState::new(&shared, config.sample_rate);
+    let mut tmp: Vec<i32> = vec![];
+    let errs = shared.clone();
+    device.build_output_stream::<T, _, _>(
+        config.clone(),
+        move |data: &mut [T], _| {
+            tmp.resize(data.len(), 0);
+            render_ints(&shared, &mut st, &mut tmp, channels, format);
+            for (d, s) in data.iter_mut().zip(tmp.iter()) {
+                *d = convert(*s);
+            }
+        },
+        move |e| {
+            errs.events.lock().unwrap().push(Event::OutputError(tr!("The audio output failed: {e}.", e = e)));
+        },
+        None,
+    )
 }
 
 fn stream_of<T>(
@@ -1629,10 +1762,10 @@ mod tests {
             let mut e = Engine::manual();
             e.set_gain(0.25); // neither the volume (50 %) ...
             let mut eq = EqState::default();
-            eq.enabled = true;
+            eq.enabled = false;
             eq.graphic_enabled = true;
             eq.apply_preset("Rock");
-            e.set_eq(&eq); // ... nor the equalizer may touch the samples
+            e.set_eq(&eq); // ... nor the equalizer's settings while it is off may touch the samples
             e.set_bit_perfect(true);
             assert_eq!(e.gain(), 1.0);
             e.play(&path, 0.0, song_of_file(&path));
@@ -1661,6 +1794,85 @@ mod tests {
             e.set_bit_perfect(false);
             assert_eq!(e.gain(), 0.25);
             assert_eq!(e.info().unwrap().bit_perfect, "Off");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// What FFmpeg decodes a file to as floats (what the engine's decoder gets).
+    fn ffmpeg_floats(path: &str) -> Vec<f32> {
+        let out = command(tool("ffmpeg")).args(["-v", "error", "-i", path, "-f", "f32le", "-ac", "2", "-"]).output().unwrap();
+        out.stdout.chunks_exact(4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect()
+    }
+
+    #[test]
+    fn bit_perfect_with_the_equalizer_on_applies_it_with_dither() {
+        // 2.3: the equalizer is no longer bypassed: the device keeps the song's rate and its
+        // integer format, the gain stays 1, and the changed samples get TPDF dither of ±1 LSB
+        let dir = std::env::temp_dir().join(format!("rhr-bitperfect-eq-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (bits, rate, format) in [(16, 44_100, Format::I16), (24, 96_000, Format::I32)] {
+            let path = noise(&dir, &format!("e{bits}.flac"), 0.6, rate, bits, 2);
+            let mut e = Engine::manual();
+            e.set_gain(0.25);
+            let mut eq = EqState::default();
+            eq.enabled = true;
+            eq.graphic_enabled = true;
+            eq.apply_preset("Rock");
+            e.set_eq(&eq);
+            e.set_bit_perfect(true);
+            assert_eq!(e.gain(), 1.0);
+            e.play(&path, 0.0, song_of_file(&path));
+            let info = e.info().unwrap();
+            assert_eq!((info.rate, info.sample_format), (rate, format), "{path}");
+            let (got, events) = pull_ints_until_end(&mut e, 999);
+            assert!(events.iter().any(|x| matches!(x, Event::Ended { chained: false, .. })), "{events:?}");
+            let want = ffmpeg_ints(&path, bits);
+            assert!(got.len() >= want.len());
+            let got = &got[..want.len()];
+            assert_ne!(got, &want[..], "the equalizer did nothing");
+            // the reference: the equalizer in 64-bit float on the decoded floats
+            let mut wide: Vec<f64> = ffmpeg_floats(&path).into_iter().map(|x| x as f64).collect();
+            assert_eq!(wide.len(), want.len());
+            EqProcessor::new(&eq, rate as f64, CHANNELS).process_f64(&mut wide);
+            let top = (1i64 << (format.container_bits() - 1)) as f64;
+            let (mut n, mut worst, mut sum, mut moved) = (0usize, 0f64, 0f64, 0usize);
+            for (g, r) in got.iter().zip(&wide) {
+                let r = r * top;
+                if r.abs() >= top - 2.0 {
+                    continue; // clamped
+                }
+                let d = *g as f64 - r;
+                worst = worst.max(d.abs());
+                sum += d;
+                n += 1;
+                if *g as f64 != r.round_ties_even() {
+                    moved += 1;
+                }
+            }
+            assert!(n as f64 > 0.99 * got.len() as f64);
+            assert!(worst < 1.5, "{path}: more than the dither and rounding: {worst}");
+            if format == Format::I16 {
+                let share = moved as f64 / n as f64;
+                assert!((0.2..0.7).contains(&share), "TPDF moves about half the samples: {share}");
+                assert!((sum / n as f64).abs() < 0.05, "the dither is not centred");
+            }
+            // the Playback info says why, and what still holds
+            e.play(&path, 0.0, song_of_file(&path));
+            let t0 = Instant::now();
+            while !e.ready(2500) && t0.elapsed() < Duration::from_secs(20) {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            let _ = e.pull_ints(500);
+            let khz = if rate == 44_100 { "44.1" } else { "96" };
+            assert_eq!(
+                e.info().unwrap().bit_perfect,
+                format!("No: The equalizer is on, so the samples are changed. The device still runs at {khz} kHz.")
+            );
+            // the equalizer off while playing: the samples are exact again
+            e.set_eq(&EqState::default());
+            let more = e.pull_ints(2000);
+            assert_eq!(&more[..], &want[1000..5000], "not bit-exact with the equalizer off");
+            assert!(e.info().unwrap().bit_perfect.starts_with("Yes: "));
         }
         let _ = std::fs::remove_dir_all(&dir);
     }

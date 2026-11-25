@@ -69,10 +69,28 @@ class Column:
     tip: bool = False       # hovering a cell shows tip_value(row, key) (the Quality column's resolution)
 
 
+LABEL_DOT = 8  # 2.3: the colour label's dot, in pixels
+
+
+def draw_label_dot(c: tk.Canvas, cx: float, cy: float, color: str, size: float = LABEL_DOT,
+                   outline: str = "", tags=()) -> int:
+    """A colour label (2.3): a dot `size` pixels wide centred on (cx, cy), in a 2-pixel ring
+    of `outline` when it sits on something of a similar colour (a cover, a selected row)."""
+    r = size / 2
+    if outline:
+        c.create_oval(cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2, fill=outline, outline="", tags=tags)
+    return c.create_oval(cx - r, cy - r, cx + r, cy + r, fill=color, outline="", tags=tags)
+
+
 class SongList(tk.Frame):
     """A table of songs drawn on a Canvas.  `value(row, key)` gives a cell's text;
     `sort_value(row, key)` what a click on the column heading sorts by;
-    `tip_value(row, key)` the tooltip of a cell of a column with `tip`.
+    `tip_value(row, key)` the tooltip of a cell of a column with `tip`.  With
+    `on_move(src, dst)` its rows can be dragged to another place with the primary
+    button (Up Next, 2.3): a press becomes a drag after `DRAG_START` pixels, a line
+    in the accent colour shows the gap the row will drop into, the list scrolls
+    while the pointer is near its top or bottom edge, and `dst` is the row's index
+    after the move.
 
     Only the visible rows are drawn.  A scroll step moves the drawn rows and draws
     only the rows that come into view, and moving the pointer to another row only
@@ -81,6 +99,9 @@ class SongList(tk.Frame):
 
     HEADER = 30
     TIP_DELAY_MS = 450
+    DRAG_START = 5        # pixels the pointer must move before a press becomes a drag
+    DRAG_EDGE = 18        # pixels from the top or bottom edge where a drag scrolls the list
+    DRAG_SCROLL_MS = 40   # how often it scrolls then
 
     def __init__(self, master, theme: Theme, columns: Sequence[Column], value: Callable[[Any, str], str],
                  sort_value: Optional[Callable[[Any, str], Any]] = None, row_height: int = 32,
@@ -91,9 +112,21 @@ class SongList(tk.Frame):
                  on_context: Optional[Callable[[int, Any], None]] = None,
                  is_dim: Optional[Callable[[Any], bool]] = None,
                  tip_value: Optional[Callable[[Any, str], str]] = None,
-                 on_heading_context: Optional[Callable[[Any], None]] = None):
+                 on_heading_context: Optional[Callable[[Any], None]] = None,
+                 on_move: Optional[Callable[[int, int], None]] = None,
+                 label_of: Optional[Callable[[Any], Optional[str]]] = None,
+                 cell_color: Optional[Callable[[Any, str], Optional[str]]] = None):
         super().__init__(master, bd=0, highlightthickness=0)
         self.on_context, self.is_dim, self.tip_value = on_context, is_dim, tip_value
+        # 2.3: `label_of(row)` the colour label drawn as a dot before the title (None: no dot),
+        # `cell_color(row, key)` a cell's own text colour (the Quality column's quality colour)
+        self.label_of, self.cell_color = label_of, cell_color
+        self.on_move = on_move
+        self._press: Optional[Tuple[int, int]] = None   # (row, y) of a press that may become a drag
+        self.drag_from: Optional[int] = None            # the row being dragged
+        self.drop_at: Optional[int] = None              # the gap it would go to (0 = above the first row)
+        self._drag_y = 0                                # where the pointer is during a drag
+        self._drag_job: Optional[str] = None            # scrolling near an edge
         self.on_heading_context = on_heading_context  # right click on the headings (choose the columns)
         self.column_kind: Optional[str] = None
         self.column_prefix: List[Column] = []
@@ -131,6 +164,8 @@ class SongList(tk.Frame):
         c.bind("<Leave>", lambda e: (self._set_hover(None), self.hide_tip()))
         c.bind("<Button-1>", self._click)
         c.bind("<Double-Button-1>", self._double)
+        c.bind("<B1-Motion>", self._drag_motion)
+        c.bind("<ButtonRelease-1>", self._drag_end)
         c.bind("<Return>", lambda e: self._activate(self.selected))
         c.bind("<KP_Enter>", lambda e: self._activate(self.selected))
         c.bind("<Up>", lambda e: self._move(-1))
@@ -146,6 +181,7 @@ class SongList(tk.Frame):
     def set_rows(self, rows: Sequence[Any], keep: bool = False) -> None:
         sel = self.rows[self.selected] if keep and self.selected is not None and self.selected < len(self.rows) \
             else None
+        self.cancel_drag()  # the rows changed under a drag: it ends here
         self.rows = list(rows)
         if self.sort_key is not None and self.sort_value is not None:
             self._sort()
@@ -271,6 +307,88 @@ class SongList(tk.Frame):
             self.redraw()
             return
         self.select(i)
+        if self.on_move is not None:
+            self._press = (i, e.y)
+
+    # -------------------------------------------------- dragging a row ---
+    def _gap_at(self, y: int) -> int:
+        """The gap between rows nearest to `y` (0 = above the first row)."""
+        y -= self.HEADER if self.has_header else 0
+        return min(max(int(round((y + self.top) / self.rh)), 0), len(self.rows))
+
+    def _drag_motion(self, e) -> None:
+        if self._press is None:
+            return
+        row, y0 = self._press
+        if self.drag_from is None:
+            if abs(e.y - y0) < self.DRAG_START or row >= len(self.rows):
+                return
+            self.drag_from = row
+            self.hide_tip()
+            self.canvas.configure(cursor="fleur")
+        self._drag_y = e.y
+        self.drop_at = self._gap_at(e.y)
+        self._draw_drop()
+        if self._edge_step() and self._drag_job is None:
+            self._drag_job = self.after(self.DRAG_SCROLL_MS, self._drag_scroll)
+
+    def _edge_step(self) -> float:
+        """How far to scroll for the pointer near an edge during a drag (0: not near one)."""
+        head = self.HEADER if self.has_header else 0
+        if self._drag_y < head + self.DRAG_EDGE and self.top > 0:
+            return -self.rh / 3
+        if self._drag_y > self.canvas.winfo_height() - self.DRAG_EDGE and self.top < self._max_top():
+            return self.rh / 3
+        return 0.0
+
+    def _drag_scroll(self) -> None:
+        """Scroll along while a drag holds the pointer near an edge."""
+        self._drag_job = None
+        step = self._edge_step() if self.drag_from is not None else 0.0
+        if not step:
+            return
+        self._scroll_to(self.top + step)
+        self.drop_at = self._gap_at(self._drag_y)
+        self._draw_drop()
+        self._drag_job = self.after(self.DRAG_SCROLL_MS, self._drag_scroll)
+
+    def _drag_end(self, e) -> None:
+        src = self.drag_from
+        self.cancel_drag()
+        if src is None:
+            return
+        gap = self._gap_at(e.y)
+        dst = gap if gap <= src else gap - 1
+        if dst != src and self.on_move is not None and 0 <= dst < len(self.rows):
+            self.on_move(src, dst)
+
+    def cancel_drag(self) -> None:
+        """End a drag (or a press that could become one) without moving anything."""
+        if self._drag_job is not None:
+            try:
+                self.after_cancel(self._drag_job)
+            except tk.TclError:
+                pass
+            self._drag_job = None
+        was = self.drag_from is not None
+        self._press = self.drag_from = self.drop_at = None
+        if was:
+            self.canvas.configure(cursor="")
+            self.canvas.delete("drop")
+
+    def _draw_drop(self) -> None:
+        """The line in the accent colour, with a small circle at its left end, that shows
+        the gap the dragged row drops into."""
+        c = self.canvas
+        c.delete("drop")
+        if self.drag_from is None or self.drop_at is None:
+            return
+        head = self.HEADER if self.has_header else 0
+        y = head + self.drop_at * self.rh - self.top
+        y = min(max(y, head + 2), c.winfo_height() - 2)
+        W, accent = c.winfo_width(), self.theme.c("accent")
+        c.create_line(16, y, W - 10, y, fill=accent, width=2, tags="drop")
+        c.create_oval(6, y - 4, 14, y + 4, outline=accent, width=2, tags="drop")
 
     def select(self, i: Optional[int]) -> None:
         self.selected = i
@@ -424,6 +542,12 @@ class SongList(tk.Frame):
                 draw_icon(c, self.value(row, col.key), x + w / 2, mid, 16, t.c("on_accent") if sel
                           else t.c("accent"), tag=tags)
                 continue
+            dot = self.label_of(row) if self.label_of is not None and col.key in ("title", "name") \
+                and col.kind in ("text", "two") else None
+            if dot:  # 2.3: the colour label, a dot before the title
+                draw_label_dot(c, x + LABEL_DOT / 2, mid - (8 if col.kind == "two" else 0), dot,
+                               outline=t.c("on_accent") if sel else "", tags=tags + ("label",))
+                x, w = x + LABEL_DOT + 6, max(10, w - LABEL_DOT - 6)
             if col.kind == "two":
                 c.create_text(x, mid - 8, text=fit_text(t.f("body_b"), self.value(row, col.key), w, self._fit),
                               anchor="w", fill=fg, font=t.f("body_b"), tags=tags)
@@ -432,6 +556,9 @@ class SongList(tk.Frame):
                 continue
             text = fit_text(body, self.value(row, col.key), w, self._fit)
             color = fg if col.kind != "num" and col.key in ("title", "name") else (fg if sel or current else fg2)
+            own = self.cell_color(row, col.key) if self.cell_color is not None and not sel and not dim else None
+            if own:  # 2.3: e.g. the Quality column in the quality's colour
+                color = own
             if col.anchor == "e":
                 c.create_text(x + w, mid, text=text, anchor="e", fill=color, font=body, tags=tags)
             elif col.anchor == "center":
@@ -468,6 +595,7 @@ class SongList(tk.Frame):
                 self._draw_row(i, head, W)
         if self.has_header:
             c.tag_raise("head")
+        self._draw_drop()
         self._update_scrollbar()
 
     def redraw(self) -> None:
@@ -505,6 +633,7 @@ class SongList(tk.Frame):
                     c.create_polygon(bx - 4, head / 2 - d, bx + 4, head / 2 - d, bx, head / 2 + d,
                                      fill=t.c("text2"), outline="", tags="head")
             c.create_line(12, head - 1, W - 12, head - 1, fill=t.c("sep"), tags="head")
+        self._draw_drop()
         self._update_scrollbar()
 
     def _update_scrollbar(self) -> None:
@@ -761,8 +890,10 @@ class AlbumGrid(tk.Frame):
     Only the cards near the visible part are drawn, and the rest as they scroll into
     view, so showing and resizing a grid of thousands of albums stays quick; a mosaic
     uses the album covers of the grid's size, halved (no extra covers are made).
-    With `multi`, Ctrl/Cmd-click selects several cards (`selected` holds their keys,
-    `on_selection()` is told); `on_context(index, event)` makes a right-click menu."""
+    With `multi`, Ctrl-click (Cmd-click on macOS, where Ctrl-click is a right-click)
+    selects several cards, and so does a plain click in select mode (`select_mode`,
+    2.3); `selected` holds their keys and `on_selection()` is told.
+    `on_context(index, event)` makes a right-click menu."""
 
     COVER = CoverCache.GRID
     GAP = 24
@@ -770,13 +901,16 @@ class AlbumGrid(tk.Frame):
 
     def __init__(self, master, theme: Theme, covers: CoverCache, on_open: Callable[[dict], None],
                  empty_text: str = "", on_context: Optional[Callable[[int, Any], None]] = None,
-                 multi: bool = False, on_selection: Optional[Callable[[], None]] = None):
+                 multi: bool = False, on_selection: Optional[Callable[[], None]] = None,
+                 label_of: Optional[Callable[[dict], Optional[str]]] = None):
         super().__init__(master, bd=0, highlightthickness=0)
         self.theme, self.covers, self.on_open, self.empty_text = theme, covers, on_open, empty_text
+        self.label_of = label_of  # 2.3: a card's colour label, a dot at its cover's bottom-left corner
         self.on_context, self.multi, self.on_selection = on_context, multi, on_selection
         self.albums: List[dict] = []
         self.positions: Dict[str, Tuple[float, float, int]] = {}
         self.selected: set = set()          # keys of the selected cards (multi)
+        self.select_mode = False            # (multi) a click selects instead of opening (2.3)
         self.hover: Optional[int] = None
         self._fit: Dict[tuple, str] = {}
         self._drawn: set = set()            # indices of the cards on the canvas
@@ -794,11 +928,11 @@ class AlbumGrid(tk.Frame):
         c = self.canvas
         c.bind("<Configure>", lambda e: self.relayout())
         c.bind("<Button-1>", self._click)
-        c.bind("<Control-Button-1>", self._toggle_click)
-        try:
-            c.bind("<Command-Button-1>", self._toggle_click)  # macOS
-        except tk.TclError:
-            pass
+        if c.tk.call("tk", "windowingsystem") == "aqua":  # macOS: Cmd-click selects, Ctrl-click is a right-click
+            c.bind("<Command-Button-1>", self._toggle_click)
+            c.bind("<Control-Button-1>", self._context)
+        else:
+            c.bind("<Control-Button-1>", self._toggle_click)
         c.bind("<Button-3>", self._context)
         c.bind("<Button-2>", self._context)  # macOS right click
         c.bind("<Escape>", lambda e: self.clear_selection())
@@ -901,6 +1035,10 @@ class AlbumGrid(tk.Frame):
             draw_icon(c, "check", x + cs - 21, y + 21, 22, t.c("on_accent"), tag=tag)
         elif self.hover == i:
             round_rect(c, x, y, x + cs, y + cs, 8, fill="", outline=t.c("sep"), width=1, tags=tag)
+        dot = self.label_of(a) if self.label_of is not None and not a.get("new") else None
+        if dot:  # 2.3: the colour label at the cover's bottom-left corner, ringed to stand out on it
+            draw_label_dot(c, x + 14, y + cs - 14, dot, outline=t.c("bg"),
+                           tags=(tag, "label", f"label{i}"))
         c.create_text(x, y + cs + 16, text=fit_text(t.f("card_title"), tr_name(a["title"]), cs, self._fit), anchor="w",
                       fill=t.c("text"), font=t.f("card_title"), tags=tag)
         c.create_text(x, y + cs + 34, text=fit_text(t.f("card_sub"), tr_name(a["artist"]), cs, self._fit), anchor="w",
@@ -976,10 +1114,21 @@ class AlbumGrid(tk.Frame):
     def _click(self, e) -> None:
         self.canvas.focus_set()
         i = self._index_at(e)
+        if self.multi and self.select_mode:  # select mode: a click selects or unselects the card
+            if i is not None:
+                self.toggle(i)
+            return
         if self.selected:
             self.clear_selection()
         if i is not None:
             self.on_open(self.albums[i])
+
+    def set_select_mode(self, on: bool) -> None:
+        """Select mode (2.3): a click toggles a card instead of opening it.  Leaving it
+        clears the selection."""
+        self.select_mode = bool(on) and self.multi
+        if not self.select_mode:
+            self.clear_selection()
 
     def _toggle_click(self, e) -> str:
         i = self._index_at(e)

@@ -1372,3 +1372,96 @@ pub fn folder_kept_note(path: &str) -> String {
         file_name(path)
     )
 }
+
+// ------------------------------------- Properties: searching the web (2.3) ---
+// Every field of the Properties window has a Search button: it opens the browser
+// at a Google search for the field (`web_search_url()`), and the window then fills
+// in the first text copied within `WATCH_SECONDS` (`clipboard_value()`), until Save.
+
+pub const WEB_SEARCH_URL: &str = "https://www.google.com/search";
+/// How long the window watches the clipboard after a Search.
+pub const WATCH_SECONDS: u64 = 120;
+/// How often it looks.
+pub const WATCH_POLL_MS: u64 = 500;
+
+/// The field's name in a web search, in lower case ("composer", "release
+/// date", "track number"…), or in Japanese (as the window's labels, with 番号
+/// for the track and disc numbers) when `language` is Japanese (a code or the
+/// setting's value).  Python `search_name`.
+pub fn search_name(field: &str, language: &str) -> String {
+    let ja = crate::i18n::code_of(language) == "ja";
+    let name = match (field, ja) {
+        ("title", false) => "title",
+        ("artist", false) => "artist",
+        ("album", false) => "album",
+        ("album_artist", false) => "album artist",
+        ("genre", false) => "genre",
+        ("date", false) => "release date",
+        ("track", false) => "track number",
+        ("disc", false) => "disc number",
+        ("composer", false) => "composer",
+        ("title", true) => "タイトル",
+        ("artist", true) => "アーティスト",
+        ("album", true) => "アルバム",
+        ("album_artist", true) => "アルバムアーティスト",
+        ("genre", true) => "ジャンル",
+        ("date", true) => "リリース日",
+        ("track", true) => "トラック番号",
+        ("disc", true) => "ディスク番号",
+        ("composer", true) => "作曲者",
+        _ => return field.replace('_', " "),
+    };
+    name.to_string()
+}
+
+/// A value to put in double quotes: one line, without double quotes of its own.
+fn unquoted(value: &str) -> String {
+    clean_value(&clean_value(value).replace('"', ""))
+}
+
+/// What the Search button of `field` looks for.  `values` holds the window's
+/// title, artist, album and album artist ("" when unknown): with a title (one
+/// song) `"<title>" <artist> <field>`, else (several songs, Album Properties)
+/// `"<album>" <album artist> <field>`; the artist and the album artist stand in
+/// for each other, and unknown parts are left out.  Python `web_search_query`.
+pub fn web_search_query(field: &str, values: &[(&str, &str)], language: &str) -> String {
+    let get = |key: &str| values.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("");
+    let either = |a: &str, b: &str| {
+        let a = clean_value(get(a));
+        if a.is_empty() { clean_value(get(b)) } else { a }
+    };
+    let title = unquoted(get("title"));
+    let mut parts = if !title.is_empty() {
+        vec![format!("\"{title}\""), either("artist", "album_artist")]
+    } else {
+        let album = unquoted(get("album"));
+        vec![if album.is_empty() { String::new() } else { format!("\"{album}\"") }, either("album_artist", "artist")]
+    };
+    parts.push(search_name(field, language));
+    parts.into_iter().filter(|p| !p.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// The Google search the Search button of `field` opens (`web_search_query()`).
+pub fn web_search_url(field: &str, values: &[(&str, &str)], language: &str) -> String {
+    let q = web_search_query(field, values, language);
+    format!("{WEB_SEARCH_URL}?{}", crate::lyrics::urlencode(&[("q".into(), q)]))
+}
+
+/// The line breaks of Python's `str.splitlines()`.
+fn is_line_break(c: char) -> bool {
+    matches!(c, '\n' | '\r' | '\x0b' | '\x0c' | '\x1c' | '\x1d' | '\x1e' | '\u{85}' | '\u{2028}' | '\u{2029}')
+}
+
+/// What a text copied to the clipboard puts into a field: its first line that
+/// is not empty, as one line (`clean_value()`), cut to `MAX_VALUE` characters;
+/// "" for none.  Python `clipboard_value`.
+pub fn clipboard_value(text: &str) -> String {
+    for line in text.split(is_line_break) {
+        let value = clean_value(line);
+        if !value.is_empty() {
+            let cut: String = value.chars().take(MAX_VALUE).collect();
+            return clean_value(&cut);
+        }
+    }
+    String::new()
+}

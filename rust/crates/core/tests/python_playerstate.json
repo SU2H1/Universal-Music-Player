@@ -111,6 +111,37 @@
 "other": [
 "title"
 ]
+},
+"labels": {
+"song": {
+"/a": "#FF0000",
+"/b": "red",
+"/c": 5,
+"": "#00ff00"
+},
+"genre": {
+"Rock": "#00ff00",
+"rock": " #0000FF "
+},
+"artist": {
+"Ann": "#123456"
+},
+"album": {
+"x\u0000ann": "#abcdef"
+},
+"year": {
+"2001": "#000000"
+},
+"nope": {
+"a": "#111111"
+},
+"playlist": [],
+"tab": {
+"Hi-Res": "#c9a227"
+},
+"composer": {
+"": "#222222"
+}
 }
 },
 "messy_out": {
@@ -260,7 +291,27 @@
 "songs": []
 }
 ],
-"lyrics_size": 32
+"lyrics_size": 32,
+"labels": {
+"song": {
+"/a": "#ff0000"
+},
+"album": {
+"x\u0000ann": "#abcdef"
+},
+"artist": {
+"ann": "#123456"
+},
+"genre": {
+"rock": "#0000ff"
+},
+"year": {
+"2001": "#000000"
+},
+"tab": {
+"Hi-Res": "#c9a227"
+}
+}
 },
 "ops_out": {
 "_version": 1,
@@ -431,7 +482,36 @@
 "songs": []
 }
 ],
-"lyrics_size": 30
+"lyrics_size": 30,
+"labels": {
+"song": {
+"/m/a": "#ff3b30"
+},
+"album": {
+"city\u0000june": "#34c759"
+},
+"artist": {
+"june harbor": "#007aff"
+},
+"album_artist": {
+"émile": "#af52de"
+},
+"genre": {
+"indie pop": "#00ffaa"
+},
+"year": {
+"2021": "#ffcc00"
+},
+"composer": {
+"strasse": "#8e8e93"
+},
+"playlist": {
+"f4240": "#123abc"
+},
+"tab": {
+"Hi-Res": "#c9a227"
+}
+}
 },
 "name_errors": [
 [
@@ -708,5 +788,212 @@ Infinity,
 26,
 48,
 2
+],
+"label_results": [
+[
+"song",
+"/m/a",
+"#FF3B30",
+"#ff3b30"
+],
+[
+"album",
+"city\u0000june",
+"#34c759",
+"#34c759"
+],
+[
+"artist",
+"June Harbor",
+"#007aff",
+"#007aff"
+],
+[
+"album_artist",
+"ÉMILE",
+"#af52de",
+"#af52de"
+],
+[
+"genre",
+"Indie Pop",
+"#ff9500",
+"#ff9500"
+],
+[
+"year",
+"2021",
+"#ffcc00",
+"#ffcc00"
+],
+[
+"composer",
+"Straße",
+"#8e8e93",
+"#8e8e93"
+],
+[
+"playlist",
+"f4240",
+"#123abc",
+"#123abc"
+],
+[
+"tab",
+"Hi-Res",
+"#c9a227",
+"#c9a227"
+],
+[
+"song",
+"/m/b",
+"#ffffff",
+"#ffffff"
+],
+[
+"song",
+"/m/b",
+null,
+null
+],
+[
+"genre",
+"indie pop",
+"#00ffaa",
+"#00ffaa"
+],
+[
+"nope",
+"x",
+"#ffffff",
+null
+],
+[
+"song",
+"",
+"#ffffff",
+null
+],
+[
+"year",
+"1999",
+"not a colour",
+null
+],
+[
+"tab",
+"Old",
+"#000000",
+"#000000"
+],
+[
+"tab",
+"Old",
+"",
+null
+]
+],
+"label_lookups": [
+[
+"song",
+"/m/a",
+"#ff3b30"
+],
+[
+"song",
+"/m/b",
+null
+],
+[
+"genre",
+"INDIE POP",
+"#00ffaa"
+],
+[
+"artist",
+"june harbor",
+"#007aff"
+],
+[
+"album_artist",
+"émile",
+"#af52de"
+],
+[
+"composer",
+"STRASSE",
+"#8e8e93"
+],
+[
+"composer",
+"strasse",
+"#8e8e93"
+],
+[
+"year",
+"2021",
+"#ffcc00"
+],
+[
+"tab",
+"hi-res",
+null
+],
+[
+"tab",
+"Hi-Res",
+"#c9a227"
+],
+[
+"nope",
+"x",
+null
+],
+[
+"playlist",
+"f4240",
+"#123abc"
+]
+],
+"label_kinds": [
+"song",
+"album",
+"artist",
+"album_artist",
+"genre",
+"year",
+"composer",
+"playlist",
+"tab"
+],
+"label_colors": [
+[
+"Red",
+"#ff3b30"
+],
+[
+"Orange",
+"#ff9500"
+],
+[
+"Yellow",
+"#ffcc00"
+],
+[
+"Green",
+"#34c759"
+],
+[
+"Blue",
+"#007aff"
+],
+[
+"Purple",
+"#af52de"
+],
+[
+"Grey",
+"#8e8e93"
+]
 ]
 }

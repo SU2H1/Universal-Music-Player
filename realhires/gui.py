@@ -46,7 +46,7 @@ except ImportError as exc:  # e.g. Debian/Ubuntu Python without python3-tk
         f"(Details: {exc})"
     ) from exc
 
-from . import APP_NAME, PROJECT_URL, __version__, i18n
+from . import APP_NAME, PROJECT_URL, __version__, i18n, themes
 from .i18n import N_, tr, tr_name, tr_text
 
 
@@ -87,6 +87,15 @@ SEARCH_DELAY_MS = 200  # the list is filtered once typing pauses, not on every k
 PLOT_BG = "#1c1c1e"    # the plots' dark area, in light and dark themes
 MOD = "Command" if sys.platform == "darwin" else "Control"
 ACC = "Cmd" if sys.platform == "darwin" else "Ctrl"
+
+
+def verdict_color(theme: Optional[Theme], verdict: str) -> str:
+    """A verdict's colour in the theme in use (2.3: themes.VERDICT_COLOR_KEYS; the 1.x
+    colours of VERDICT_STYLE unless the theme sets its own)."""
+    key = themes.VERDICT_COLOR_KEYS.get(verdict)
+    if key and theme is not None and key in theme.colors:
+        return theme.c(key)
+    return VERDICT_STYLE.get(verdict, ("", "#1565c0"))[1]
 
 
 def ink(theme: Theme, color: str) -> str:
@@ -232,6 +241,19 @@ def open_with_default_app(path: str) -> None:
         subprocess.Popen(["open", path], env=external_env())
     else:
         subprocess.Popen(["xdg-open", path], env=external_env())
+
+
+def open_url(url: str) -> None:
+    """Open a web address in the system's browser (2.3: Search Cover Online, the
+    Properties window's Search buttons).  Python's webbrowser module is not used: on
+    Linux it starts the browser with the frozen app's library path."""
+    if sys.platform.startswith("win"):
+        os.startfile(url)  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", url], env=external_env())
+    else:
+        subprocess.Popen(["xdg-open", url], env=external_env(), stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL)
 
 
 def fmt_duration(sec: Optional[float]) -> str:
@@ -516,7 +538,7 @@ class SpectrumCanvas(_PlotBase):
                 self.create_line(X(ref), T, X(ref), T + ph, fill=self.AXIS, dash=(2, 3))
                 self.create_text(X(ref) + 3, T + ph - 8 - 12 * (i % 2), text=f"{ref / 1000:g}k",
                                  anchor="w", fill=self.LABEL, font=small)
-        color = mix(VERDICT_STYLE.get(self.result.verdict, ("", "#1565c0"))[1], "#ffffff", 0.35)
+        color = mix(verdict_color(self.app.theme, self.result.verdict), "#ffffff", 0.35)
         if p.get("bandwidth_hz"):
             x = X(p["bandwidth_hz"])
             self.create_line(x, T, x, T + ph, fill=color, dash=(6, 4), width=2)
@@ -576,8 +598,8 @@ class SummaryDialog(tk.Toplevel):
         legend = ttk.Frame(frm)
         legend.grid(row=2, column=1, sticky="nw")
         for i, (v, count, pct) in enumerate(breakdown):
-            label, color, desc = VERDICT_STYLE[v]
-            label, desc = tr(label), tr(desc)
+            label, _, desc = VERDICT_STYLE[v]
+            label, desc, color = tr(label), tr(desc), verdict_color(t, v)
             sw = tk.Canvas(legend, width=14, height=14, highlightthickness=0, bd=0, background=t.c("bg"))
             sw.create_oval(1, 1, 13, 13, fill=color, outline=color)
             sw.grid(row=2 * i, column=0, padx=(0, 8), pady=(6, 0), sticky="w")
@@ -623,7 +645,7 @@ class SummaryDialog(tk.Toplevel):
         box = (pad, pad, size - pad, size - pad)
         start = 90.0  # 12 o'clock, clockwise like most pie charts
         for v, count, pct in breakdown:
-            color = VERDICT_STYLE[v][1]
+            color = verdict_color(self.app.theme, v)
             extent = 360.0 * count / max(total, 1)
             tag = f"slice-{v}"
             if extent >= 359.99:
@@ -1702,7 +1724,16 @@ class CardGrid(ttk.Frame):
 # -------------------------------------------------------------------- app ---
 class FilterChip(Chip):
     """A verdict filter: a Chip whose `cget("text")` gives the label it shows (the verdict
-    in the language in use, and its count once there is one), as the ttk checkboxes did."""
+    in the language in use, and its count once there is one), as the ttk checkboxes did.
+    Its dot has the verdict's colour in the theme in use (2.3)."""
+
+    def __init__(self, master, theme: Theme, text: str, verdict: str, variable, command=None):
+        self.verdict = verdict
+        super().__init__(master, theme, text, verdict_color(theme, verdict), variable, command=command)
+
+    def redraw(self) -> None:
+        self.color = verdict_color(self.theme, self.verdict)
+        super().redraw()
 
     def cget(self, key):
         return self.label() if key == "text" else super().cget(key)
@@ -2038,7 +2069,7 @@ class App(ttk.Frame):
         self.filt.grid(row=4, column=0, sticky="ew", padx=P, pady=(8, 0))
         self.filter_checks: Dict[str, FilterChip] = {}
         for v in VERDICT_ORDER:
-            self.filter_checks[v] = FilterChip(self.filt, t, verdict_label(v), VERDICT_STYLE[v][1],
+            self.filter_checks[v] = FilterChip(self.filt, t, verdict_label(v), v,
                                                self.show_vars[v], command=self.refresh)
         self.filt.bind("<Configure>", lambda e: self._flow_chips(e.width) if e.width != self._chips_width else None)
         self._flow_chips(0)
@@ -2213,8 +2244,8 @@ class App(ttk.Frame):
         """Colours that are not ttk styles or registered widgets: the list's tags, the
         lyrics text, the source states (and again whenever the theme changes)."""
         t = self.theme
-        for v, (_, color, _) in VERDICT_STYLE.items():
-            self.tree.tag_configure(v, foreground=ink(t, color))
+        for v in VERDICT_STYLE:
+            self.tree.tag_configure(v, foreground=ink(t, verdict_color(t, v)))
         self.tree.tag_configure(PENDING, foreground=t.c("text2"))
         self.tree.tag_configure(RUNNING, foreground=ink(t, RUNNING_STYLE[1]))
         self.tree.tag_configure("hover", background=t.c("hover"))
@@ -3277,7 +3308,7 @@ class App(ttk.Frame):
             self.spectrogram.show(None, None)
             self.spectrum.show(None, None)
             return
-        color = VERDICT_STYLE[r.verdict][1]
+        color = verdict_color(self.theme, r.verdict)
         self.badge.set(verdict_label(r.verdict).upper(), color)
         self.name_var.set(os.path.basename(r.path))
         self.why_var.set(tr_text(r.summary or (r.reasons[0] if r.reasons else "")))

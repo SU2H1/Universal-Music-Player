@@ -17,7 +17,8 @@ the least recently used files.
 For the Cover window (2.1), cover_source() says where that cover comes from and
 gives the picture as it is stored, image_info() reads a JPEG or PNG header as
 metaflac does, fit_png() makes the picture to show, and save_folder_cover()
-writes cover.jpg (cover.png) into the album's folder.
+writes cover.jpg (cover.png) into the album's folder.  Search Cover Online
+(2.3) opens Google Images with the words of cover_search_url().
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ import stat
 import subprocess
 import tempfile
 import time
+import urllib.parse
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Tuple
 
@@ -283,6 +285,32 @@ def trim_cache(limit_bytes: int = CACHE_LIMIT_BYTES, folder: Optional[str] = Non
     return deleted
 
 
+# ------------------------------------------------- Search Cover Online (2.3) ---
+IMAGE_SEARCH_URL = "https://www.google.com/search"  # with tbm=isch: Google Images
+
+
+def _part(value) -> str:
+    """One part of a search: surrounding space removed, runs of white space made one space."""
+    return " ".join(str(value or "").split())
+
+
+def cover_search_query(album_artist: str = "", artist: str = "", album: str = "", title: str = "") -> str:
+    """The words Search Cover Online looks for: "<album artist (else artist)> <album>", or, for
+    a song without an album, "<artist (else album artist)> <title>"; unknown parts are left out."""
+    album = _part(album)
+    if album:
+        parts = [_part(album_artist) or _part(artist), album]
+    else:
+        parts = [_part(artist) or _part(album_artist), _part(title)]
+    return " ".join(p for p in parts if p)
+
+
+def cover_search_url(album_artist: str = "", artist: str = "", album: str = "", title: str = "") -> str:
+    """Google Images searching for the cover (`cover_search_query()`), as the browser opens it."""
+    q = cover_search_query(album_artist, artist, album, title)
+    return IMAGE_SEARCH_URL + "?" + urllib.parse.urlencode([("tbm", "isch"), ("q", q)])
+
+
 __all__ = ["cover_png", "folder_image", "cache_dir", "cache_key", "cache_name", "cache_file", "cached_cover_png",
            "is_cached", "read_cached", "trim_cache", "COVERS_ENV", "CACHE_LIMIT_BYTES", "CACHE_PATHS"]
 # ------------------------------------------------- inspecting a cover (2.1) ---
@@ -524,4 +552,5 @@ def save_folder_cover(folder: str, data: bytes) -> str:
 
 
 __all__ = ["cover_png", "folder_image", "image_info", "image_format", "cover_source", "CoverSource",
-           "PictureInfo", "fit_png", "save_folder_cover", "folder_cover_name"]
+           "PictureInfo", "fit_png", "save_folder_cover", "folder_cover_name",
+           "cover_search_query", "cover_search_url"]

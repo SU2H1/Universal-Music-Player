@@ -13,6 +13,7 @@ mod dialogs;
 mod editinfo;
 mod eqwin;
 mod icons;
+mod labels;
 mod look;
 mod library_pages;
 mod lyrics;
@@ -21,6 +22,9 @@ mod pages;
 mod player;
 mod plots;
 mod style;
+mod tabs;
+mod upnext;
+mod web;
 mod work;
 
 /// The headless app tests set process-wide variables (where results, settings,

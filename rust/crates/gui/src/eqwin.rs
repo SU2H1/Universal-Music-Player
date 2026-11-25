@@ -198,7 +198,8 @@ pub fn info_sections(
                 },
             ),
             (tr!("Volume"), if gain <= 0.0 { tr!("Muted").into() } else { db(20.0 * (gain as f64).log10()) }),
-            (tr!("Equalizer"), if bit_perfect { i18n::tr(realhires::bitperfect::EQ_BYPASSED).to_string() } else { eq_summary(state) }),
+            // 2.3: the equalizer is heard with bit-perfect playback too
+            (tr!("Equalizer"), eq_summary(state)),
             (tr!("Gapless"), if gapless { tr!("On").into() } else { tr!("Off").into() }),
         ],
         None => vec![
@@ -298,6 +299,12 @@ fn response_plot(ui: &mut egui::Ui, pal: &Palette, state: &eq::EqState) {
     p.add(Shape::line(pts, Stroke::new(2.0, color)));
 }
 
+/// The width of the Equalizer window.  Its rows fit it in every language: the preset row
+/// (English needs about 690 px) wraps to a second line when it is wider (2.3; in Japanese it
+/// ran past the window's fixed 660 px, so the title bar and its close button ended short of the
+/// content).  The Tk window wraps the row at 720 px too (`EqualizerWindow.PRESET_ROW_MAX`).
+pub const EQ_WIDTH: f32 = 720.0;
+
 enum EqAction {
     SaveAs,
     Rename(String),
@@ -313,19 +320,24 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
     let mine = p.state.matching_eq_preset();
     let presets: Vec<(String, eq::EqState)> = p.state.eq_presets.iter().map(|x| (x.name.clone(), x.eq.clone())).collect();
     let notes = p.eq_notes.clone();
-    let bypassed = p.scanner.cfg.bit_perfect;
+    let bit_perfect = p.scanner.cfg.bit_perfect;
     let mut action: Option<EqAction> = None;
-    egui::Window::new(tr!("Equalizer"))
+    let shown = egui::Window::new(tr!("Equalizer"))
         .id(egui::Id::unique("player-equalizer"))
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
-        .fixed_size([660.0, 520.0])
+        // as wide as its content (EQ_WIDTH, the rows wrap within it) and as tall: the title bar
+        // with its close button spans the whole window
+        .min_width(EQ_WIDTH)
+        .max_width(EQ_WIDTH)
+        .min_height(520.0)
         .pivot(Align2::CENTER_CENTER)
         .default_pos(ctx.content_rect().center())
         .show(ctx, |ui| {
-            // presets: the built-in ones (graphic gains) and the user's own (the whole EQ)
-            ui.horizontal(|ui| {
+            // presets: the built-in ones (graphic gains) and the user's own (the whole EQ); the
+            // row wraps to a second line when it is wider than the window
+            ui.horizontal_wrapped(|ui| {
                 ui.label(tr!("Preset"));
                 let shown = if !mine.is_empty() { mine.clone() } else { preset_shown(&state.preset).to_string() };
                 egui::ComboBox::from_id_salt("eq-all-presets").selected_text(shown).width(170.0).height(440.0).show_ui(ui, |ui| {
@@ -398,12 +410,12 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                 ui.label(RichText::new(tr_text(n)).small().color(pal.secondary));
             }
             ui.add_space(4.0);
-            if bypassed {
-                // bit-perfect playback: the equalizer's settings are kept, but it is not heard
-                ui.label(RichText::new(i18n::tr(realhires::bitperfect::EQ_BYPASSED).to_string()).strong().color(pal.accent));
+            if bit_perfect {
+                // 2.3: the equalizer works with bit-perfect playback, but the sound is then not bit-perfect
+                ui.add(egui::Label::new(RichText::new(i18n::tr(realhires::bitperfect::EQ_NOTE)).strong().color(pal.accent)).wrap());
                 ui.add_space(4.0);
             }
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.checkbox(&mut state.enabled, RichText::new(tr!("Equalizer on")).strong());
                 ui.add_space(12.0);
                 ui.checkbox(&mut state.prevent_clipping, tr!("Prevent clipping")).on_hover_text(tr!(
@@ -428,7 +440,9 @@ pub fn eq_window(p: &mut Player, ctx: &egui::Context, pal: &Palette) {
                     parametric(ui, pal, &mut state);
                 }
             });
+            ui.min_rect()
         });
+    p.eq_rects = shown.and_then(|r| r.inner.map(|content| (r.response.rect, content)));
     p.eq_tab = tab;
     match action {
         Some(EqAction::SaveAs) => p.ask_name(tr!("Save Equalizer Preset"), tr!("My Preset"), NameAction::SaveEqPreset),

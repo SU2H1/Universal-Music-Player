@@ -286,6 +286,62 @@ fn themes_match_python() {
     assert_eq!(themes::copy_name("Midnight", &custom), copies[0].as_str().unwrap());
     assert_eq!(themes::copy_name("My Theme", &custom), copies[1].as_str().unwrap());
     assert_eq!(themes::export_theme(&custom[0]), s(&data, "export"));
+    // 2.3: the extra colours, derived or set, and theme files with and without them
+    let keys: Vec<String> = data.get("extra_keys").unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap().to_string()).collect();
+    assert_eq!(keys, themes::EXTRA_COLOR_KEYS.map(str::to_string).to_vec());
+    let labels: Vec<&str> = data.get("extra_labels").unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    let ours: Vec<&str> = themes::COLOR_KEYS.iter().chain(themes::EXTRA_COLOR_KEYS.iter()).map(|k| themes::any_color_label(k)).collect();
+    assert_eq!(labels, ours);
+    let extra_custom = themes::normalize(data.get("extra_custom").unwrap()).unwrap();
+    same(&extra_custom.to_json(), data.get("extra_custom").unwrap(), "extra_custom");
+    assert_eq!(themes::export_theme(&extra_custom), s(&data, "extra_export"));
+    let pale = themes::normalize(&json::parse(r##"{"name": "Pale accent", "dark": true, "colors": {"accent": "#f0f0f0", "secondary": "#808080"}}"##).unwrap()).unwrap();
+    let all = data.get("all_colors").unwrap();
+    let mut checked = 0;
+    for (name, want) in all.as_object().unwrap() {
+        let t = themes::builtin(name)
+            .or_else(|| custom.iter().find(|t| &t.name == name).cloned())
+            .or_else(|| (extra_custom.name == *name).then(|| extra_custom.clone()))
+            .or_else(|| (pale.name == *name).then(|| pale.clone()))
+            .unwrap_or_else(|| panic!("no theme {name}"));
+        let got = themes::colors(&t);
+        assert_eq!(got.len(), want.as_object().unwrap().len(), "{name}");
+        for (k, v) in got {
+            assert_eq!(Some(v.as_str()), want.get(k).and_then(Value::as_str), "{name} {k}");
+            assert_eq!(t.any_color(k), v, "{name} {k}");
+        }
+        checked += 1;
+    }
+    assert_eq!(checked, themes::BUILTIN.len() + 4);
+    for c in data.get("extra_imports").unwrap().as_array().unwrap() {
+        let t = themes::import_theme(&s(c, "text"), &custom).unwrap();
+        same(&t.to_json(), c.get("theme").unwrap(), "extra import");
+        for (k, v) in themes::colors(&t) {
+            assert_eq!(Some(v.as_str()), c.get("colors").unwrap().get(k).and_then(Value::as_str), "import {k}");
+        }
+        assert_eq!(themes::export_theme(&t), s(c, "export"));
+    }
+    for m in data.get("mixes").unwrap().as_array().unwrap() {
+        let m = m.as_array().unwrap();
+        assert_eq!(themes::mix(m[0].as_str().unwrap(), m[1].as_str().unwrap(), m[2].as_f64().unwrap()), m[3].as_str().unwrap(), "{m:?}");
+    }
+    for l in data.get("luminances").unwrap().as_array().unwrap() {
+        let l = l.as_array().unwrap();
+        assert_eq!(themes::luminance(l[0].as_str().unwrap()), l[1].as_f64().unwrap(), "{l:?}");
+    }
+    for (code, key) in data.get("verdict_keys").unwrap().as_object().unwrap() {
+        assert_eq!(themes::verdict_color_key(code), key.as_str());
+    }
+    // setting and clearing an extra colour keeps the order of EXTRA_COLOR_KEYS
+    let mut t = extra_custom.clone();
+    t.set_extra("calendar", Some(" #AABBCC "));
+    t.set_extra("row_hover", None);
+    t.set_extra("zebra", Some("nope"));
+    t.set_extra("accent", Some("#000000"));
+    let set: Vec<&str> = t.extra.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(set, ["quality_hires", "verdict_cd", "calendar"]);
+    assert_eq!(t.extra_color("calendar"), Some("#aabbcc"));
+    assert_eq!(t.any_color("row_hover"), themes::derived("row_hover", &t));
 }
 
 #[test]
@@ -315,7 +371,26 @@ fn player_state_matches_python() {
     ops.toggle_column("album", "file");
     ops.set_columns("folders", &["bit_rate".to_string(), "format".to_string()]);
     ops.toggle_column("folders", "format");
+    // 2.3: colour labels
+    for r in data.get("label_results").unwrap().as_array().unwrap() {
+        let r = r.as_array().unwrap();
+        let key = if r[0].as_str() == Some("playlist") { pid.clone() } else { r[1].as_str().unwrap().to_string() };
+        let got = ops.set_label(r[0].as_str().unwrap(), &key, r[2].as_str());
+        assert_eq!(got.as_deref(), r[3].as_str(), "{r:?}");
+    }
+    for r in data.get("label_lookups").unwrap().as_array().unwrap() {
+        let r = r.as_array().unwrap();
+        let key = if r[0].as_str() == Some("playlist") { pid.clone() } else { r[1].as_str().unwrap().to_string() };
+        assert_eq!(ops.label_of(r[0].as_str().unwrap(), &key), r[2].as_str(), "{r:?}");
+    }
+    let kinds: Vec<&str> = data.get("label_kinds").unwrap().as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+    assert_eq!(kinds, playerstate::LABEL_KINDS.to_vec());
+    for (i, c) in data.get("label_colors").unwrap().as_array().unwrap().iter().enumerate() {
+        let c = c.as_array().unwrap();
+        assert_eq!((c[0].as_str().unwrap(), c[1].as_str().unwrap()), playerstate::LABEL_COLORS[i]);
+    }
     same(&ops.to_json(), data.get("ops_out").unwrap(), "ops");
+    same(&PlayerState::from_json(&ops.to_json()).to_json(), data.get("ops_out").unwrap(), "labels round trip");
     // Now Playing's lyrics size (A− / A+)
     let limits: Vec<i64> =
         data.get("lyrics_size_limits").unwrap().as_array().unwrap().iter().map(|v| v.as_i64().unwrap()).collect();

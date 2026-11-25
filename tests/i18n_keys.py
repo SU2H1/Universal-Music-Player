@@ -39,7 +39,7 @@ sys.path.insert(0, ROOT)
 
 PY_FILES = ["realhires/gui.py", "realhires/player_gui.py", "realhires/player_pages.py",
             "realhires/player_collections.py", "realhires/player_widgets.py", "realhires/player_windows.py",
-            "realhires/player_theme.py", "realhires/player_mb.py"]
+            "realhires/player_theme.py", "realhires/player_mb.py", "realhires/player_tabs.py"]
 RUST_DIR = "rust/crates/gui/src"
 TR_NAMES = {"tr", "N_"}
 CATALOG = os.path.join(ROOT, "realhires", "assets", "lang", "ja.json")
@@ -102,8 +102,8 @@ def rust_keys(path: str) -> Dict[str, List[str]]:
 
 def core_keys() -> Dict[str, List[str]]:
     """The core's tables that the apps show translated."""
-    from realhires import (bitperfect, eq, i18n, lyrics, musiclib, playqueue, settings, stats,  # noqa: F401
-                           tagedit, themes)
+    from realhires import (bitperfect, eq, i18n, lyrics, musiclib, playerstate, playqueue, settings,  # noqa: F401
+                           stats, tagedit, themes)
     out: Dict[str, List[str]] = {}
 
     def add(text: str, where: str) -> None:
@@ -130,6 +130,10 @@ def core_keys() -> Dict[str, List[str]]:
         add(v, "eq.BAND_TYPE_LABELS")
     for v in themes.COLOR_LABELS.values():
         add(v, "themes.COLOR_LABELS")
+    for v in themes.EXTRA_COLOR_LABELS.values():  # 2.3: More colours
+        add(v, "themes.EXTRA_COLOR_LABELS")
+    for name, _ in playerstate.LABEL_COLORS:  # 2.3: the Colour Label menu
+        add(name, "playerstate.LABEL_COLORS")
     for name in themes.BUILTIN:
         add(name, "themes.BUILTIN")
     add(themes.SYSTEM, "themes.SYSTEM")
@@ -144,7 +148,7 @@ def core_keys() -> Dict[str, List[str]]:
     for label in stats.FULL_MONTHS:  # 2.2: the calendar's month names
         add(label, "stats.FULL_MONTHS")
     # 2.2: bit-perfect playback's texts that the apps show as they are
-    for text in (bitperfect.OFF, bitperfect.ON_IDLE, bitperfect.EQ_BYPASSED, bitperfect.WASAPI_FORMAT_NOTE,
+    for text in (bitperfect.OFF, bitperfect.ON_IDLE, bitperfect.EQ_NOTE, bitperfect.WASAPI_FORMAT_NOTE,
                  bitperfect.BUSY, bitperfect.LOSSY_NOTE, bitperfect.failure_reason(),
                  bitperfect.access_label(bitperfect.WASAPI, 0), bitperfect.access_label(bitperfect.ALSA, 0),
                  bitperfect.access_label(bitperfect.DIRECT, 0)):
@@ -154,6 +158,19 @@ def core_keys() -> Dict[str, List[str]]:
         add(v, "lyrics.SHOWN_LABELS")
     for file in ("song.lrc", "song.txt", "song.flac"):
         add(lyrics.shown_label(lyrics.SYNCED, "song.flac", file)[1], "lyrics.shown_label")
+    # 2.3: custom tabs (the tab window's menus, the templates, the fixed messages of check_tab())
+    from realhires import smarttabs
+
+    for v in smarttabs.FIELD_LABELS.values():
+        add(v, "smarttabs.FIELD_LABELS")
+    for table in (smarttabs.TEXT_OP_LABELS, smarttabs.NUMBER_OP_LABELS, smarttabs.YESNO_OP_LABELS,
+                  smarttabs.MATCH_LABELS):
+        for v in table.values():
+            add(v, "smarttabs labels")
+    for v in (smarttabs.YES, smarttabs.NO) + smarttabs.QUALITY_VALUES + smarttabs.FIXED_MESSAGES:
+        add(v, "smarttabs")
+    for t in smarttabs.TEMPLATES:
+        add(t["name"], "smarttabs.TEMPLATES")
     for name in i18n.PLACEHOLDER_NAMES:
         add(name, "i18n.PLACEHOLDER_NAMES")
     for v in i18n.VERDICT_NAMES:

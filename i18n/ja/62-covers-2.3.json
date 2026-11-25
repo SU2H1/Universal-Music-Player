@@ -1,0 +1,11 @@
+{
+ "strings": {
+  "Change Cover…": "アートワークを変更…",
+  "Search Cover Online": "オンラインでアートワークを検索",
+  "The browser could not be opened: {error}": "ブラウザを開けませんでした：{error}",
+  "Search the web for the {field}": "{field}をウェブで検索",
+  "Copy the answer in your browser and it will be filled in here.": "ブラウザで答えをコピーすると、ここに入力されます。",
+  "Filled in from the clipboard.": "クリップボードから入力しました。"
+ },
+ "patterns": {}
+}

@@ -58,6 +58,7 @@ translation yet.
 | Open folder / Open file / Copy path / Show in folder | フォルダを開く / ファイルを開く / パスをコピー / フォルダに表示 |
 | Search / Find | 検索 / 検索 |
 | Save / Cancel / Close / OK / Apply / Delete… / Rename… / Remove | 保存 / キャンセル / 閉じる / OK / 適用 / 削除… / 名前を変更… / 取り除く |
+| Colour Label / Custom… / None / More colours / (automatic) | カラーラベル / カスタム… / なし / その他の色 / （自動） |
 | Import… / Export… | 読み込む… / 書き出す… |
 | Add folder… / Choose a music folder… | フォルダを追加… / 音楽フォルダを選択… |
 | Update the library now | ライブラリを今すぐ更新 |

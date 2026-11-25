@@ -36,9 +36,38 @@ fn pill(ui: &mut Ui, pal: &Palette, icon: Icon, label: &str) -> egui::Response {
     let (rect, resp) = ui.allocate_exact_size(vec2(w.max(110.0), 32.0), Sense::click());
     let fill = if resp.hovered() { pal.accent.gamma_multiply(0.85) } else { pal.accent };
     ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
-    icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), vec2(18.0, 18.0)), icon, Color32::WHITE);
-    ui.painter().text(pos2(rect.left() + 36.0, rect.center().y), Align2::LEFT_CENTER, label, font, Color32::WHITE);
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 22.0, rect.center().y), vec2(18.0, 18.0)), icon, pal.on_accent);
+    ui.painter().text(pos2(rect.left() + 36.0, rect.center().y), Align2::LEFT_CENTER, label, font, pal.on_accent);
     resp
+}
+
+/// A rounded button without the minimum width of `pill()` (2.3: the Genres page's
+/// Select, Merge…, Rename… and Done): filled with the accent colour, or the LCD grey
+/// when `accent` is false; greyed out and not clickable when `enabled` is false.
+fn pill_button(ui: &mut Ui, pal: &Palette, icon: Option<Icon>, label: &str, accent: bool, enabled: bool) -> egui::Response {
+    let font = look::title(13.0);
+    let iw = if icon.is_some() { 20.0 } else { 0.0 };
+    let w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), font.clone(), Color32::WHITE).size().x) + iw + 34.0;
+    let (rect, resp) = ui.allocate_exact_size(vec2(w, 32.0), if enabled { Sense::click() } else { Sense::hover() });
+    let hovered = enabled && resp.hovered();
+    let disabled = pal.disabled;
+    let (fill, fg) = if accent {
+        (if !enabled { disabled } else if hovered { pal.accent.gamma_multiply(0.85) } else { pal.accent }, pal.on_accent)
+    } else {
+        (if hovered { pal.hover } else { pal.lcd }, if enabled { pal.text } else { disabled })
+    };
+    ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
+    let mut x = rect.left() + 17.0;
+    if let Some(icon) = icon {
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(x + 7.0, rect.center().y), vec2(14.0, 14.0)), icon, fg);
+        x += iw;
+    }
+    ui.painter().text(pos2(x, rect.center().y), Align2::LEFT_CENTER, label, font, fg);
+    if enabled {
+        resp.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        resp
+    }
 }
 
 fn minutes(tracks: &[&Track]) -> String {
@@ -269,6 +298,13 @@ fn segmented<T: Copy + PartialEq>(ui: &mut Ui, pal: &Palette, options: &[(T, &st
     chosen
 }
 
+/// Lyrics only (2.3): the lyrics this many pixels larger than the chosen size.
+pub const LYRICS_WIDE_EXTRA: i64 = 4;
+/// A sideways drag this long turns Now Playing's left half (2.3).
+pub const SWIPE_PX: f32 = 60.0;
+/// Now Playing's Details: the values' column at most this wide (2.3).
+const DETAILS_VALUE_W: f32 = 420.0;
+
 /// A filled pill with white text (the "Back to the current line" button), at `rect`.
 fn floating_pill(ui: &mut Ui, pal: &Palette, rect: Rect, label: &str, id: egui::Id) -> bool {
     let resp = ui.interact(rect, id, Sense::click());
@@ -373,6 +409,7 @@ impl Player {
             Page::NowPlaying => self.now_playing(ui, pal),
             Page::Settings => self.settings_page(ui, pal),
             Page::Quality => {}
+            Page::Tab(name) => self.tab_page(ui, pal, &name),
         }
     }
 
@@ -414,6 +451,9 @@ impl Player {
         let tex = self.covers.get(&key, &self.lib.album_paths[album]);
         let crect = Rect::from_min_size(rect.min, vec2(size, size));
         cover(ui.painter(), crect, tex.as_ref(), &title, 8);
+        if let Some(c) = self.label_of("album", &key) {
+            crate::labels::paint_cover_dot(ui.painter(), crect, c, pal); // 2.3: its colour label
+        }
         if resp.hovered() {
             ui.painter().rect_filled(crect, CornerRadius::same(8), Color32::from_black_alpha(40));
             let play = Rect::from_center_size(crect.left_bottom() + vec2(24.0, -24.0), vec2(32.0, 32.0));
@@ -436,9 +476,10 @@ impl Player {
         resp.context_menu(|ui| self.album_menu(ui, album));
     }
 
-    /// The right-click menu of an album card (every album grid): Play, Shuffle,
-    /// Play Next, Add to Queue, Acquire Metadata… (the MusicBrainz window for the
-    /// album) and Album Properties…, as the album page's buttons do.
+    /// The right-click menu of an album card (every album grid) and the album
+    /// page's "…" menu (2.3): Play, Shuffle, Play Next, Add to Queue, Album
+    /// Properties…, Acquire Metadata… (the MusicBrainz window for the album), as
+    /// the album page's buttons do, and Change Cover… (the album's Cover window).
     pub fn album_menu(&mut self, ui: &mut Ui, album: usize) {
         let Some(a) = self.lib.albums.get(album) else {
             ui.close();
@@ -465,16 +506,25 @@ impl Player {
             ui.close();
         }
         ui.separator();
-        if ui.add_enabled(self.mb_win.is_none(), egui::Button::new(tr!("Acquire Metadata…"))).clicked() {
-            let a = self.lib.albums[album].clone();
-            self.musicbrainz_album(&a);
-            ui.close();
-        }
         if ui.add_enabled(self.edit_info.is_none(), egui::Button::new(tr!("Album Properties…"))).clicked() {
             let a = self.lib.albums[album].clone();
             self.edit_album_info(&a);
             ui.close();
         }
+        if ui.add_enabled(self.mb_win.is_none(), egui::Button::new(tr!("Acquire Metadata…"))).clicked() {
+            let a = self.lib.albums[album].clone();
+            self.musicbrainz_album(&a);
+            ui.close();
+        }
+        if ui.button(tr!("Change Cover…")).clicked() {
+            if let Some(first) = paths.first() {
+                self.open_cover_window(first);
+            }
+            ui.close();
+        }
+        ui.separator();
+        let key = self.lib.albums[album].key.clone();
+        self.label_menu(ui, "album", &key); // 2.3
     }
 
     fn album_grid(&mut self, ui: &mut Ui, pal: &Palette, albums: &[usize]) {
@@ -550,7 +600,8 @@ impl Player {
                 let meta: Vec<String> = [a.genre.clone(), a.year.clone(), minutes(&refs)].into_iter().filter(|s| !s.is_empty()).collect();
                 ui.label(RichText::new(meta.join(" · ")).color(pal.secondary));
                 ui.add_space(14.0);
-                ui.horizontal(|ui| {
+                // wraps on a narrow page instead of running past its edge (2.3)
+                ui.horizontal_wrapped(|ui| {
                     if pill(ui, pal, Icon::Play, tr!("Play")).clicked() {
                         self.play_list(paths.clone(), Some(&paths[0]), &a.title);
                     }
@@ -571,6 +622,9 @@ impl Player {
                     {
                         self.musicbrainz_album(&a);
                     }
+                    // 2.3: the album's menu (as an album card's right-click menu, with Change Cover…)
+                    let r = icons::button(ui, Icon::More, 28.0, false, true, tr!("More"));
+                    egui::Popup::menu(&r).show(|ui| self.album_menu(ui, idx));
                 });
             });
         });
@@ -621,6 +675,7 @@ impl Player {
                 ui.close();
             }
         });
+        self.label_menu(ui, "song", path); // 2.3
         if let Some(id) = self.table_playlist.clone() {
             ui.separator();
             if ui.button(tr!("Remove from this playlist")).clicked() {
@@ -660,7 +715,8 @@ impl Player {
             self.musicbrainz_song(path);
             ui.close();
         }
-        if ui.button(tr!("Cover…")).clicked() {
+        // 2.3: the Cover window of the song's album (it was "Cover…")
+        if ui.button(tr!("Change Cover…")).clicked() {
             self.open_cover_window(path);
             ui.close();
         }
@@ -816,13 +872,14 @@ impl Player {
                 let selected = self.selected_song.as_deref() == Some(path.as_str());
                 let playing = now.as_deref() == Some(path.as_str());
                 if selected {
-                    ui.painter().rect_filled(rect, CornerRadius::same(5), pal.hover);
+                    ui.painter().rect_filled(rect, CornerRadius::same(5), pal.selection);
                 } else if i % 2 == 1 {
-                    ui.painter().rect_filled(rect, CornerRadius::same(5), if pal.dark { Color32::from_white_alpha(6) } else { Color32::from_black_alpha(6) });
+                    ui.painter().rect_filled(rect, CornerRadius::same(5), pal.zebra);
                 }
                 let p = ui.painter_at(rect);
                 let heart_rect = Rect::from_center_size(pos2(rect.left() + 15.0, rect.center().y), vec2(16.0, 16.0));
                 let liked = self.state.is_liked(path);
+                let label = self.label_of("song", path); // 2.3: a dot before the title
                 if heart && (liked || resp.hovered()) {
                     icons::paint(&p, heart_rect, if liked { Icon::HeartFilled } else { Icon::Heart }, pal.accent);
                 }
@@ -836,10 +893,24 @@ impl Player {
                         c => cell_text(t, *c),
                     };
                     let first = *col == SongCol::Title;
-                    let color = if first && playing { pal.accent } else if first { pal.text } else { pal.secondary };
+                    let color = if first && playing {
+                        pal.accent
+                    } else if first {
+                        pal.text
+                    } else if *col == SongCol::Quality {
+                        pal.quality_of(t) // 2.3: the Quality column in the quality's colour
+                    } else {
+                        pal.secondary
+                    };
                     let font = if first { look::text(13.0) } else { look::text(12.5) };
-                    let g = elided(ui, &v, font, color, ws[k] - 10.0);
-                    let x = if col.info().3 { rect.left() + xs[k] + ws[k] - 6.0 - g.size().x } else { rect.left() + xs[k] + 4.0 };
+                    let (mut left, mut room) = (rect.left() + xs[k] + 4.0, ws[k] - 10.0);
+                    if let (true, Some(c)) = (first, label) {
+                        crate::labels::paint_dot(&p, pos2(left + crate::labels::DOT / 2.0, rect.center().y), c, None);
+                        left += crate::labels::DOT + 6.0;
+                        room -= crate::labels::DOT + 6.0;
+                    }
+                    let g = elided(ui, &v, font, color, room.max(10.0));
+                    let x = if col.info().3 { rect.left() + xs[k] + ws[k] - 6.0 - g.size().x } else { left };
                     p.galley(pos2(x, rect.center().y - g.size().y / 2.0), g, color);
                 }
                 let mut resp = resp;
@@ -881,34 +952,45 @@ impl Player {
 
     /// Artists, Album Artists, Genres, Years and Composers: a card each, like the albums
     /// (a mosaic of up to four of its album covers, the name, "N albums · M songs"); a
-    /// click opens its page.  On Genres, Ctrl/Cmd-click selects several to merge.
+    /// click opens its page.  On Genres (2.3) the title row has Select: in select mode a
+    /// click selects a card, and the row shows "N selected", Merge… (two or more),
+    /// Rename… (one) and Done; Ctrl-click (Cmd-click on macOS) selects without it.
     fn group_grid(&mut self, ui: &mut Ui, pal: &Palette, kind: &'static str) {
         let (_, title, noun) = crate::player::GROUPINGS.iter().copied().find(|g| g.0 == kind).unwrap_or(crate::player::GROUPINGS[0]);
         let n = self.lib.groups(kind).len();
-        let selected = if kind == "genres" { self.group_selected.len() } else { 0 };
+        let multi = kind == "genres";
+        let selected = if multi { self.group_selected.len() } else { 0 };
+        let selecting = multi && (self.group_select_mode || selected > 0);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label(RichText::new(i18n::tr(title)).font(look::title(28.0)).color(pal.text));
                 let mut sub = crate::player::plural(n, noun);
-                if kind == "genres" {
-                    let m = if cfg!(target_os = "macos") { "Cmd" } else { "Ctrl" };
+                if multi && n > 0 {
                     sub += " · ";
-                    sub += &if selected > 0 {
-                        tr!("{n} selected", n = selected)
+                    sub += &if self.group_select_mode {
+                        tr!("Click genres to select them").to_string()
                     } else {
-                        tr!("{mod}-click genres to select several and merge them", mod = m)
+                        tr!("Press Select or {mod}-click genres to merge or rename them", mod = crate::player::MOD_NAME)
                     };
                 }
                 ui.label(RichText::new(sub).color(pal.secondary));
             });
-            if selected >= 2 {
+            if selecting || (multi && n > 0) {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ui.button(tr!("Clear selection")).clicked() {
-                        self.group_selected.clear();
-                    }
-                    if pill(ui, pal, Icon::Genres, &tr!("Merge {n} genres…", n = selected)).clicked() {
-                        let names = self.group_selected.clone();
-                        self.ask_merge_groups(kind, names);
+                    if selecting {
+                        if pill_button(ui, pal, None, tr!("Done"), true, true).clicked() {
+                            self.done_selecting();
+                        }
+                        if pill_button(ui, pal, None, tr!("Rename…"), false, selected == 1).clicked() {
+                            self.rename_selected();
+                        }
+                        if pill_button(ui, pal, None, tr!("Merge…"), false, selected >= 2).clicked() {
+                            self.merge_selected();
+                        }
+                        ui.add_space(4.0);
+                        ui.label(RichText::new(tr!("{n} selected", n = selected)).color(pal.secondary));
+                    } else if pill_button(ui, pal, Some(Icon::Check), tr!("Select"), false, true).clicked() {
+                        self.group_select_mode = true;
                     }
                 });
             }
@@ -956,7 +1038,7 @@ impl Player {
                     p.add(egui::epaint::RectShape::filled(r, radius, Color32::WHITE).with_texture(t.id(), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0))));
                 }
                 None => {
-                    p.rect_filled(r, radius, crate::style::placeholder_color(&self.lib.albums[a].title));
+                    p.rect_filled(r, radius, look::current(p.ctx()).placeholder);
                 }
             }
         }
@@ -972,6 +1054,9 @@ impl Player {
         let albums = self.lib.group_albums.get(kind).and_then(|v| v.get(i)).cloned().unwrap_or_default();
         let crect = Rect::from_min_size(rect.min, vec2(size, size));
         self.group_mosaic(ui.painter(), crect, &albums, &name);
+        if let Some(c) = label_kind(kind).and_then(|k| self.label_of(k, &name)) {
+            crate::labels::paint_cover_dot(ui.painter(), crect, c, pal); // 2.3: its colour label
+        }
         let is_sel = kind == "genres" && self.group_selected.iter().any(|s| *s == name);
         if is_sel {
             ui.painter().rect_stroke(crect.expand(3.0), CornerRadius::same(10), Stroke::new(3.0, pal.accent), egui::StrokeKind::Inside);
@@ -988,8 +1073,11 @@ impl Player {
         let g = elided(ui, &sub, look::text(12.0), pal.secondary, size);
         ui.painter().galley(pos2(rect.left(), crect.bottom() + 24.0), g, pal.secondary);
         let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
-        if resp.clicked() {
-            let toggle = kind == "genres" && ui.input(|i| i.modifiers.command);
+        // macOS: Ctrl-click is a right-click there (Cmd-click selects)
+        let mac_menu = cfg!(target_os = "macos") && resp.clicked() && ui.input(|i| i.modifiers.ctrl && !i.modifiers.mac_cmd);
+        if resp.clicked() && !mac_menu {
+            // select mode, or Ctrl-click (Cmd-click on macOS): select or unselect the card
+            let toggle = kind == "genres" && (self.group_select_mode || ui.input(|i| i.modifiers.command));
             if toggle {
                 if is_sel {
                     self.group_selected.retain(|s| *s != name);
@@ -1001,7 +1089,9 @@ impl Player {
                 self.go(Page::Group(kind, name.clone()));
             }
         }
-        resp.context_menu(|ui| {
+        let menu = egui::Popup::context_menu(&resp);
+        let menu = if mac_menu { menu.open_memory(Some(egui::SetOpenCommand::Bool(true))) } else { menu };
+        menu.show(|ui| {
             if is_sel && self.group_selected.len() > 1 {
                 let k = self.group_selected.len();
                 if ui.button(tr!("Merge {n} genres…", n = k)).clicked() {
@@ -1054,6 +1144,10 @@ impl Player {
                 self.ask_merge_groups(kind, vec![name.to_string()]);
                 ui.close();
             }
+        }
+        if let Some(k) = label_kind(kind) {
+            ui.separator();
+            self.label_menu(ui, k, name); // 2.3
         }
     }
 
@@ -1175,8 +1269,34 @@ impl Player {
     /// middle of the left half (the album name opens the album, each artist name that artist,
     /// the cover the Cover window); on the right a switch Lyrics | Up Next | Details.  With
     /// the lyrics hidden (the Lyrics button on this page) only the block, in the middle.
+    /// 2.3: a back link at the top left; an instrumental song's Lyrics is the block in the
+    /// middle with "Instrumental"; Lyrics only fills the page with the lyrics; a sideways
+    /// drag or scroll turns the left half to the album's songs (`np_left()`).
     fn now_playing(&mut self, ui: &mut Ui, pal: &Palette) {
+        use crate::player::NpMode;
         self.np_hits = NpHits::default();
+        let area = ui.available_rect_before_wrap();
+        // the way back (2.3): "‹ All Songs" at the top left, when there is a page to go back to
+        if let Some(label) = self.back_label() {
+            let font = look::title(14.0);
+            let galley = ui.painter().layout_no_wrap(label.clone(), font, pal.accent);
+            let rect = Rect::from_min_size(area.left_top(), vec2(24.0 + galley.size().x + 6.0, 28.0));
+            let resp = ui.interact(rect, ui.scope_id().with("np-back"), Sense::click());
+            icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.left() + 9.0, rect.center().y), vec2(18.0, 18.0)), Icon::Back, pal.accent);
+            let text_pos = pos2(rect.left() + 24.0, rect.center().y - galley.size().y / 2.0);
+            let text_w = galley.size().x;
+            ui.painter().galley(text_pos, galley, pal.accent);
+            if resp.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                let y = rect.center().y + 9.0;
+                ui.painter().line_segment([pos2(text_pos.x, y), pos2(text_pos.x + text_w, y)], Stroke::new(1.0, pal.accent));
+            }
+            self.np_hits.back_page = Some((rect, label));
+            if resp.clicked() {
+                self.go_back();
+                return;
+            }
+        }
         let Some(path) = self.now.as_ref().map(|n| n.path.clone()) else {
             ui.add_space(ui.available_height() * 0.35);
             ui.vertical_centered(|ui| {
@@ -1186,42 +1306,34 @@ impl Player {
             return;
         };
         let track = self.lib.track(&path).cloned().unwrap_or_else(|| Track { path: path.clone(), ..Default::default() });
-        let key = track.song().album_key();
-        let has_album = self.lib.album_of(&path).is_some();
-        let paths: Vec<String> = self.lib.album_of(&path).map(|a| a.tracks.iter().map(|t| t.path.clone()).collect()).unwrap_or_else(|| vec![path.clone()]);
-        let tex = self.covers.get_large(&key, &paths);
         let lyrics = self.lyrics_of_now();
-        let area = ui.available_rect_before_wrap();
-        let right = !self.lyrics_hidden;
-        let left = if right { Rect::from_min_max(area.min, pos2(area.center().x, area.bottom())) } else { area };
-        // the block: the cover, the title and "Artist — Album" (80 px), in the middle of `left`
-        let text_h = 80.0;
-        let size = (left.width() - 80.0).min(left.height() - 80.0 - text_h).clamp(120.0, 480.0);
-        let crect = Rect::from_min_size(pos2(left.center().x - size / 2.0, left.center().y - (size + text_h) / 2.0), vec2(size, size));
-        cover(ui.painter(), crect, tex.as_ref(), &track.display_album(), 12);
-        let cresp = ui.interact(crect, ui.scope_id().with("np-cover"), Sense::click());
-        if cresp.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        let mode = self.np_mode();
+        let left = match mode {
+            NpMode::Wide => None,
+            NpMode::Halves => Some(Rect::from_min_max(area.min, pos2(area.center().x, area.bottom()))),
+            _ => Some(area),
+        };
+        if mode == NpMode::Instrumental {
+            // the switch stays above the block, so Up Next and Details are at hand
+            let top = Rect::from_min_max(area.min, pos2(area.right(), area.top() + 40.0));
+            ui.scope_builder(egui::UiBuilder::new().max_rect(top), |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(4.0);
+                    if let Some(tab) = segmented(ui, pal, &NpTab::ALL, self.np_tab) {
+                        self.set_np_tab(tab);
+                    }
+                });
+            });
         }
-        self.np_hits.cover = Some(crect);
-        if cresp.clicked() {
-            self.open_cover_window(&path);
+        if let Some(left) = left {
+            if self.np_left(ui, pal, left, &path, &track, mode == NpMode::Instrumental) {
+                return; // it opened another page
+            }
         }
-        let title = elided(ui, &track.display_title(), look::title(20.0), pal.text, left.width() - 60.0);
-        ui.painter().galley(pos2(left.center().x - title.size().x / 2.0, crect.bottom() + 30.0 - title.size().y / 2.0), title, pal.text);
-        let artists = self.lib.artists_of(&track);
-        let pieces = artist_line(ui, look::text(14.0), pal.secondary, &artists, &track.display_album(), has_album, left.width() - 60.0);
-        let (rects, clicked) = paint_links(ui, ui.painter(), pieces, pos2(left.center().x, crect.bottom() + 58.0), pal.secondary, ui.scope_id().with("np-links"));
-        self.np_hits.links = rects;
-        match clicked {
-            Some(Link::Artist(name)) => return self.open_artist(&name),
-            Some(Link::Album) => return self.open_album_of(&path),
-            None => {}
+        if !matches!(mode, NpMode::Halves | NpMode::Wide) {
+            return; // the lyrics are hidden (the Lyrics button), or the song is instrumental: the block only
         }
-        if !right {
-            return; // the lyrics are hidden (the Lyrics button): the block only
-        }
-        let rrect = Rect::from_min_max(pos2(area.center().x + 10.0, area.top()), area.max);
+        let rrect = if mode == NpMode::Wide { area } else { Rect::from_min_max(pos2(area.center().x + 10.0, area.top()), area.max) };
         ui.scope_builder(egui::UiBuilder::new().max_rect(rrect), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(4.0);
@@ -1231,16 +1343,175 @@ impl Player {
                 ui.add_space(8.0);
             });
             match self.np_tab {
-                NpTab::Lyrics => self.np_lyrics(ui, pal, &path, lyrics),
+                NpTab::Lyrics => self.np_lyrics(ui, pal, &path, lyrics, mode == NpMode::Wide),
                 NpTab::UpNext => self.np_up_next(ui, pal),
                 NpTab::Details => self.np_details(ui, pal, &track),
             }
         });
     }
 
-    /// Now Playing's Lyrics: the label and A− / A+, then the lyrics (synced ones follow the
-    /// song unless the user scrolled the current line away; then "Back to the current line").
-    fn np_lyrics(&mut self, ui: &mut Ui, pal: &Palette, path: &str, lyrics: Option<ShownLyrics>) {
+    /// Now Playing's left half (or the whole page when the block is in the middle): the
+    /// cover block, or the album's songs (`np_songs`, 2.3), with two dots under it that switch
+    /// between them; a sideways drag of more than `SWIPE_PX` (either way) or a sideways scroll
+    /// turns it.  Returns true when a link opened another page.
+    fn np_left(&mut self, ui: &mut Ui, pal: &Palette, left: Rect, path: &str, track: &Track, instrumental: bool) -> bool {
+        let album = self.lib.album_of(path).cloned();
+        if album.is_some() {
+            // the swipe: a drag that started here, or a sideways scroll over it
+            let (origin, latest, down, hover, dx) = ui.input(|i| {
+                (i.pointer.press_origin(), i.pointer.latest_pos(), i.pointer.primary_down(), i.pointer.hover_pos(), i.smooth_scroll_delta.x)
+            });
+            if !down {
+                self.np_swiped = false;
+            } else if let (Some(o), Some(p)) = (origin, latest) {
+                let d = p - o;
+                if left.contains(o) && !self.np_swiped && d.x.abs() > SWIPE_PX && d.x.abs() > d.y.abs() {
+                    self.np_swiped = true; // one turn per drag
+                    self.np_songs = !self.np_songs;
+                }
+            }
+            if hover.is_some_and(|h| left.contains(h)) && dx != 0.0 {
+                // the content moving left (a swipe to the left) shows the songs, to the right the cover
+                self.np_hscroll += dx;
+                if self.np_hscroll.abs() > 30.0 {
+                    self.set_np_side(self.np_hscroll < 0.0);
+                    self.np_hscroll = 0.0;
+                }
+            } else {
+                self.np_hscroll = 0.0;
+            }
+        }
+        let opened = match &album {
+            Some(a) if self.np_songs => {
+                // below the switch when it stands above the block
+                let list = if instrumental { Rect::from_min_max(left.min + vec2(0.0, 40.0), left.max) } else { left };
+                self.np_album_songs(ui, pal, list, path, a);
+                false
+            }
+            _ => self.np_block(ui, pal, left, path, track, album.is_some(), instrumental),
+        };
+        if opened {
+            return true;
+        }
+        if album.is_some() {
+            // the dots: the cover, the album's songs
+            let y = left.bottom() - 14.0;
+            for (k, songs) in [false, true].into_iter().enumerate() {
+                let c = pos2(left.center().x + (k as f32 - 0.5) * 18.0, y);
+                let r = Rect::from_center_size(c, vec2(18.0, 20.0));
+                let resp = ui.interact(r, ui.scope_id().with(("np-dot", k)), Sense::click());
+                let on = self.np_songs == songs;
+                ui.painter().circle_filled(c, 4.0, if on { pal.text } else { pal.secondary.gamma_multiply(0.45) });
+                if resp.hovered() {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
+                if resp.clicked() {
+                    self.set_np_side(songs);
+                }
+                self.np_hits.dots.push(r);
+            }
+        }
+        false
+    }
+
+    /// The cover with the title and "Artist — Album" under it (and "Instrumental"), one
+    /// block in the middle of `left`.  Returns true when a link opened another page.
+    #[allow(clippy::too_many_arguments)]
+    fn np_block(&mut self, ui: &mut Ui, pal: &Palette, left: Rect, path: &str, track: &Track, has_album: bool, instrumental: bool) -> bool {
+        let key = track.song().album_key();
+        let paths: Vec<String> = self.lib.album_of(path).map(|a| a.tracks.iter().map(|t| t.path.clone()).collect()).unwrap_or_else(|| vec![path.to_string()]);
+        let tex = self.covers.get_large(&key, &paths);
+        // the block: the cover, the title and "Artist — Album" (80 px, and "Instrumental"), in the middle of `left`
+        let text_h = if instrumental { 106.0 } else { 80.0 };
+        let top = if instrumental { 44.0 } else { 0.0 }; // below the switch
+        let room = Rect::from_min_max(pos2(left.left(), left.top() + top), left.max);
+        let size = (room.width() - 80.0).min(room.height() - 80.0 - text_h).clamp(120.0, 480.0);
+        let crect = Rect::from_min_size(pos2(room.center().x - size / 2.0, room.center().y - (size + text_h) / 2.0), vec2(size, size));
+        cover(ui.painter(), crect, tex.as_ref(), &track.display_album(), 12);
+        let cresp = ui.interact(crect, ui.scope_id().with("np-cover"), Sense::click());
+        if cresp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        self.np_hits.cover = Some(crect);
+        if cresp.clicked() {
+            // a click without a drag (a drag is not a click): the Cover window
+            self.open_cover_window(path);
+        }
+        let title = elided(ui, &track.display_title(), look::title(20.0), pal.text, left.width() - 60.0);
+        ui.painter().galley(pos2(left.center().x - title.size().x / 2.0, crect.bottom() + 30.0 - title.size().y / 2.0), title, pal.text);
+        let artists = self.lib.artists_of(track);
+        let pieces = artist_line(ui, look::text(14.0), pal.secondary, &artists, &track.display_album(), has_album, left.width() - 60.0);
+        let (rects, clicked) = paint_links(ui, ui.painter(), pieces, pos2(left.center().x, crect.bottom() + 58.0), pal.secondary, ui.scope_id().with("np-links"));
+        self.np_hits.links = rects;
+        if instrumental {
+            let r = ui.painter().text(pos2(left.center().x, crect.bottom() + 86.0), Align2::CENTER_CENTER, tr!("Instrumental"), look::text(14.0), pal.secondary);
+            self.np_hits.instrumental = Some(r);
+        }
+        match clicked {
+            Some(Link::Artist(name)) => {
+                self.open_artist(&name);
+                true
+            }
+            Some(Link::Album) => {
+                self.open_album_of(path);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The album's songs in track order (2.3): number (the speaker for the song playing, whose
+    /// title is bold), title, time; a double-click plays one with the album as the list.
+    fn np_album_songs(&mut self, ui: &mut Ui, pal: &Palette, left: Rect, path: &str, album: &Album) {
+        let width = (left.width() - 80.0).min(560.0);
+        let x0 = left.center().x - width / 2.0;
+        let title = elided(ui, tr_name(&album.title), look::title(18.0), pal.text, width - 20.0);
+        ui.painter().galley(pos2(x0 + 10.0, left.top() + 36.0), title, pal.text);
+        let list = Rect::from_min_max(pos2(x0, left.top() + 78.0), pos2(x0 + width, left.bottom() - 36.0));
+        let new_album = self.np_songs_album != album.key;
+        self.np_songs_album = album.key.clone();
+        let mut play = None;
+        ui.scope_builder(egui::UiBuilder::new().max_rect(list), |ui| {
+            egui::ScrollArea::vertical().id_salt(("np-album-songs", &album.key)).auto_shrink([false, false]).show(ui, |ui| {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                for t in &album.tracks {
+                    let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 36.0), Sense::click());
+                    let playing = t.path == path;
+                    if resp.hovered() {
+                        ui.painter().rect_filled(r.shrink2(vec2(0.0, 1.0)), CornerRadius::same(6), pal.row_hover);
+                    }
+                    let mid = r.center().y;
+                    if playing {
+                        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.left() + 22.0, mid), vec2(16.0, 16.0)), Icon::Speaker, pal.accent);
+                        if new_album {
+                            resp.scroll_to_me(None);
+                        }
+                    } else if t.track > 0 {
+                        ui.painter().text(pos2(r.left() + 30.0, mid), Align2::RIGHT_CENTER, t.track.to_string(), look::text(13.0), pal.secondary);
+                    }
+                    let when = if t.duration > 0.0 { fmt_time(t.duration) } else { String::new() };
+                    let time_w = text_width(ui, &when, &look::text(13.0));
+                    ui.painter().text(pos2(r.right() - 12.0, mid), Align2::RIGHT_CENTER, &when, look::text(13.0), pal.secondary);
+                    let font = if playing { look::title(13.5) } else { look::text(13.5) };
+                    let name = elided(ui, &t.display_title(), font, pal.text, r.width() - 44.0 - time_w - 28.0);
+                    ui.painter().galley(pos2(r.left() + 44.0, mid - name.size().y / 2.0), name, pal.text);
+                    if resp.double_clicked() {
+                        play = Some(t.path.clone());
+                    }
+                    self.np_hits.album_songs.push((r, t.path.clone(), playing));
+                }
+            });
+        });
+        if let Some(p) = play {
+            let paths: Vec<String> = album.tracks.iter().map(|t| t.path.clone()).collect();
+            self.play_list(paths, Some(&p), &album.title);
+        }
+    }
+
+    /// Now Playing's Lyrics: the label, A− / A+ and Lyrics only, then the lyrics (synced ones
+    /// follow the song unless the user scrolled the current line away; then "Back to the
+    /// current line").  `wide` (Lyrics only, 2.3): centred across the page, 4 px larger.
+    fn np_lyrics(&mut self, ui: &mut Ui, pal: &Palette, path: &str, lyrics: Option<ShownLyrics>, wide: bool) {
         let Some(lyrics) = lyrics else {
             ui.add_space(ui.available_height() * 0.3);
             ui.vertical_centered(|ui| {
@@ -1262,6 +1533,13 @@ impl Player {
             ui.label(RichText::new(i18n::tr(&source)).font(look::text(11.5)).color(pal.secondary));
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.add_space(12.0);
+                // Lyrics only (2.3): the cover goes and the lyrics fill the page; on while they do
+                let expand = icons::button(ui, Icon::Expand, 26.0, self.lyrics_wide, true, tr!("Lyrics only"));
+                self.np_hits.wide_button = Some(expand.rect);
+                if expand.clicked() {
+                    self.toggle_lyrics_wide();
+                }
+                ui.add_space(4.0);
                 let small = |t: &str| egui::Button::new(RichText::new(t).font(look::title(13.0))).fill(pal.lcd).corner_radius(8).min_size(vec2(44.0, 26.0));
                 let bigger = ui.add_enabled(size < playerstate::LYRICS_SIZE_MAX, small("A+")).on_hover_text(tr!("Larger lyrics"));
                 let smaller = ui.add_enabled(size > playerstate::LYRICS_SIZE_MIN, small("A−")).on_hover_text(tr!("Smaller lyrics"));
@@ -1276,8 +1554,11 @@ impl Player {
         });
         ui.add_space(4.0);
         let lrect = ui.available_rect_before_wrap();
-        let font = look::title(size as f32);
-        let plain_font = look::title(playerstate::plain_lyrics_size(size) as f32);
+        self.np_hits.lyrics_rect = Some(lrect);
+        let extra = if wide { LYRICS_WIDE_EXTRA } else { 0 };
+        let font = look::title((size + extra) as f32);
+        let plain_font = look::title((playerstate::plain_lyrics_size(size) + extra) as f32);
+        let halign = if wide { Align::Center } else { Align::Min };
         let pos_ms = (self.engine.position().unwrap_or(0.0) * 1000.0) as u32;
         let mut seek_to = None;
         let user_scrolled = ui.rect_contains_pointer(lrect) && ui.input(|i| i.smooth_scroll_delta.y != 0.0);
@@ -1285,43 +1566,46 @@ impl Player {
         let mut cur_in_view = None;
         let mut cur_line = None;
         egui::ScrollArea::vertical().id_salt("lyrics").auto_shrink([false, false]).show(ui, |ui| {
-            ui.add_space(if matches!(lyrics, ShownLyrics::Synced(_)) { lrect.height() * 0.3 } else { 6.0 });
-            match &lyrics {
-                ShownLyrics::Synced(lines) => {
-                    let cur = lines.iter().rposition(|(ms, _)| *ms <= pos_ms);
-                    cur_line = cur;
-                    let seen = cur.unwrap_or(0); // before the first line: the first one
-                    for (i, (ms, text)) in lines.iter().enumerate() {
-                        let is_cur = Some(i) == cur;
-                        let color = if is_cur { pal.text } else { pal.secondary.gamma_multiply(0.75) };
-                        let shown = if text.trim().is_empty() { "…".to_string() } else { text.clone() };
-                        let resp = ui.add(egui::Label::new(RichText::new(shown).font(font.clone()).color(color)).wrap().sense(Sense::click()));
-                        ui.add_space(10.0);
-                        if resp.hovered() {
-                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        }
-                        if resp.clicked() {
-                            seek_to = Some(*ms as f64 / 1000.0);
-                        }
-                        if i == seen {
-                            cur_in_view = Some(ui.clip_rect().contains_rect(resp.rect));
-                            if back {
-                                resp.scroll_to_me_animation(Some(Align::Center), egui::style::ScrollAnimation::none());
+            // Lyrics only: each line centred on the page
+            ui.with_layout(Layout::top_down(halign), |ui| {
+                ui.add_space(if matches!(lyrics, ShownLyrics::Synced(_)) { lrect.height() * 0.3 } else { 6.0 });
+                match &lyrics {
+                    ShownLyrics::Synced(lines) => {
+                        let cur = lines.iter().rposition(|(ms, _)| *ms <= pos_ms);
+                        cur_line = cur;
+                        let seen = cur.unwrap_or(0); // before the first line: the first one
+                        for (i, (ms, text)) in lines.iter().enumerate() {
+                            let is_cur = Some(i) == cur;
+                            let color = if is_cur { pal.text } else { pal.secondary.gamma_multiply(0.75) };
+                            let shown = if text.trim().is_empty() { "…".to_string() } else { text.clone() };
+                            let resp = ui.add(egui::Label::new(RichText::new(shown).font(font.clone()).color(color)).wrap().sense(Sense::click()));
+                            ui.add_space(10.0);
+                            if resp.hovered() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                            }
+                            if resp.clicked() {
+                                seek_to = Some(*ms as f64 / 1000.0);
+                            }
+                            if i == seen {
+                                cur_in_view = Some(ui.clip_rect().contains_rect(resp.rect));
+                                if back {
+                                    resp.scroll_to_me_animation(Some(Align::Center), egui::style::ScrollAnimation::none());
+                                }
+                            }
+                            if is_cur && !back && !self.lyrics_away && self.lyrics_line != Some(i) {
+                                resp.scroll_to_me_animation(Some(Align::Center), egui::style::ScrollAnimation::duration(0.35));
                             }
                         }
-                        if is_cur && !back && !self.lyrics_away && self.lyrics_line != Some(i) {
-                            resp.scroll_to_me_animation(Some(Align::Center), egui::style::ScrollAnimation::duration(0.35));
-                        }
+                    }
+                    ShownLyrics::Plain(text) => {
+                        ui.add(egui::Label::new(RichText::new(text).font(plain_font.clone()).color(pal.text)).wrap());
+                    }
+                    ShownLyrics::Instrumental => {
+                        ui.label(RichText::new(tr!("This song is instrumental.")).font(plain_font.clone()).color(pal.secondary));
                     }
                 }
-                ShownLyrics::Plain(text) => {
-                    ui.add(egui::Label::new(RichText::new(text).font(plain_font.clone()).color(pal.text)).wrap());
-                }
-                ShownLyrics::Instrumental => {
-                    ui.label(RichText::new(tr!("This song is instrumental.")).font(plain_font.clone()).color(pal.secondary));
-                }
-            }
-            ui.add_space(lrect.height() * 0.5);
+                ui.add_space(lrect.height() * 0.5);
+            });
         });
         if matches!(lyrics, ShownLyrics::Synced(_)) {
             if seek_to.is_some() || back {
@@ -1379,30 +1663,38 @@ impl Player {
             });
             return;
         }
-        let mut jump = None;
-        egui::ScrollArea::vertical().id_salt("np-up-next").auto_shrink([false, false]).show(ui, |ui| {
-            for (i, path) in upcoming.iter().enumerate() {
+        // 2.3: dragged to another place, or removed with a right click (crate::upnext)
+        let rows: Vec<(String, String, Option<Color32>)> = upcoming
+            .iter()
+            .map(|path| {
                 let t = self.lib.track(path);
                 let title = t.map(|t| t.display_title()).unwrap_or_else(|| path.clone());
-                let artist = t.map(|t| tr_name(&t.display_artist()).to_string()).unwrap_or_default();
-                let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width() - 12.0, 44.0), Sense::click());
-                if resp.hovered() {
-                    ui.painter().rect_filled(rect, CornerRadius::same(6), pal.hover);
-                }
-                let p = ui.painter_at(rect);
-                p.text(rect.left_top() + vec2(20.0, 5.0), Align2::LEFT_TOP, title, look::title(13.0), pal.text);
-                p.text(rect.left_top() + vec2(20.0, 24.0), Align2::LEFT_TOP, artist, look::text(11.5), pal.secondary);
-                if resp.double_clicked() {
-                    jump = Some(i);
-                }
-            }
-        });
-        if let Some(i) = jump {
-            self.jump_up_next(i);
-        }
+                (title, t.map(|t| tr_name(&t.display_artist()).to_string()).unwrap_or_default(), self.label_of("song", path))
+            })
+            .collect();
+        let action = egui::ScrollArea::vertical()
+            .id_salt("np-up-next")
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                crate::upnext::rows(ui, pal, "now-playing", rows.len(), 44.0, 12.0, |p, rect, i| {
+                    let (title, artist, label) = &rows[i];
+                    let dx = if let Some(c) = label {
+                        crate::labels::paint_dot(p, rect.left_top() + vec2(20.0 + crate::labels::DOT / 2.0, 13.0), *c, None);
+                        crate::labels::DOT + 6.0
+                    } else {
+                        0.0
+                    };
+                    p.text(rect.left_top() + vec2(20.0 + dx, 5.0), Align2::LEFT_TOP, title, look::title(13.0), pal.text);
+                    p.text(rect.left_top() + vec2(20.0, 24.0), Align2::LEFT_TOP, artist, look::text(11.5), pal.secondary);
+                })
+            })
+            .inner;
+        self.up_next_action(action);
     }
 
-    /// Now Playing's Details: the song's description; its artists are links.
+    /// Now Playing's Details: the song's description, as one block centred in the right half
+    /// (2.3; a long value such as the file's path wraps within it, and a block taller than the
+    /// page starts at the top and scrolls); its artists are links.
     fn np_details(&mut self, ui: &mut Ui, pal: &Palette, track: &Track) {
         let (comment, verdict) = self.details_extra(&track.path);
         let n_album = self.lib.album_of(&track.path).map(|a| a.tracks.len()).unwrap_or(0);
@@ -1412,11 +1704,25 @@ impl Player {
         self.np_hits.details = rows.iter().map(|(k, v)| format!("{}: {v}", i18n::tr(k))).collect();
         let mut open = None;
         let label_w = rows.iter().map(|(k, _)| text_width(ui, i18n::tr(k), &look::text(13.0))).fold(0.0, f32::max) + 18.0;
+        let view_h = ui.available_height();
+        self.np_hits.details_view = Some(ui.available_rect_before_wrap());
+        // the block's height in the last frame (it is known once drawn), to centre it
+        let height_id = ui.scope_id().with("np-details-height");
+        let last_h: f32 = ui.ctx().data(|d| d.get_temp(height_id)).unwrap_or(0.0);
+        let mut block = Rect::NOTHING;
         egui::ScrollArea::vertical().id_salt("np-details").auto_shrink([false, false]).show(ui, |ui| {
-            let value_w = (ui.available_width() - label_w - 44.0).max(120.0);
-            for (k, v) in &rows {
-                ui.horizontal_top(|ui| {
-                    ui.add_space(20.0);
+            // the values' column: as wide as the longest value, at most DETAILS_VALUE_W (a long path wraps)
+            let widest = rows.iter().flat_map(|(_, v)| v.lines()).map(|l| text_width(ui, l, &look::text(13.0))).fold(80.0, f32::max);
+            let value_w = widest.min(DETAILS_VALUE_W).min(ui.available_width() - label_w - 44.0).max(80.0);
+            let indent = ((ui.available_width() - label_w - ui.spacing().item_spacing.x - value_w) / 2.0).max(20.0);
+            ui.add_space(if last_h > 0.0 && last_h + 24.0 < view_h { (view_h - last_h) / 2.0 } else { 4.0 });
+            let top = ui.cursor().top();
+            for (i, (k, v)) in rows.iter().enumerate() {
+                if i > 0 {
+                    ui.add_space(7.0);
+                }
+                let row = ui.horizontal_top(|ui| {
+                    ui.add_space(indent);
                     ui.vertical(|ui| {
                         ui.set_width(label_w);
                         ui.label(RichText::new(i18n::tr(k)).font(look::text(13.0)).color(pal.secondary));
@@ -1442,9 +1748,15 @@ impl Player {
                         }
                     });
                 });
-                ui.add_space(7.0);
+                block = block.union(Rect::from_min_max(pos2(row.response.rect.left() + indent, top), row.response.rect.max));
             }
+            ui.add_space(8.0);
         });
+        if (block.height() - last_h).abs() > 0.5 && block.is_positive() {
+            ui.ctx().data_mut(|d| d.insert_temp(height_id, block.height()));
+            ui.ctx().request_repaint(); // centred in the next frame
+        }
+        self.np_hits.details_block = block.is_positive().then_some(block);
         if let Some(name) = open {
             self.open_artist(&name);
         }
@@ -1463,9 +1775,9 @@ impl Player {
                     if sel {
                         ui.painter().rect_filled(rect, CornerRadius::same(6), pal.accent);
                     } else if resp.hovered() {
-                        ui.painter().rect_filled(rect, CornerRadius::same(6), pal.hover);
+                        ui.painter().rect_filled(rect, CornerRadius::same(6), pal.row_hover);
                     }
-                    let color = if sel { Color32::WHITE } else { pal.text };
+                    let color = if sel { pal.on_accent } else { pal.text };
                     let label = elided(ui, i18n::tr(g), look::text(13.0), color, rect.width() - 14.0);
                     ui.painter().galley(pos2(rect.left() + 10.0, rect.center().y - label.size().y / 2.0), label, color);
                     if resp.clicked() {
@@ -1560,7 +1872,26 @@ impl Player {
                     if ui.button(tr!("Clear the play history…")).clicked() {
                         self.confirm = Some(crate::player::ConfirmAction::ClearHistory);
                     }
+                    // 2.3: custom tabs
+                    if ui.button(tr!("Import tab…")).clicked() {
+                        self.import_tab_dialog();
+                    }
+                    if ui
+                        .button(tr!("Open tabs folder"))
+                        .on_hover_text(realhires::smarttabs::tabs_folder().to_string_lossy())
+                        .clicked()
+                    {
+                        self.open_tabs_folder();
+                    }
                 });
+                ui.label(
+                    RichText::new(tr!("Tab files (.json) put into the tabs folder appear in the sidebar and on the Library page."))
+                        .color(pal.secondary),
+                );
+                let problems = self.tab_problems_text();
+                if !problems.is_empty() {
+                    ui.label(RichText::new(problems).color(crate::style::error_color(pal)));
+                }
                 let n = self.lib.tracks.len();
                 let text = match self.status_line() {
                     Some(s) => s,
@@ -1730,11 +2061,58 @@ impl Player {
                 }
             }
         });
+        // 2.3: every other colour the app draws; unset, a colour follows the eight above
+        // (its button shows the derived colour) until it is changed, and Reset makes it
+        // follow them again
+        ui.add_space(14.0);
+        ui.label(RichText::new(tr!("More colours")).font(look::title(13.0)).color(pal.text));
+        ui.label(
+            RichText::new(tr!(
+                "Unless the theme sets them, these follow the colours above. Reset makes a colour follow them again."
+            ))
+            .color(pal.secondary),
+        );
+        ui.add_space(4.0);
+        // two colours a row where the page is wide enough, else one (the 1024-pixel screens)
+        let per_row = if ui.available_width() >= 660.0 { 2 } else { 1 };
+        egui::Grid::new("theme-more-colours").num_columns(3 * per_row).spacing([10.0, 8.0]).show(ui, |ui| {
+            for (k, key) in themes::EXTRA_COLOR_KEYS.iter().enumerate() {
+                ui.label(i18n::tr(themes::extra_color_label(key)));
+                let set = t.extra_color(key).is_some();
+                let mut c = look::parse_hex(&t.any_color(key));
+                let r = egui::color_picker::color_edit_button_srgba(ui, &mut c, egui::color_picker::Alpha::Opaque);
+                if r.changed() {
+                    t.set_extra(key, Some(&look::to_hex(c)));
+                }
+                if set {
+                    if ui.small_button(tr!("Reset")).clicked() {
+                        t.set_extra(key, None);
+                    }
+                } else {
+                    ui.label(RichText::new(tr!("automatic")).small().color(pal.secondary));
+                }
+                if k % per_row == per_row - 1 {
+                    ui.end_row();
+                }
+            }
+        });
         if t != before {
             self.custom_themes[i] = t;
             self.themes_changed();
         }
     }
+}
+
+/// The colour-label kind of a grouping page's cards (2.3: `playerstate::LABEL_KINDS`).
+pub fn label_kind(kind: &str) -> Option<&'static str> {
+    Some(match kind {
+        "artists" => "artist",
+        "album_artists" => "album_artist",
+        "genres" => "genre",
+        "years" => "year",
+        "composers" => "composer",
+        _ => return None,
+    })
 }
 
 fn back_link(ui: &mut Ui, pal: &Palette, label: &str) -> egui::Response {

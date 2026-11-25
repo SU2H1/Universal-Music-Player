@@ -157,6 +157,60 @@ def test_queue_play_next_and_add_to_queue():
     assert q.jump(99) is None and q.current == album0[2]
 
 
+def test_up_next_can_be_reordered_and_songs_removed():
+    """2.3: Up Next's songs can be dragged to another place and removed with a right click."""
+    lib = _library()
+    album0 = [s.path for s in album_order(s for s in lib if s.album == "Band A Album 0")]
+    a, b, c, d = album0
+    q = PlayQueue(lib, album0)
+    q.start(a)
+    assert q.move_upcoming(2, 0) and q.up_next() == [d, b, c]      # d dragged to the top
+    assert q.move_upcoming(0, 2) and q.up_next() == [b, c, d]      # and back to the end
+    assert not q.move_upcoming(0, 3) and not q.move_upcoming(1, 1) and not q.move_upcoming(-1, 0)
+    assert q.up_next() == [b, c, d]
+    assert q.remove_upcoming(1) == c and q.up_next() == [b, d] and q.removed == {c}
+    assert q.remove_upcoming(5) is None and q.remove_upcoming(-1) is None and q.current == a
+    assert q.next() == b and q.next() == d and q.next() is None    # c is skipped
+    # a removed song stays out when the order is built again, until a new list starts
+    q.start(a)
+    assert q.removed == set() and q.up_next() == [b, c, d]
+    q.remove_upcoming(0)
+    q.set_shuffle("songs")
+    assert sorted(q.up_next()) == sorted([c, d])
+    q.set_shuffle("off")
+    assert q.up_next() == [c, d]
+    q = PlayQueue(lib, album0, repeat="album")
+    q.start(c)
+    q.remove_upcoming(0)                                            # d
+    assert q.next(auto=True) == a and q.up_next() == [b, c]         # the album again, without d
+    # the three parts: songs stepped back over, queued songs, the rest of the list
+    other = [s.path for s in lib if s.album != "Band A Album 0"][:3]
+    q = PlayQueue(lib, album0)
+    q.start(a)
+    q.next(), q.next(), q.previous(), q.previous()                  # back at a: b and c were played
+    q.play_next([other[0]])
+    q.add_to_queue([other[1]])
+    assert q.up_next() == [b, c, other[0], other[1], d] and q.top == 2
+    assert q.move_upcoming(3, 0)                                    # a queued song before b: stepped back
+    assert q.up_next() == [other[1], b, c, other[0], d] and q.queued == [other[0]] and q.top == 3
+    assert q.move_upcoming(1, 3)                                    # b before d: the rest of the list
+    assert q.up_next() == [other[1], c, other[0], b, d] and q.top == 2
+    assert q.move_upcoming(1, 2)                                    # c before b: still the list, after the queue
+    assert q.up_next() == [other[1], other[0], c, b, d] and q.queued == [other[0]] and q.top == 1
+    assert q.move_upcoming(2, 0)                                    # c to the very top: stepped back again
+    assert q.up_next() == [c, other[1], other[0], b, d] and q.top == 2
+    assert q.remove_upcoming(2) == other[0] and q.queued == [] and other[0] not in q.removed
+    assert q.remove_upcoming(0) == c and c in q.removed and q.top == 1
+    assert [q.next(), q.next(), q.next(), q.next()] == [other[1], b, d, None]
+    # a queued song moved among the list's songs is still an interruption for repeat album
+    q = PlayQueue(lib, album0, repeat="album")
+    q.start(a)
+    q.add_to_queue([other[2]])
+    assert q.up_next() == [other[2], b, c, d]
+    assert q.move_upcoming(0, 1) and q.queued == [] and q.up_next() == [b, other[2], c, d]
+    assert [q.next(auto=True) for _ in range(5)] == [b, other[2], c, d, a]
+
+
 def test_splitmix_matches_the_reference_values():
     rng = SplitMix64(1234567)
     # reference values of SplitMix64 (Steele, Lea, Flood) for this seed

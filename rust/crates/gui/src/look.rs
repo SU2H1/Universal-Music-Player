@@ -30,6 +30,9 @@ pub fn text(size: f32) -> FontId {
     FontId::proportional(size)
 }
 
+/// Every colour the app draws with (2.3): the theme's eight, and the extra colours
+/// of `realhires::themes::EXTRA_COLOR_KEYS` (the theme's own, else derived from the
+/// eight by `themes::colors()`, the same values as the Python app).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Palette {
     pub bg: Color32,
@@ -39,40 +42,72 @@ pub struct Palette {
     pub separator: Color32,
     pub accent: Color32,
     pub lcd: Color32,
+    /// the theme's "Highlight" (buttons under the pointer)
     pub hover: Color32,
     pub dark: bool,
+    /// a list row under the pointer
+    pub row_hover: Color32,
+    /// every other row of a song table
+    pub zebra: Color32,
+    /// the selected sidebar entry and song
+    pub selection: Color32,
+    /// text fields
+    pub field: Color32,
+    /// a missing cover and its icon
+    pub placeholder: Color32,
+    pub placeholder_icon: Color32,
+    /// what cannot be used now
+    pub disabled: Color32,
+    /// text and icons on the accent colour
+    pub on_accent: Color32,
+    /// the quality badge and the Quality column: Hi-Res Lossless, Lossless, lossy
+    pub quality_hires: Color32,
+    pub quality_lossless: Color32,
+    pub quality_lossy: Color32,
+    /// the verdicts of the Quality Check page
+    pub verdict_fake_lossless: Color32,
+    pub verdict_fake_hires: Color32,
+    pub verdict_suspicious: Color32,
+    pub verdict_real_hires: Color32,
+    pub verdict_cd: Color32,
+    pub verdict_lossy: Color32,
+    pub verdict_error: Color32,
+    /// Your Stats: the tint of days with plays
+    pub calendar: Color32,
 }
 
-fn hex(c: u32) -> Color32 {
-    crate::style::hex(c)
+impl Palette {
+    /// The colour of a quality kind ("hires", "lossless", "lossy"; `themes::quality_kind()`).
+    pub fn quality(&self, kind: &str) -> Color32 {
+        match kind {
+            "hires" => self.quality_hires,
+            "lossy" => self.quality_lossy,
+            _ => self.quality_lossless,
+        }
+    }
+
+    /// The colour of a track's quality (the badge, the Quality column).
+    pub fn quality_of(&self, t: &realhires::musiclib::Track) -> Color32 {
+        self.quality(realhires::themes::quality_kind(t))
+    }
+
+    /// A verdict's colour in this theme.
+    pub fn verdict(&self, v: realhires::verdict::Verdict) -> Color32 {
+        use realhires::verdict::Verdict;
+        match v {
+            Verdict::FakeLossless => self.verdict_fake_lossless,
+            Verdict::Fake => self.verdict_fake_hires,
+            Verdict::Suspect => self.verdict_suspicious,
+            Verdict::Real => self.verdict_real_hires,
+            Verdict::NotHires => self.verdict_cd,
+            Verdict::Lossy => self.verdict_lossy,
+            Verdict::Error => self.verdict_error,
+        }
+    }
 }
 
 pub fn palette(dark: bool) -> Palette {
-    if dark {
-        Palette {
-            bg: hex(0x1e1e1e),
-            sidebar: hex(0x262628),
-            text: hex(0xf5f5f7),
-            secondary: hex(0xa1a1a6),
-            separator: hex(0x3a3a3c),
-            accent: hex(0xfa2d48),
-            lcd: hex(0x2c2c2e),
-            hover: hex(0x333336),
-            dark,
-        }
-    } else {
-        Palette {
-            bg: hex(0xffffff),
-            sidebar: hex(0xf5f5f7),
-            text: hex(0x1d1d1f),
-            secondary: hex(0x6e6e73),
-            separator: hex(0xd2d2d7),
-            accent: hex(0xfa2d48),
-            lcd: hex(0xf2f2f4),
-            hover: hex(0xe8e8ed),
-            dark,
-        }
-    }
+    palette_of(&realhires::themes::builtin(if dark { "Dark" } else { "Light" }).unwrap())
 }
 
 /// The palettes in use for light and dark mode (set by `install_theme`).
@@ -95,7 +130,7 @@ pub fn current(ctx: &egui::Context) -> Palette {
 /// "#rrggbb" -> colour (black when it cannot be read).
 pub fn parse_hex(v: &str) -> Color32 {
     let v = v.trim_start_matches('#');
-    u32::from_str_radix(v, 16).map(hex).unwrap_or(Color32::BLACK)
+    u32::from_str_radix(v, 16).map(crate::style::hex).unwrap_or(Color32::BLACK)
 }
 
 /// `a` moved towards `b` by `t` (0..1).
@@ -109,7 +144,8 @@ pub fn to_hex(c: Color32) -> String {
 }
 
 pub fn palette_of(t: &realhires::themes::Theme) -> Palette {
-    let c = |k: &str| parse_hex(t.color(k));
+    let all = realhires::themes::colors(t);
+    let c = |k: &str| parse_hex(all.iter().find(|(key, _)| *key == k).map(|(_, v)| v.as_str()).unwrap_or("#000000"));
     Palette {
         bg: c("background"),
         sidebar: c("sidebar"),
@@ -120,6 +156,25 @@ pub fn palette_of(t: &realhires::themes::Theme) -> Palette {
         lcd: c("panel"),
         hover: c("hover"),
         dark: t.dark,
+        row_hover: c("row_hover"),
+        zebra: c("zebra"),
+        selection: c("selection"),
+        field: c("field"),
+        placeholder: c("placeholder"),
+        placeholder_icon: c("placeholder_icon"),
+        disabled: c("disabled"),
+        on_accent: c("on_accent"),
+        quality_hires: c("quality_hires"),
+        quality_lossless: c("quality_lossless"),
+        quality_lossy: c("quality_lossy"),
+        verdict_fake_lossless: c("verdict_fake_lossless"),
+        verdict_fake_hires: c("verdict_fake_hires"),
+        verdict_suspicious: c("verdict_suspicious"),
+        verdict_real_hires: c("verdict_real_hires"),
+        verdict_cd: c("verdict_cd"),
+        verdict_lossy: c("verdict_lossy"),
+        verdict_error: c("verdict_error"),
+        calendar: c("calendar"),
     }
 }
 
@@ -290,7 +345,8 @@ pub fn install_theme(ctx: &egui::Context, theme: &str, custom: &[realhires::them
         let mut v = if dark { egui::Visuals::dark() } else { egui::Visuals::light() };
         v.panel_fill = p.bg;
         v.window_fill = p.bg;
-        v.extreme_bg_color = if dark { mix(p.bg, Color32::BLACK, 0.25) } else { mix(p.bg, Color32::WHITE, 0.7) };
+        // text fields in the theme's "Text fields" colour (2.3, as the Python app draws them)
+        v.extreme_bg_color = p.field;
         v.faint_bg_color = mix(p.bg, p.text, 0.035);
         v.override_text_color = None;
         v.hyperlink_color = p.accent;

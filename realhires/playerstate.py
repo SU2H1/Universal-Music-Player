@@ -50,6 +50,33 @@ def normalize_columns(kind: str, names) -> List[str]:
     return [c for c in SONG_COLUMNS if c in wanted]
 
 
+# Colour labels (2.3, "allow user to color code anything"): {kind: {key: "#rrggbb"}} in
+# player.json.  The keys: a song's path, an album's key (playqueue.Song.album_key), the
+# name of an artist, album artist, genre or composer (case-folded, as the groupings join
+# names in any case), a year as written, a playlist's id and a tab's name.
+LABEL_KINDS = ("song", "album", "artist", "album_artist", "genre", "year", "composer", "playlist", "tab")
+_FOLDED_KINDS = ("artist", "album_artist", "genre", "composer")
+# the fixed colours of the Colour Label menu (Apple's system colours, which read on light
+# and dark themes); Custom… takes any other colour
+LABEL_COLORS = (("Red", "#ff3b30"), ("Orange", "#ff9500"), ("Yellow", "#ffcc00"), ("Green", "#34c759"),
+                ("Blue", "#007aff"), ("Purple", "#af52de"), ("Grey", "#8e8e93"))
+_HEX_DIGITS = set("0123456789abcdef")
+
+
+def clean_label_color(value) -> str:
+    """"#rrggbb" in lower case, or "" for anything else."""
+    v = value.strip().lower() if isinstance(value, str) else ""
+    return v if len(v) == 7 and v[0] == "#" and set(v[1:]) <= _HEX_DIGITS else ""
+
+
+def label_key(kind: str, key) -> str:
+    """The key a label of this kind is kept under ("" when there is none): names of
+    artists, album artists, genres and composers case-folded, the others as they are."""
+    if kind not in LABEL_KINDS or not isinstance(key, str) or not key:
+        return ""
+    return key.casefold() if kind in _FOLDED_KINDS else key
+
+
 class InvalidName(ValueError):
     """A playlist or preset name that cannot be used; the message says why."""
 
@@ -98,6 +125,30 @@ class PlayerState:
     lyrics_size: int = LYRICS_SIZE_DEFAULT          # pixels, Now Playing's A− / A+
     # {"songs" | "folders" | "album": [column names]}: the columns the user chose (2.1)
     columns: dict = field(default_factory=dict)
+    # {kind: {key: "#rrggbb"}}: the colour labels (2.3, LABEL_KINDS)
+    labels: dict = field(default_factory=dict)
+
+    # ------------------------------------------------------ colour labels ---
+    def label_of(self, kind: str, key) -> Optional[str]:
+        """The colour label ("#rrggbb") of a song, album, artist... or None."""
+        k = label_key(kind, key)
+        return self.labels.get(kind, {}).get(k) if k else None
+
+    def set_label(self, kind: str, key, color: Optional[str]) -> Optional[str]:
+        """Give a song, album, artist... a colour label, or take it away (None, or a
+        value that is not a colour); returns the label it has now."""
+        k = label_key(kind, key)
+        if not k:
+            return None
+        c = clean_label_color(color)
+        if c:
+            self.labels.setdefault(kind, {})[k] = c
+            return c
+        kept = self.labels.get(kind, {})
+        kept.pop(k, None)
+        if not kept:
+            self.labels.pop(kind, None)
+        return None
 
     # ------------------------------------------------------- lyrics size ---
     def step_lyrics_size(self, steps: int) -> int:
@@ -268,7 +319,9 @@ class PlayerState:
                 "eq_presets": [{"name": p["name"], "eq": eq.normalize(p["eq"])} for p in self.eq_presets],
                 "playlists": [{"id": p["id"], "name": p["name"], "created": p["created"], "songs": list(p["songs"])}
                               for p in self.playlists],
-                "lyrics_size": clean_lyrics_size(self.lyrics_size)}
+                "lyrics_size": clean_lyrics_size(self.lyrics_size),
+                "labels": {kind: dict(sorted(self.labels[kind].items())) for kind in LABEL_KINDS
+                           if self.labels.get(kind)}}
 
     @classmethod
     def from_json(cls, data) -> "PlayerState":
@@ -320,6 +373,14 @@ class PlayerState:
         cols = data.get("columns")
         if isinstance(cols, dict):
             st.columns = {k: normalize_columns(k, cols[k]) for k in COLUMN_KINDS if k in cols}
+        labels = data.get("labels")
+        if isinstance(labels, dict):
+            for kind in LABEL_KINDS:
+                given = labels.get(kind)
+                if not isinstance(given, dict):
+                    continue
+                for key, color in given.items():
+                    st.set_label(kind, key, color)
         last = data.get("last")
         if isinstance(last, dict):
             st.last_path = last.get("path") if isinstance(last.get("path"), str) else ""

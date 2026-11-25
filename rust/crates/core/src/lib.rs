@@ -39,6 +39,7 @@ pub mod pyfmt;
 pub mod pyunicode;
 pub mod report;
 pub mod settings;
+pub mod smarttabs;
 pub mod stats;
 pub mod store;
 pub mod tagedit;

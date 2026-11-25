@@ -26,6 +26,10 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 # the installed font families, for Settings → Appearance (already used by eframe's system fonts)
 fontique = { version = "0.11.1", default-features = false, features = ["system", "fontconfig-dlopen"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
+# 2.3: Search Cover Online and the Properties window's Search buttons open the browser (as egui's own
+# links do), and the window watches the system clipboard; both crates are already used by eframe/egui-winit
+webbrowser = "1.2.7"
+arboard = { version = "3.7.0", default-features = false }
 
 # bit-perfect playback on Windows (2.1): a WASAPI exclusive-mode output beside cpal (whose WASAPI is shared-mode
 # only), with the windows crate cpal already uses

@@ -1,0 +1,15 @@
+{
+ "strings": {
+  "Remove from Up Next": "「次に再生」から削除",
+  "The equalizer is on, so the samples are changed.": "イコライザがオンのため、サンプルが変更されます。",
+  "No: The equalizer is on, so the samples are changed.": "いいえ：イコライザがオンのため、サンプルが変更されます。",
+  "Bit-perfect playback is on: with the equalizer on, the sound is not bit-perfect. The device still gets the song's own sample rate.": "ビットパーフェクト再生がオンです：イコライザがオンのときは、音はビットパーフェクトになりません。デバイスには引き続き曲自身のサンプリング周波数で送られます。"
+ },
+ "patterns": {
+  "The device still runs at {rate:num} kHz in exclusive mode.": "デバイスは引き続き排他モードの{rate} kHzで動作します。",
+  "The ALSA hardware device still runs at {rate:num} kHz.": "ALSAのハードウェアデバイスは引き続き{rate} kHzで動作します。",
+  "The ALSA hardware device {device} still runs at {rate:num} kHz.": "ALSAのハードウェアデバイス{device}は引き続き{rate} kHzで動作します。",
+  "The device still runs at {rate:num} kHz (CoreAudio).": "デバイスは引き続き{rate} kHzで動作します（CoreAudio）。",
+  "The device still runs at {rate:num} kHz.": "デバイスは引き続き{rate} kHzで動作します。"
+ }
+}

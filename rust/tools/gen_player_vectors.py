@@ -128,6 +128,52 @@ for shuffle in ("off", "songs", "album"):
                 steps.append(q.current)
             steps.append(q.up_next(6))
         user_runs.append({"shuffle": shuffle, "repeat": repeat, "seed": 11, "steps": steps})
+# Up Next edited by the user (2.3): moves and removals within and across its three parts
+# (stepped back over, queued, the rest), then the order built again and played on
+edit_ops = ["next", "next", "prev", "prev", "play_next:9", "add:3,4",
+            "move:0:4", "move:3:0", "move:2:5", "remove:1", "remove:3", "move:5:1", "move:1:7", "move:4:4",
+            "move:0:99", "move:99:0", "remove:99", "next", "auto", "prev", "remove:0", "move:0:2", "next",
+            "set_shuffle:songs", "remove:2", "move:3:0", "add:7", "move:0:3", "set_repeat:album", "auto", "auto",
+            "auto", "auto", "auto", "auto", "prev", "move:0:1", "remove:1", "next", "set_shuffle:off", "auto",
+            "jump:2", "auto"]
+edit_runs = []
+for shuffle in ("off", "songs", "library", "album"):
+    for repeat in ("off", "album"):
+        for seed in (3, 41):
+            q = PlayQueue(songs, everything[:10], shuffle=shuffle, repeat=repeat, seed=seed,
+                          disliked={everything[7]})
+            q.start(everything[1])
+            steps = []
+            for op in edit_ops:
+                name, _, arg = op.partition(":")
+                if name == "move":
+                    a, b = arg.split(":")
+                    result = q.move_upcoming(int(a), int(b))
+                elif name == "remove":
+                    result = q.remove_upcoming(int(arg))
+                elif name == "auto":
+                    result = q.next(auto=True)
+                elif name == "next":
+                    result = q.next()
+                elif name == "prev":
+                    result = q.previous()
+                elif name == "jump":
+                    result = q.jump(int(arg))
+                elif name in ("play_next", "add"):
+                    picked = [everything[int(i)] for i in arg.split(",")]
+                    q.play_next(picked) if name == "play_next" else q.add_to_queue(picked)
+                    result = q.current
+                elif name == "set_shuffle":
+                    q.set_shuffle(arg)
+                    result = q.current
+                else:
+                    q.set_repeat(arg)
+                    result = q.current
+                steps.append({"result": result, "current": q.current, "up_next": q.up_next(30),
+                              "queued": list(q.queued), "pos": q.pos, "top": q.top, "inserted": sorted(q.inserted),
+                              "count": q.upcoming_count()})
+            edit_runs.append({"shuffle": shuffle, "repeat": repeat, "seed": seed, "disliked": [everything[7]],
+                              "start": everything[1], "steps": steps, "removed": sorted(q.removed)})
 # several artists in one field (2.1): split_artists() and the groupings it gives
 art_tracks = [Track(path=f"/art/{i:02d}.flac", title=f"T{i}", artist=a, album_artist=aa)
               for i, (a, aa) in enumerate([
@@ -150,6 +196,7 @@ with open(os.path.join(OUT, "python_queue.json"), "w", encoding="utf-8") as fh:
                "ops": ["auto", "next", "auto", "prev", "next", "auto", "next", "next", "auto", "next", "auto",
                        "set_shuffle:library", "next", "set_repeat:album", "auto", "auto", "next"],
                "runs": runs, "user_ops": user_ops, "user_runs": user_runs,
+               "edit_ops": edit_ops, "edit_runs": edit_runs,
                "splitmix_2024": [str(rng.next()) for _ in range(5)],
                "shuffled_9": shuffled([str(i) for i in range(12)], SplitMix64(9))}, fh, indent=0)
 
@@ -263,11 +310,36 @@ for n in ("dark", "My theme", " New  one ", "", "Match the system"):
         checks.append([n, themes.check_name(n, custom), None])
     except themes.ThemeError as exc:
         checks.append([n, None, str(exc)])
+# 2.3: every colour of every built-in theme and of custom themes, set and unset extra colours,
+# and exported/imported files with and without them
+extra_custom = themes.normalize({"name": "Gold", "dark": False, "colors": {
+    "accent": "#ffd60a", "hover": "#123456", "row_hover": "#ABCDEF", "quality_hires": " #00ff00 ",
+    "verdict_cd": "#0000ff", "calendar": "nope", "zebra": 5, "unknown_key": "#ffffff"}})
+pale = themes.normalize({"name": "Pale accent", "dark": True, "colors": {"accent": "#f0f0f0", "secondary": "#808080"}})
+all_colors = {name: themes.colors(dict(t, name=name)) for name, t in themes.BUILTIN.items()}
+for t in custom + [extra_custom, pale]:
+    all_colors[t["name"]] = themes.colors(t)
+extra_imports = []
+for text in (themes.export_theme(extra_custom), themes.export_theme(custom[1]),
+             json.dumps({"name": "Old file", "dark": True, "colors": {"accent": "#112233"}}),
+             json.dumps({"name": "Only extras", "colors": {"field": "#010203", "verdict_error": "#FFFFFF"}})):
+    t = themes.import_theme(text, custom)
+    extra_imports.append({"text": text, "theme": t, "colors": themes.colors(t), "export": themes.export_theme(t)})
+mixes = [[a, b, t, themes.mix(a, b, t)] for a, b, t in (
+    ("#ffffff", "#e8e8ed", 0.7), ("#000000", "#ffffff", 0.5), ("#010101", "#020202", 0.5), ("#030303", "#040404", 0.5),
+    ("#1e1e1e", "#333336", 0.3), ("#fa2d48", "#000000", 0.12), ("#00ff80", "#ff0080", 0.45))]
+lums = [[c, themes.luminance(c)] for c in ("#ffffff", "#ffd60a", "#fa2d48", "#9e9e9e", "#a0a0a0", "#c8c8c8")]
 with open(os.path.join(OUT, "python_themes.json"), "w", encoding="utf-8") as fh:
     json.dump({"builtin": themes.BUILTIN, "custom": custom, "names": themes.names(custom), "cases": cases_t,
                "imports": imports_t, "checks": checks, "copy": [themes.copy_name("Midnight", custom),
                                                                themes.copy_name("My Theme", custom)],
-               "export": themes.export_theme(custom[0])}, fh, indent=0, ensure_ascii=False)
+               "export": themes.export_theme(custom[0]),
+               "extra_keys": themes.EXTRA_COLOR_KEYS,
+               "extra_labels": [themes.color_label(k) for k in themes.ALL_COLOR_KEYS],
+               "extra_custom": extra_custom, "extra_export": themes.export_theme(extra_custom),
+               "all_colors": all_colors, "extra_imports": extra_imports, "mixes": mixes, "luminances": lums,
+               "verdict_keys": themes.VERDICT_COLOR_KEYS},
+              fh, indent=0, ensure_ascii=False)
 
 # ---------------------------------------------------------- player state ---
 messy = {"liked": ["/a", "/b", 5], "disliked": ["/b", "/c", "/c", ""], "volume": "0.4",
@@ -275,7 +347,11 @@ messy = {"liked": ["/a", "/b", 5], "disliked": ["/b", "/c", "/c", ""], "volume":
          "playlists": [{"id": "a1", "name": "  Road ", "created": "12.5", "songs": ["/a", "/a", 3, "/b"]},
                        {"id": "a1", "name": "dupe"}, {"name": "no id"}, {"id": "b2", "name": "", "songs": "x"}],
          "lyrics_size": "31.5",
-         "columns": {"songs": ["nope", "year", "artist", 3], "album": [], "folders": "x", "other": ["title"]}}
+         "columns": {"songs": ["nope", "year", "artist", 3], "album": [], "folders": "x", "other": ["title"]},
+         "labels": {"song": {"/a": "#FF0000", "/b": "red", "/c": 5, "": "#00ff00"},
+                    "genre": {"Rock": "#00ff00", "rock": " #0000FF "}, "artist": {"Ann": "#123456"},
+                    "album": {"x\u0000ann": "#abcdef"}, "year": {"2001": "#000000"}, "nope": {"a": "#111111"},
+                    "playlist": [], "tab": {"Hi-Res": "#c9a227"}, "composer": {"": "#222222"}}}
 ps = playerstate.PlayerState.from_json(messy)
 # Now Playing's lyrics size (A− / A+): what player.json may hold, and the steps
 sizes = [[v, playerstate.PlayerState.from_json({"lyrics_size": v}).lyrics_size]
@@ -306,6 +382,18 @@ ops.toggle_column("songs", "title")
 ops.toggle_column("album", "file")
 ops.set_columns("folders", ["bit_rate", "format"])
 ops.toggle_column("folders", "format")
+# 2.3: colour labels
+label_ops = [("song", "/m/a", "#FF3B30"), ("album", "city\u0000june", "#34c759"), ("artist", "June Harbor", "#007aff"),
+             ("album_artist", "ÉMILE", "#af52de"), ("genre", "Indie Pop", "#ff9500"), ("year", "2021", "#ffcc00"),
+             ("composer", "Straße", "#8e8e93"), ("playlist", pid, "#123abc"), ("tab", "Hi-Res", "#c9a227"),
+             ("song", "/m/b", "#ffffff"), ("song", "/m/b", None), ("genre", "indie pop", "#00ffaa"),
+             ("nope", "x", "#ffffff"), ("song", "", "#ffffff"), ("year", "1999", "not a colour"),
+             ("tab", "Old", "#000000"), ("tab", "Old", "")]
+label_results = [[k, key, c, ops.set_label(k, key, c)] for k, key, c in label_ops]
+label_lookups = [[k, key, ops.label_of(k, key)] for k, key in (
+    ("song", "/m/a"), ("song", "/m/b"), ("genre", "INDIE POP"), ("artist", "june harbor"), ("album_artist", "émile"),
+    ("composer", "STRASSE"), ("composer", "strasse"), ("year", "2021"), ("tab", "hi-res"), ("tab", "Hi-Res"),
+    ("nope", "x"), ("playlist", pid))]
 errors = []
 for name in ("rock", "my jazz", "", "  "):
     try:
@@ -317,7 +405,9 @@ with open(os.path.join(OUT, "python_playerstate.json"), "w", encoding="utf-8") a
     json.dump({"messy": messy, "messy_out": ps.to_json(), "ops_out": ops.to_json(), "name_errors": errors,
                "lyrics_sizes": sizes, "lyrics_size_steps": size_steps,
                "lyrics_size_limits": [playerstate.LYRICS_SIZE_MIN, playerstate.LYRICS_SIZE_DEFAULT,
-                                      playerstate.LYRICS_SIZE_MAX, playerstate.LYRICS_SIZE_STEP]},
+                                      playerstate.LYRICS_SIZE_MAX, playerstate.LYRICS_SIZE_STEP],
+               "label_results": label_results, "label_lookups": label_lookups,
+               "label_kinds": list(playerstate.LABEL_KINDS), "label_colors": playerstate.LABEL_COLORS},
               fh, indent=0, ensure_ascii=False)
 print(len(cases), "biquads,", len(states), "states,", len(runs), "queue runs,", len(plays), "plays,",
       len(imports), "EQ files")
@@ -536,6 +626,7 @@ for si, song in enumerate(bp_songs):
             bp_cases.append({"song": si, "modes": mi, "failure": failure, "rate": pl.rate, "format": pl.format,
                              "channels": pl.channels, "reasons": pl.reasons, "resampled": pl.resampled,
                              "access": access, "device": dev, "status": bp.status(song, pl, access, dev),
+                             "status_eq": bp.status(song, pl, access, dev, eq_on=True),
                              "output": bp.output_label(pl.rate, pl.format, bp.song_bits(song), pl.channels)})
 cards_text = (" 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n"
               "                      HDA Intel PCH at 0xf7f10000 irq 32\n"
@@ -574,9 +665,16 @@ with open(os.path.join(OUT, "python_bitperfect.json"), "w", encoding="utf-8") as
                "idle": [bp.status(None, None, enabled=False), bp.status(None, None)],
                "cards_text": cards_text, "cards": cards,
                "devices": [{"device": d, "hw": bp.alsa_device(d, cards)} for d in devices],
-               "texts": {"busy": bp.BUSY, "lossy": bp.LOSSY_NOTE, "eq": bp.EQ_BYPASSED, "wasapi": bp.WASAPI_FORMAT_NOTE,
-                         "off": bp.OFF,
+               "texts": {"busy": bp.BUSY, "lossy": bp.LOSSY_NOTE, "eq_on": bp.EQ_ON, "eq_note": bp.EQ_NOTE,
+                         "wasapi": bp.WASAPI_FORMAT_NOTE, "off": bp.OFF,
                          "idle": bp.ON_IDLE},
+               # 2.3: the equalizer with bit-perfect playback
+               "still": [{"rate": r, "access": a, "device": d, "text": bp.still_runs(r, a, d)}
+                         for r in (44100, 96000) for a in (bp.WASAPI, bp.ALSA, bp.COREAUDIO, bp.DIRECT)
+                         for d in ("", "hw:1,3", "Speakers")],
+               "dither": [{"x": x, "d": d, "i16": bp.dithered_int_sample(x, bp.I16, d),
+                           "i24": bp.dithered_int_sample(x, bp.I24, d), "i32": bp.dithered_int_sample(x, bp.I32, d)}
+                          for x in floats for d in (0.0, 0.5, -0.5, 0.999, -0.999, 0.25, -0.75, 1.5)],
                "standard_rates": list(bp.STANDARD_RATES)}, fh, indent=0, ensure_ascii=False)
 # ------------------------------------------------- covers kept on disk ---
 # The names of saved covers (covers.cache_key/cache_name), which both apps share:
@@ -857,3 +955,279 @@ with open(os.path.join(OUT, "python_covers_embed.json"), "w", encoding="utf-8") 
                "types": types, "commands": cover_commands, "cannot": cannot_cover, "summaries": cover_summaries,
                "texts": texts}, fh, indent=0, ensure_ascii=False)
 print(len(cover_cases), "cover cases")
+
+# ------------------------------------------- searching the web (2.3) ---
+# python_search.json: Search Cover Online (covers.cover_search_url()), the Properties
+# window's Search buttons (tagedit.web_search_url()) and what a copied text fills in
+# (tagedit.clipboard_value())
+cover_search = [{"args": list(a), "query": covers.cover_search_query(*a), "url": covers.cover_search_url(*a)}
+                for a in (("The Paper Boats", "Mira Calloway", "City Rain", "Taxi Lights"),
+                          ("", "Mira Calloway", "City Rain", "Taxi Lights"),
+                          ("  ", " The  Paper\tBoats ", " Small Hours ", ""),
+                          ("", "Mira Calloway", "", "Taxi Lights"),
+                          ("The Paper Boats", "", "", "Taxi Lights"),
+                          ("", "", "", "Taxi Lights"), ("", "", "", ""), ("", "", "City Rain", ""),
+                          ("宇多田ヒカル", "", "初恋", ""), ("AC/DC", "", "Back in Black (Remastered) & More + 100% #1", ""),
+                          ("Sigur Rós", "", "Ágætis byrjun", "x"), ("", "Björk", "", "Jóga \"Live\""),
+                          ("a　b", "", "c d", ""), ("~-_.", "", "!*'();:@=$,?[]", ""))]
+song = {"title": "Taxi Lights", "artist": "Mira Calloway", "album": "City Rain", "album_artist": "The Paper Boats"}
+value_sets = [song, dict(song, artist=""), dict(song, artist=None, album_artist="The  Paper Boats"),
+              {"title": None, "artist": None, "album": "Small Hours", "album_artist": "The Paper Boats"},
+              {"title": "", "artist": "Mira Calloway", "album": "Small Hours", "album_artist": ""},
+              {"title": None, "album": None, "album_artist": "The Paper Boats"}, {"album": "Small Hours"},
+              {}, {"title": 'Say "Hello" (Live)', "artist": "Björk & Friends"},
+              {"title": "\"\"", "album": "\"Heroes\"", "artist": "David Bowie"},
+              {"title": "初恋", "artist": "宇多田ヒカル"}, {"title": "  ", "album": " Ágætis  byrjun ", "artist": "Sigur Rós"}]
+web_search = []
+for values in value_sets:
+    for language in ("en", "ja", "日本語", "English", "fr"):
+        for field in tagedit.FIELDS + ("unknown_field",):
+            if language in ("English", "fr") and field not in ("composer", "date"):
+                continue
+            web_search.append({"field": field, "values": {k: (v or "") for k, v in values.items()},
+                               "language": language, "query": tagedit.web_search_query(field, values, language),
+                               "url": tagedit.web_search_url(field, values, language)})
+names = {lang: {f: tagedit.search_name(f, lang) for f in tagedit.FIELDS + ("album_artist", "other_thing")}
+         for lang in ("en", "ja", "日本語", "")}
+clipboard = [[t, tagedit.clipboard_value(t)] for t in (
+    "John Williams", "  John   Williams \n", "\n\n  \nHans Zimmer\nLisa Gerrard", "a\rb", "\r\n x \r\n",
+    "  Ryuichi Sakamoto\x85more", "\x0b\x0c\x1c\x1d\x1eFirst", "tab\tinside　wide", "", "   ",
+    "x" * 999 + " y", "x" * 1000 + "y", "x" * 1500, "é" * 1001, " " + "z" * 999 + "  more", "作曲：坂本龍一\n編曲")]
+with open(os.path.join(OUT, "python_search.json"), "w", encoding="utf-8") as fh:
+    json.dump({"cover": cover_search, "web": web_search, "names": names, "clipboard": clipboard,
+               "watch": [tagedit.WATCH_SECONDS, tagedit.WATCH_POLL_MS]}, fh, indent=0, ensure_ascii=False)
+print(len(cover_search), "cover searches,", len(web_search), "web searches")
+
+# --------------------------------------------------------------- custom tabs (2.3) ---
+from realhires import smarttabs  # noqa: E402
+
+NOW = 1_764_000_000.0
+DAY_NS = 86_400 * 10 ** 9
+tab_tracks = [
+    Track("/music/Jazz/Night/01 Blue Hour.flac", title="Blue Hour", artist="Mira Calloway", album="Night",
+          album_artist="Mira Calloway", genre="Jazz", composer="Ann Lee", disc=1, track=1, year="2021",
+          duration=312.5, codec="flac", sample_rate=96000, bits=24, channels=2, size=10, mtime_ns=int(NOW * 1e9) - 3 * DAY_NS),
+    Track("/music/Jazz/Night/02 Échos.flac", title="Échos", artist="Mira Calloway", album="Night",
+          album_artist="Mira Calloway", genre="jazz", disc=1, track=2, year="2021", duration=600.0, codec="flac",
+          sample_rate=44100, bits=16, channels=2, size=10, mtime_ns=int(NOW * 1e9) - 40 * DAY_NS),
+    Track("/music/Pop/Rain/03 rain.mp3", title="", artist="", album="Rain", album_artist="The Paper Boats",
+          genre="Indie Pop", year="1999-05", duration=201.0, codec="mp3", sample_rate=44100, bits=0, is_lossy=True,
+          channels=2, bit_rate=320500, size=10, mtime_ns=int(NOW * 1e9) - 30 * DAY_NS),
+    Track("/music/Pop/Rain/04 Taxi Lights.m4a", title="Taxi Lights", artist="The Paper Boats; Mira Calloway",
+          album="Rain", genre="Indie Pop", composer="Bach", year="19xx", duration=59.9, codec="aac",
+          sample_rate=48000, bits=0, is_lossy=True, channels=2, bit_rate=255500, size=10,
+          mtime_ns=int(NOW * 1e9) - 400 * DAY_NS),
+    Track("/music/Classical/大地/05 交響曲.wav", title="交響曲", artist="東京フィル", album="大地",
+          genre="Classical", composer="Mahler", year="2010", duration=3600.0, codec="pcm_f32le",
+          sample_rate=192000, bits=32, is_float=True, channels=2, size=10, mtime_ns=int(NOW * 1e9) + DAY_NS),
+    Track("/music/Classical/大地/06 Coda.aiff", title="  Coda  ", artist="TOKYO phil", album="大地",
+          genre="", year="", duration=30.25, codec="pcm_s24be", sample_rate=48000, bits=24, channels=1, size=10,
+          mtime_ns=int(NOW * 1e9) - 3 * DAY_NS),
+]
+tab_liked = ["/music/Jazz/Night/02 Échos.flac", "/music/Pop/Rain/03 rain.mp3"]
+tab_disliked = ["/music/Pop/Rain/04 Taxi Lights.m4a"]
+tab_ctx = smarttabs.context(tab_liked, tab_disliked, NOW)
+values = [{f: smarttabs.field_value(f, t, tab_ctx) for f in smarttabs.FIELDS} for t in tab_tracks]
+
+
+def R(field, op, value):
+    return {"field": field, "op": op, "value": value}
+
+
+def T(name="T", rules=(), match="all", sort="title", descending=False, limit=0):
+    return {"format": smarttabs.TAB_FORMAT, "version": 1, "name": name, "match": match, "rules": list(rules),
+            "sort": sort, "descending": descending, "limit": limit}
+
+
+eval_tabs = [T("Empty"), T("Empty any", match="any")] + list(smarttabs.TEMPLATES)
+texts_for = {"title": ["blue hour", " BLUE", "rain", "", "交", "coda", "Échos", "échos"],
+             "artist": ["mira calloway", "Mira", "paper", ""], "album": ["night", "大地", ""],
+             "album_artist": ["", "the paper boats"], "genre": ["jazz", "pop", ""], "composer": ["", "bach"],
+             "format": ["flac", "MP3", "PCM_"], "folder": ["/music/jazz/night", "/music/classical", "rain"],
+             "quality": ["Hi-Res Lossless", "lossless", "Lossy"]}
+for f, vals in texts_for.items():
+    for v in vals:
+        for op in smarttabs.TEXT_OPS:
+            eval_tabs.append(T(f"{f} {op} {v}", [R(f, op, v)]))
+nums_for = {"year": [0, 1999, 2021], "bits": [0, 16, 24], "sample_rate": [44100, 48000, 96000.0],
+            "bit_rate": [0, 256, 320], "duration": [59.9, 600, 3600.0], "added_days": [-1, 3, 30, 30.0001]}
+for f, vals in nums_for.items():
+    for v in vals:
+        for op in smarttabs.NUMBER_OPS:
+            eval_tabs.append(T(f"{f} {op} {v}", [R(f, op, v)]))
+for f in smarttabs.YESNO_FIELDS:
+    for v in (True, False):
+        eval_tabs.append(T(f"{f} {v}", [R(f, "is", v)]))
+eval_tabs += [
+    T("any", [R("genre", "is", "jazz"), R("lossless", "is", False)], match="any"),
+    T("all", [R("genre", "is", "jazz"), R("liked", "is", True)]),
+    T("hires any", [R("bits", ">=", 24), R("sample_rate", ">", 48000)], match="any"),
+]
+for f in smarttabs.FIELDS:
+    for desc in (False, True):
+        eval_tabs.append(T(f"sort {f} {desc}", sort=f, descending=desc))
+eval_tabs += [T("limit 2", sort="duration", descending=True, limit=2), T("limit 9", limit=9),
+              T("limit 1 any", [R("lossless", "is", True), R("liked", "is", True)], match="any", limit=1)]
+evals = []
+for tab in eval_tabs:
+    t = smarttabs.check_tab(tab)
+    evals.append({"tab": tab, "songs": smarttabs.tab_songs(t, tab_tracks, tab_ctx),
+                  "matches": [smarttabs.matches(t, x, tab_ctx) for x in tab_tracks]})
+
+good = T("Good", [R("year", ">=", 2000)])
+check_inputs = [
+    None, [], "x", {}, {"format": "real-hi-res-theme", "version": 1, "name": "x"},
+    {"format": smarttabs.TAB_FORMAT}, dict(good, version=0), dict(good, version="1"), dict(good, version=1.0),
+    dict(good, version=True), dict(good, version=2), dict(good, version=10 ** 30), dict(good, name=""),
+    dict(good, name="  "), dict(good, name=5), {k: v for k, v in good.items() if k != "name"},
+    dict(good, name="  Spaced   name\tok "), dict(good, name="x" * 100), dict(good, match="some"),
+    dict(good, match=None), dict(good, match=1), {k: v for k, v in good.items() if k not in ("match", "rules")},
+    dict(good, rules={}), dict(good, rules=None), dict(good, rules=[R("year", ">=", 1)] * 101),
+    dict(good, rules=[R("year", ">=", 1)] * 100), dict(good, rules=[5]), dict(good, rules=[[]]),
+    dict(good, rules=[{"op": "is", "value": "x"}]), dict(good, rules=[R("", "is", "x")]),
+    dict(good, rules=[R(5, "is", "x")]), dict(good, rules=[R("colour", "is", "red")]),
+    dict(good, rules=[R("x" * 80, "is", "red")]), dict(good, rules=[{"field": "title", "value": "x"}]),
+    dict(good, rules=[R("title", "", "x")]), dict(good, rules=[R("title", ">", "x")]),
+    dict(good, rules=[R("year", "contains", 1)]), dict(good, rules=[R("liked", "!=", True)]),
+    dict(good, rules=[{"field": "title", "op": "is"}]), dict(good, rules=[R("title", "is", 5)]),
+    dict(good, rules=[R("title", "is", None)]), dict(good, rules=[R("year", "=", "2000")]),
+    dict(good, rules=[R("year", "=", True)]), dict(good, rules=[R("year", "=", None)]),
+    dict(good, rules=[R("year", "=", float("nan"))]), dict(good, rules=[R("year", "=", float("inf"))]),
+    dict(good, rules=[R("year", "=", 10 ** 16)]), dict(good, rules=[R("year", "=", 10 ** 15)]),
+    dict(good, rules=[R("year", "=", -(10 ** 15) - 1)]), dict(good, rules=[R("year", "=", 10 ** 30)]),
+    dict(good, rules=[R("year", "=", 2.5)]), dict(good, rules=[R("liked", "is", 1)]),
+    dict(good, rules=[R("liked", "is", "yes")]), dict(good, rules=[R("year", ">", 1), R("bits", "=", "x")]),
+    dict(good, rules=[dict(R("title", "is", "x"), extra=1)]), dict(good, sort="colour"), dict(good, sort=None),
+    dict(good, sort=3), dict(good, sort="y" * 70), dict(good, sort="added_days"), dict(good, descending=1),
+    dict(good, descending=None), dict(good, descending=True), dict(good, limit=-1), dict(good, limit=1.5),
+    dict(good, limit=10.0), dict(good, limit=True), dict(good, limit=100001), dict(good, limit=100000),
+    dict(good, limit=None), {"format": smarttabs.TAB_FORMAT, "version": 1, "name": "Defaults"},
+    dict(good, extra={"a": 1}), dict(good, rules=[R("quality", "is", "anything")]),
+]
+checks_tab = []
+for x in check_inputs:
+    try:
+        checks_tab.append({"input": x, "tab": smarttabs.check_tab(x), "error": None})
+    except smarttabs.TabError as exc:
+        checks_tab.append({"input": x, "tab": None, "error": str(exc)})
+known_tabs = [T("Hi-Res"), T("Rock & Roll"), T("Ünïcode")]
+name_checks = []
+for n, renaming in (("hi-res", ""), ("Hi-Res", "Hi-Res"), ("HI-RES", "Hi-Res"), ("  ", ""), ("new  one", ""),
+                    ("ünïcode", ""), ("x" * 90, ""), ("Rock & Roll", "Hi-Res")):
+    try:
+        name_checks.append([n, renaming, smarttabs.check_name(n, known_tabs, renaming), None])
+    except smarttabs.TabError as exc:
+        name_checks.append([n, renaming, None, str(exc)])
+uniques = [[n, taken, smarttabs.unique_name(n, taken)] for n, taken in (
+    ("Hi-Res", []), ("Hi-Res", ["hi-res"]), ("Hi-Res", ["HI-RES", "Hi-Res 2"]), ("x" * 80, ["x" * 80]),
+    ("y" * 79 + " ", ["y" * 79 + " "]), ("Ä", ["ä", "ä 2", "Ä 3"]))]
+file_names = [[n, smarttabs.tab_file_name(n)] for n in (
+    "Hi-Res", "a/b: c?", "CON", "con.json", "Com1", "LPT9 tab", "lpt", " .. ", "...hidden", "trailing. ",
+    'q"u<o>t|e*s', "tab\x01name\x7f", "日本語のタブ", "  spaced   out  ", "", "x" * 120, "ß", "aux.", "back\\slash")]
+text_tabs = list(smarttabs.TEMPLATES) + [T(
+    "Ünïcode “quotes” \\ \"q\" 日本", [R("title", "contains", 'a "b" \\ c\n\t\x01'), R("year", ">=", 1999),
+                                      R("duration", "<", 2.5), R("liked", "is", True), R("bits", "=", 10 ** 16)],
+    match="any", sort="year", descending=True, limit=25)]
+texts = [{"tab": t, "text": smarttabs.tab_text(t)} for t in text_tabs]
+parses = [[f, text, smarttabs.parse_value(f, text)] for f in ("year", "title", "lossless") for text in (
+    "24", " 24 ", "+5", "-0", "2.5", "1e3", "1E-2", ".5", "5.", "1,000", "abc", "", "  ", "0x10", "1_000",
+    "999999999999999", "9999999999999999", "1e400", "nan", "inf", "２０", "- 5", "1.2.3", "e5", "+.5e+2")]
+value_texts = [[v, smarttabs.value_text(v)] for v in (True, False, 0, 24, -3, 2.5, 30.0, 1e16, 1e-07, "text", "")]
+changes = []
+for rule, f in ((R("title", "contains", "x"), "artist"), (R("title", "contains", "x"), "year"),
+                (R("year", ">=", 5), "bits"), (R("year", ">=", 5), "title"), (R("liked", "is", False), "disliked"),
+                (R("liked", "is", False), "quality"), (R("title", "is", "Lossy"), "quality"),
+                (R("title", "is", "nope"), "quality"), (R("quality", "is", "Lossless"), "title"),
+                (R("year", "!=", 2.5), "duration"), (R("title", "starts_with", "a"), "lossless")):
+    changes.append({"rule": rule, "field": f, "out": smarttabs.change_field(rule, f)})
+labels = {"fields": smarttabs.FIELD_LABELS,
+          "ops": {f: {op: smarttabs.op_label(f, op) for op in smarttabs.ops_for(f)} for f in smarttabs.FIELDS},
+          "kinds": {f: smarttabs.kind_of(f) for f in smarttabs.FIELDS + ("nope",)},
+          "defaults": {f: smarttabs.new_rule(f) for f in smarttabs.FIELDS},
+          "match": smarttabs.MATCH_LABELS, "templates": smarttabs.TEMPLATES}
+
+# the tabs folder: which files are tabs, and a series of saves, imports and deletes
+folder_tab_files = {
+    "b.json": smarttabs.tab_text(T("Hi-Res")), "A.JSON": smarttabs.tab_text(T("hi-res")),
+    "c.json": "nope", "d.json": json.dumps({"format": smarttabs.TAB_FORMAT, "version": 3, "name": "Future"}),
+    ".hidden.json": smarttabs.tab_text(T("Hidden")), "e.txt": smarttabs.tab_text(T("Text")),
+    "f.json": "﻿" + smarttabs.tab_text(T("Bom")), "g.json": smarttabs.tab_text(T("HI-RES")),
+    "h.json": json.dumps(dict(T("Bad"), rules=[R("colour", "is", "red")])), "i.json": "[1, 2]",
+    "j.json": json.dumps({"format": smarttabs.TAB_FORMAT, "version": 1, "name": "Short"}, indent=None),
+}
+with tempfile.TemporaryDirectory() as d:
+    for n, text in folder_tab_files.items():
+        with open(os.path.join(d, n), "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+    os.makedirs(os.path.join(d, "dir.json"))
+    with open(os.path.join(d, "big.json"), "wb") as fh:
+        fh.write(b" " * (smarttabs.MAX_FILE_BYTES + 1))
+    with open(os.path.join(d, "latin1.json"), "wb") as fh:
+        fh.write(b"\xff\xfe{")
+    got, skipped = smarttabs.load_tabs(d)
+    folder_loaded = {"tabs": [dict({k: v for k, v in t.items() if k != "file"}, file=os.path.basename(t["file"]))
+                              for t in got], "skipped": [list(s) for s in skipped]}
+
+
+def listing(d):
+    out = {}
+    for n in sorted(os.listdir(d)):
+        with open(os.path.join(d, n), encoding="utf-8") as fh:
+            out[n] = fh.read()
+    return out
+
+
+ops = [
+    {"op": "save", "tab": T("Hi-Res", [R("quality", "is", "Hi-Res Lossless")])},
+    {"op": "save", "tab": T("Hi-Res", [R("bits", ">=", 24)])},  # (never names that differ only in case:
+    {"op": "save", "tab": T("Renamed", [R("bits", ">=", 24)]), "old": "Hi-Res 2.json"},  # file systems differ)
+    {"op": "save", "tab": T("Hi-Res", [R("lossless", "is", True)]), "old": "Hi-Res.json"},
+    {"op": "save", "tab": T("a/b: c?")},
+    {"op": "save", "tab": T("Bad", [R("year", "contains", "x")])},
+    {"op": "save", "tab": T("  ")},
+    {"op": "import", "file": "shared.json", "text": smarttabs.tab_text(T("Hi-Res", [R("year", ">", 2000)]))},
+    {"op": "import", "file": "again.json", "text": smarttabs.tab_text(T("Hi-Res"))},
+    {"op": "import", "file": "x" * 3 + ".json", "text": smarttabs.tab_text(T("Renamed 2"))},
+    {"op": "import", "file": "theme.json", "text": themes.export_theme(themes.normalize({"name": "Neon", "colors": {}}))},
+    {"op": "import", "file": "broken.json", "text": "{"},
+    {"op": "import", "file": "inside", "text": ""},
+    {"op": "delete", "file": "Renamed.json"},
+    {"op": "delete", "file": "missing.json"},
+    {"op": "save", "tab": T("日本語のタブ", [R("artist", "contains", "東京")], sort="year", descending=True, limit=3)},
+]
+op_results = []
+with tempfile.TemporaryDirectory() as root:
+    d = os.path.join(root, "tabs")
+    outside = os.path.join(root, "outside")
+    os.makedirs(outside)
+    for o in ops:
+        res = {}
+        try:
+            if o["op"] == "save":
+                old = os.path.join(d, o["old"]) if o.get("old") else None
+                t = smarttabs.save_tab(o["tab"], d, old)
+                res = {"name": t["name"], "file": os.path.basename(t["file"])}
+            elif o["op"] == "import":
+                if o["file"] == "inside":
+                    src = os.path.join(d, "Hi-Res.json")
+                else:
+                    src = os.path.join(outside, o["file"])
+                    with open(src, "w", encoding="utf-8", newline="") as fh:
+                        fh.write(o["text"])
+                t = smarttabs.import_tab(src, d)
+                res = {"name": t["name"], "file": os.path.basename(t["file"])}
+            else:
+                res = {"deleted": smarttabs.delete_tab({"file": os.path.join(d, o["file"])})}
+        except smarttabs.TabError as exc:
+            res = {"error": str(exc)}
+        res["listing"] = listing(d) if os.path.isdir(d) else {}
+        op_results.append(res)
+
+with open(os.path.join(OUT, "python_tabs.json"), "w", encoding="utf-8") as fh:
+    json.dump({"now": NOW, "liked": tab_liked, "disliked": tab_disliked,
+               "tracks": [x.to_json() for x in tab_tracks], "values": values, "evals": evals,
+               "checks": checks_tab, "names": name_checks, "uniques": uniques, "file_names": file_names,
+               "texts": texts, "parses": parses, "value_texts": value_texts, "changes": changes, "labels": labels,
+               "folder": folder_loaded, "ops": ops, "op_results": op_results},
+              fh, indent=0, ensure_ascii=False)
+print(len(evals), "tab evaluations,", len(checks_tab), "tab checks,", len(op_results), "tab file operations")

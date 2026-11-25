@@ -2,9 +2,11 @@
 
 With the setting ``bit_perfect`` on, the player sends each song's samples to the
 sound device as they are in the file: at the song's own sample rate, without the
-equalizer, the volume or resampling, and with the device to itself where the
-system allows it (WASAPI exclusive mode on Windows, the ALSA hardware device on
-Linux; on macOS the device is switched to the song's rate).
+volume or resampling, and with the device to itself where the system allows it
+(WASAPI exclusive mode on Windows, the ALSA hardware device on Linux; on macOS
+the device is switched to the song's rate).  Since 2.3 the equalizer is applied
+when it is on (in 64-bit float, with TPDF dither of ±1 LSB when the device takes
+integers); everything else stays, and `status(..., eq_on=True)` says so.
 
 This module holds no sound code: the engines (``realhires/player.py`` and
 ``rust/crates/gui/src/audio.rs``) ask the device what it offers (`Mode`s), let
@@ -44,7 +46,10 @@ OFF = "Off"
 ON_IDLE = "On"
 BUSY = "The device is in use by another program, so the sound is mixed by the system."
 LOSSY_NOTE = "The song is decoded from a lossy format, so it is played as decoded."
-EQ_BYPASSED = "Bypassed while bit-perfect playback is on."
+# 2.3: the equalizer works with bit-perfect playback (it was bypassed before)
+EQ_ON = "The equalizer is on, so the samples are changed."
+EQ_NOTE = ("Bit-perfect playback is on: with the equalizer on, the sound is not bit-perfect. "
+           "The device still gets the song's own sample rate.")
 # the Python app on Windows: miniaudio opens a WASAPI exclusive stream only in the device's Default Format
 WASAPI_FORMAT_NOTE = ("Windows gives the device to this app alone only in the format chosen in its Sound "
                       "settings (the device's Properties, Advanced, Default Format).")
@@ -148,16 +153,38 @@ def rate_reason(song_rate: int, out_rate: int) -> str:
     return f"The device cannot play {fmt_khz(song_rate)}, so the song is resampled to {fmt_khz(out_rate)}."
 
 
+def still_runs(rate: int, access: str, device: str = "") -> str:
+    """What bit-perfect playback still does while the equalizer changes the samples: the
+    device at the plan's rate, reached as `access` says."""
+    khz = fmt_khz(rate)
+    if access == WASAPI:
+        return f"The device still runs at {khz} in exclusive mode."
+    if access == ALSA:
+        return f"The ALSA hardware device {device} still runs at {khz}." if device.strip() else \
+            f"The ALSA hardware device still runs at {khz}."
+    if access == COREAUDIO:
+        return f"The device still runs at {khz} (CoreAudio)."
+    return f"The device still runs at {khz}."
+
+
 def status(song: Optional[Song], plan: Optional[Plan], access: str = DIRECT, device: str = "",
-           enabled: bool = True) -> str:
+           enabled: bool = True, eq_on: bool = False) -> str:
     """The Playback info's "Bit-perfect" line: 'Off', 'Yes: 24-bit, 96 kHz, exclusive mode
-    (WASAPI)', 'Yes (decoded lossy audio): …', or 'No: ' and every reason that applies."""
+    (WASAPI)', 'Yes (decoded lossy audio): …', or 'No: ' and every reason that applies.
+    `eq_on`: the equalizer changes the song's samples (2.3); when that is the only reason,
+    the line also says what the device still does ('… The device still runs at 96 kHz in
+    exclusive mode.')."""
     if not enabled:
         return OFF
     if song is None or plan is None:
         return ON_IDLE
-    if plan.reasons:
-        reasons = list(plan.reasons) + ([LOSSY_NOTE] if song.is_lossy else [])
+    if plan.reasons or eq_on:
+        reasons = list(plan.reasons)
+        if eq_on:
+            reasons.append(EQ_ON)
+            if not plan.reasons:
+                reasons.append(still_runs(plan.rate, access, device))
+        reasons += [LOSSY_NOTE] if song.is_lossy else []
         return "No: " + " ".join(reasons)
     bits = song_bits(song)
     if bits:
@@ -251,6 +278,18 @@ def plan(song: Song, modes: Sequence[Mode], failure: str = "") -> Plan:
     return Plan(rate, fmt, channels, reasons)
 
 
+def dithered_int_sample(x: float, fmt: str, d: float) -> int:
+    """A float sample changed by the equalizer as the device's integer: round(x * 2^(bits - 1)
+    + d), clamped, where `d` is the TPDF dither in LSB (the sum of two uniform numbers in
+    [-0.5, 0.5), so within ±1 LSB).  The engines add it only to samples the equalizer
+    changed, so with the equalizer off the output stays bit-exact (`int_sample()`)."""
+    top = 1 << (CONTAINER_BITS[fmt] - 1)
+    v = float(x) * top
+    if v != v:  # NaN
+        return 0
+    return int(round(max(-float(top), min(float(top - 1), v + d))))
+
+
 def int_sample(x: float, fmt: str) -> int:
     """A float sample as the device's integer: round(x * 2^(bits - 1)), clamped (a float
     of a file's integer of up to 24 bits gives that integer back, shifted left)."""
@@ -322,7 +361,7 @@ def alsa_device(device: str, cards: Sequence[Tuple[int, str, str]]) -> str:
 
 
 __all__ = ["I16", "I24", "I32", "F32", "FORMATS", "WASAPI", "ALSA", "COREAUDIO", "DIRECT", "OFF", "ON_IDLE",
-           "BUSY", "LOSSY_NOTE", "EQ_BYPASSED", "WASAPI_FORMAT_NOTE", "STANDARD_RATES", "Song", "Mode", "Plan", "fmt_khz",
-           "format_label", "output_label", "access_label", "failure_reason", "rate_reason", "status",
+           "BUSY", "LOSSY_NOTE", "EQ_ON", "EQ_NOTE", "WASAPI_FORMAT_NOTE", "STANDARD_RATES", "Song", "Mode", "Plan", "fmt_khz",
+           "format_label", "output_label", "access_label", "failure_reason", "rate_reason", "status", "still_runs", "dithered_int_sample",
            "preferred_formats", "usable", "rates_offered", "pick_rate", "plan", "int_sample", "song_bits",
            "alsa_cards", "alsa_device", "channels_label"]

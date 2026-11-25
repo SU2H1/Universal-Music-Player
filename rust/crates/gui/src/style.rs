@@ -97,28 +97,6 @@ pub fn open_with_default_app(path: &str) {
     let _ = cmd.spawn();
 }
 
-/// A stable muted colour for an album placeholder.
-pub fn placeholder_color(title: &str) -> Color32 {
-    let hue = title.chars().map(|c| c as u32).sum::<u32>() % 360;
-    let (h, l, s) = (hue as f32 / 360.0, 0.42f32, 0.35f32);
-    let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
-    let p = 2.0 * l - q;
-    let f = |t: f32| {
-        let t = t.rem_euclid(1.0);
-        let v = if t < 1.0 / 6.0 {
-            p + (q - p) * 6.0 * t
-        } else if t < 0.5 {
-            q
-        } else if t < 2.0 / 3.0 {
-            p + (q - p) * (2.0 / 3.0 - t) * 6.0
-        } else {
-            p
-        };
-        (v * 255.0) as u8
-    };
-    Color32::from_rgb(f(h + 1.0 / 3.0), f(h), f(h - 1.0 / 3.0))
-}
-
 // ------------------------------------------------------ the player's look ---
 
 /// The palette of the theme in use.
@@ -138,7 +116,7 @@ pub fn on_page(c: Color32, pal: &Palette) -> Color32 {
 
 /// The colour of a verdict's text (see `on_page`).
 pub fn verdict_text(v: Verdict, pal: &Palette) -> Color32 {
-    on_page(verdict_style(v).1, pal)
+    on_page(pal.verdict(v), pal)
 }
 
 /// Amber for notes and warnings, readable on light and dark themes.
@@ -188,7 +166,7 @@ fn draw_button(ui: &mut Ui, icon: Option<Icon>, label: &str, enabled: bool, kind
     };
     let font = if primary { look::title(size) } else { look::text(size) };
     let text_color = match (primary, enabled) {
-        (true, true) => Color32::WHITE,
+        (true, true) => pal.on_accent,
         (true, false) => Color32::from_white_alpha(200),
         (false, true) => pal.text,
         (false, false) => pal.secondary.gamma_multiply(0.7),
@@ -233,7 +211,7 @@ fn draw_button(ui: &mut Ui, icon: Option<Icon>, label: &str, enabled: bool, kind
         let mut x = rect.left() + pad;
         if let Some(i) = icon {
             let c = if primary {
-                Color32::WHITE
+                pal.on_accent
             } else if enabled {
                 pal.accent
             } else {
@@ -320,7 +298,7 @@ pub fn segmented(ui: &mut Ui, id: &str, labels: &[&str], selected: usize, on_sur
         } else if resp.hovered() {
             p.rect_filled(seg, CornerRadius::same(6), mix(track, pal.text, 0.08));
         }
-        let (font, color) = if sel { (look::title(13.0), Color32::WHITE) } else { (look::text(13.0), pal.text) };
+        let (font, color) = if sel { (look::title(13.0), pal.on_accent) } else { (look::text(13.0), pal.text) };
         p.text(seg.center(), Align2::CENTER_CENTER, *label, font, color);
         if resp.clicked() && !sel {
             clicked = Some(i);

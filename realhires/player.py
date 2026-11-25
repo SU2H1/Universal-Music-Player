@@ -22,13 +22,17 @@ through miniaudio (https://github.com/irmen/pyminiaudio), which plays them.
   (not the frames decoded), so the seek bar and the lyrics follow what is heard.
 * Bit-perfect playback (``set_bit_perfect()``, 2.1): FFmpeg decodes without
   ``-ar`` and without filters (only ``pan`` copies a mono song to both
-  channels), the gain is exactly 1 and the equalizer is bypassed, and the device
-  is opened at the song's rate in the format ``bitperfect.plan()`` picks from
-  what it offers, through WASAPI exclusive mode (Windows), the ALSA hardware
-  device (Linux) or with its nominal rate switched to the song's (macOS).  The
-  floats are turned into the device's integers exactly (``device_samples()``).
-  When the device cannot be had, the song plays through the normal path, and
-  ``output_info()["bit_perfect"]`` says why.
+  channels), the gain is exactly 1, and the device is opened at the song's rate
+  in the format ``bitperfect.plan()`` picks from what it offers, through WASAPI
+  exclusive mode (Windows), the ALSA hardware device (Linux) or with its
+  nominal rate switched to the song's (macOS).  The floats are turned into the
+  device's integers exactly (``device_samples()``).  When the device cannot be
+  had, the song plays through the normal path, and
+  ``output_info()["bit_perfect"]`` says why.  Since 2.3 the equalizer is not
+  bypassed: when it is on, FFmpeg runs it in double precision at the song's
+  rate, and the samples it changed get TPDF dither of ±1 LSB of the device's
+  integer format in ``_pull()`` (``_tpdf()``) before they are rounded and
+  clamped; with the equalizer off the output stays bit-exact.
 
 Nothing here touches Tk: the desktop app polls ``poll()`` for events
 ("advanced", "finished", "error") and ``position()`` for the seek bar.  The
@@ -165,6 +169,11 @@ def filter_chain(info: SongInfo, out_rate: int, eq_state: Optional[dict]) -> Opt
     return ",".join(parts) or None
 
 
+def eq_changes(eq_state: Optional[dict], rate: int) -> bool:
+    """Whether the equalizer changes the samples at this rate (its FFmpeg chain is not empty)."""
+    return bool(eq_state) and eq_mod.ffmpeg_filter(eq_state, rate) is not None  # type: ignore[arg-type]
+
+
 def decode_command(path: str, start: float, out_rate: int, chain: Optional[str],
                    slow_seek: bool = False, native: bool = False) -> List[str]:
     """`slow_seek` decodes from the beginning and drops the audio before `start`, for
@@ -212,9 +221,10 @@ class _Decoder:
     """One FFmpeg process decoding one song from `start`."""
 
     def __init__(self, info: SongInfo, start: float, out_rate: int, chain: Optional[str],
-                 slow_seek: bool = False, native: bool = False):
+                 slow_seek: bool = False, native: bool = False, eq: bool = False):
         self.info, self.start, self.rate, self.chain = info, start, out_rate, chain
         self.slow_seek, self.native = slow_seek, native
+        self.eq = eq  # the chain holds the equalizer: its samples are dithered for an integer device
         self.frames = 0
         self._rest = b""
         self.proc = subprocess.Popen(decode_command(info.path, start, out_rate, chain, slow_seek, native),
@@ -581,7 +591,7 @@ class MiniaudioOutput(Output):
             while True:
                 block = callback(n)
                 if len(block) < n:
-                    pad = np.zeros((n, CHANNELS), np.float32)
+                    pad = np.zeros((n, CHANNELS), block.dtype)
                     pad[:len(block)] = block
                     block = pad
                 n = yield device_bytes(device_samples(block, fmt, width), fmt)
@@ -913,7 +923,7 @@ class Player:
         self._cond = threading.Condition(self._lock)
         self._out_lock = threading.Lock()      # opening/closing the output (never with _lock held)
         self._gen = 0
-        self._chunks: collections.deque = collections.deque()  # [gen, segment, frames, offset]
+        self._chunks: collections.deque = collections.deque()  # [gen, segment, frames, offset, eq]
         self._buffered = 0
         self._segs: collections.deque = collections.deque()    # heard now, then the ones queued behind it
         self._eos = False                      # the decoder has nothing more for this generation
@@ -932,6 +942,7 @@ class Player:
         self._out_plan: Optional[_OutPlan] = None   # how the open device was opened
         self._eq = eq_mod.default_state()
         self._eq_timer: Optional[threading.Timer] = None
+        self._rng = np.random.default_rng()       # the TPDF dither (2.3)
         self._next_path: Optional[str] = None
         self._next_after: Optional[str] = None
         self._prefetch: Optional[_Prefetch] = None
@@ -1046,8 +1057,9 @@ class Player:
             return self._bit_perfect
 
     def _eq_used(self) -> Optional[dict]:
-        """The equalizer FFmpeg runs: none while bit-perfect playback is on."""
-        return None if self._bit_perfect else self._eq
+        """The equalizer FFmpeg runs (2.3: also while bit-perfect playback is on; it was
+        bypassed then before)."""
+        return self._eq
 
     def set_gapless(self, on: bool) -> None:
         with self._lock:
@@ -1165,7 +1177,8 @@ class Player:
             if self._bit_perfect:
                 status = bp.ON_IDLE
                 if out is not None and out.plan is not None and out_rate and self._active:
-                    status = bp.status(out.song, out.plan, out.access, out.label)
+                    eq_on = seg is not None and eq_changes(self._eq, seg.rate or out_rate)
+                    status = bp.status(out.song, out.plan, out.access, out.label, eq_on=eq_on)
             return {"device": self.output.name or "System default", "backend": self.output.backend,
                     "rate": out_rate, "channels": channels, "format": label, "sample_format": fmt,
                     "song_rate": song_rate,
@@ -1202,24 +1215,40 @@ class Player:
             self._segs.popleft()
             self._events.append(("advanced", self._segs[0].path))
 
+    def _tpdf(self, frames: int, top: float) -> np.ndarray:
+        """TPDF dither of ±1 LSB for an integer device whose full scale is `top` (2.3): the
+        sum of two uniform numbers in [-0.5, 0.5) LSB, as a float added to the samples."""
+        r = self._rng.random((2, frames, CHANNELS))
+        return (r[0] + r[1] - 1.0) / top
+
     def _pull(self, n: int) -> np.ndarray:
-        """The device callback: n frames (fewer when the decoder is behind)."""
+        """The device callback: n frames (fewer when the decoder is behind).  For an
+        integer device, the frames the equalizer changed get TPDF dither, and then the
+        block is float64, so that `device_samples()` rounds the dithered values exactly."""
         out = np.zeros((n, CHANNELS), np.float32)
         try:
             now = time.monotonic()
             with self._lock:
                 filled = 0
+                plan = self._out_plan
+                top = float(1 << (bp.CONTAINER_BITS[plan.fmt] - 1)) if plan is not None and \
+                    plan.fmt in bp.CONTAINER_BITS else 0.0
                 if not self._paused and self._active:
                     while filled < n and self._chunks:
                         item = self._chunks[0]
-                        gen, seg, block, off = item
+                        gen, seg, block, off, eq_on = item
                         if gen != self._gen:
                             self._chunks.popleft()
                             continue
                         if seg.start is None:
                             seg.start = self._played + filled
                         take = min(n - filled, len(block) - off)
-                        out[filled:filled + take] = block[off:off + take]
+                        if eq_on and top:
+                            if out.dtype != np.float64:
+                                out = out.astype(np.float64)
+                            out[filled:filled + take] = block[off:off + take] + self._tpdf(take, top)
+                        else:
+                            out[filled:filled + take] = block[off:off + take]
                         filled += take
                         if off + take >= len(block):
                             self._chunks.popleft()
@@ -1233,7 +1262,7 @@ class Player:
             if filled < n:
                 out = out[:filled] if not self.output.realtime else out
             if gain != 1.0:
-                out *= np.float32(gain)
+                out *= out.dtype.type(gain)
         except Exception:  # noqa: BLE001 - the audio thread must never die
             return np.zeros((n, CHANNELS), np.float32)
         return out
@@ -1331,8 +1360,9 @@ class Player:
                 self._segs.clear()
                 self._segs.append(_Segment(path, SongInfo(path, 0), 0.0, 0))
 
-    def _push(self, gen: int, seg: _Segment, block: np.ndarray) -> bool:
-        """Queue decoded frames, waiting while the buffer is full.  False: stop decoding."""
+    def _push(self, gen: int, seg: _Segment, block: np.ndarray, eq: bool = False) -> bool:
+        """Queue decoded frames, waiting while the buffer is full.  False: stop decoding.
+        `eq`: the equalizer changed them (they are dithered for an integer device)."""
         limit = int(BUFFER_SECONDS * max(seg.rate, 8000))
         with self._lock:
             while self._alive(gen) and self._buffered >= limit:
@@ -1340,7 +1370,7 @@ class Player:
             if not self._alive(gen):
                 return False
             if len(block):
-                self._chunks.append([gen, seg, block, 0])
+                self._chunks.append([gen, seg, block, 0, eq])
                 self._buffered += len(block)
                 self._cond.notify_all()
             return True
@@ -1384,7 +1414,8 @@ class Player:
                 with self._lock:
                     wanted = self._alive(gen) and self._prefetch is pf
                 if wanted:
-                    pf.decoder = _Decoder(pf.info, 0.0, pf.out.rate, pf.chain, native=pf.out.native)
+                    pf.decoder = _Decoder(pf.info, 0.0, pf.out.rate, pf.chain, native=pf.out.native,
+                                          eq=eq_changes(eq_state, pf.out.rate))
             except PlayerError as exc:
                 pf.error = str(exc)
             except OSError as exc:
@@ -1426,7 +1457,7 @@ class Player:
             if pf.decoder is not None:
                 pf.decoder.close()
             pf.out, pf.chain = out, chain
-            pf.decoder = _Decoder(pf.info, 0.0, out.rate, chain, native=out.native)
+            pf.decoder = _Decoder(pf.info, 0.0, out.rate, chain, native=out.native, eq=eq_changes(eq_state, out.rate))
         return pf
 
     def _run(self, gen: int, path: str, start: float, info: Optional[SongInfo]) -> None:
@@ -1452,7 +1483,7 @@ class Player:
                 seg.info, seg.rate, seg.out = info, rate, out
                 chain = filter_chain(info, rate, eq_state)
             try:
-                decoder = _Decoder(info, start, rate, chain, native=out.native)
+                decoder = _Decoder(info, start, rate, chain, native=out.native, eq=eq_changes(eq_state, rate))
             except OSError as exc:
                 self._post_error(gen, path, f"FFmpeg could not be started: {exc}.")
                 return
@@ -1462,7 +1493,7 @@ class Player:
                     block = decoder.read()
                     if block is None:
                         break
-                    if not self._push(gen, seg, block):
+                    if not self._push(gen, seg, block, decoder.eq):
                         return
                     if not prefetched and self.gapless:
                         left = (info.duration - decoder.decoded_seconds) if info.duration else 0.0
@@ -1476,12 +1507,12 @@ class Player:
                 got = decoder.frames
                 retry = (decoder.info, decoder.start, decoder.rate, decoder.chain)
                 retry = retry if not got and decoder.start > 0 and not decoder.slow_seek else None
-                native = decoder.native
+                native, eq_on = decoder.native, decoder.eq
                 decoder.close()
                 decoder = None
                 if retry:  # FFmpeg could not seek in this file: decode from the start instead
                     try:
-                        decoder = _Decoder(*retry, slow_seek=True, native=native)
+                        decoder = _Decoder(*retry, slow_seek=True, native=native, eq=eq_on)
                     except OSError as exc:
                         self._post_error(gen, seg.path, f"FFmpeg could not be started: {exc}.")
                         return
@@ -1543,7 +1574,7 @@ class Player:
                         try:
                             pf.decoder = _Decoder(pf.info, 0.0, used.rate,  # type: ignore[arg-type]
                                                   filter_chain(pf.info, used.rate, self._eq_used()),  # type: ignore
-                                                  native=used.native)
+                                                  native=used.native, eq=eq_changes(self._eq_used(), used.rate))
                         except OSError as exc:
                             self._post_error(gen, pf.path, f"FFmpeg could not be started: {exc}.")
                             return
@@ -1628,4 +1659,4 @@ __all__ = ["Player", "PlayerError", "SongInfo", "song_info", "Output", "Miniaudi
            "DeviceInfo", "list_devices", "default_output", "has_soxr", "ffmpeg_version", "resampler_name",
            "filter_chain", "decode_command", "eq_summary", "fmt_gain", "fmt_khz", "fmt_db", "channels_label",
            "bit_depth_label", "bit_rate_label", "resampling_label", "output_label", "Exclusive", "OpenError",
-           "device_samples", "device_bytes"]
+           "device_samples", "device_bytes", "eq_changes"]

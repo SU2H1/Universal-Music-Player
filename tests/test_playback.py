@@ -307,7 +307,9 @@ def test_bit_perfect_flacs_reach_the_device_as_the_files_integers(tmp_path, bits
     out = ManualOutput()  # takes every rate and format
     p = Player(out)
     p.set_volume(0.5)     # neither the volume ...
-    p.set_eq(rock())      # ... nor the equalizer may touch the samples
+    off = rock()
+    off["enabled"] = False
+    p.set_eq(off)         # ... nor the equalizer's settings while it is off may touch the samples
     p.set_bit_perfect(True)
     assert p.gain == 1.0 and p.bit_perfect
     p.play(path)
@@ -328,7 +330,76 @@ def test_bit_perfect_flacs_reach_the_device_as_the_files_integers(tmp_path, bits
     assert info["format"] == ("16-bit integer" if bits == 16 else "24-bit integer in 32-bit")
     assert player.output_label(info["rate"], info["channels"], info["format"]).startswith(player.fmt_khz(rate))
     # the saved volume and equalizer are kept for when the setting is off again
-    assert p.eq_state["enabled"] and p.set_bit_perfect(False) is None and p.gain == 0.25
+    assert p.eq_state["graphic"]["preset"] == "Rock" and p.set_bit_perfect(False) is None and p.gain == 0.25
+    p.close()
+
+
+def eq_reference(path, state, rate):
+    """What the engine's FFmpeg decodes with the equalizer: float32 stereo (FFmpeg runs the
+    biquads in double precision, then hands over floats)."""
+    chain = player.filter_chain(player.SongInfo(path, rate, 2, 1.0, 16), rate, state)
+    return decoded(path, extra=("-af", chain))
+
+
+@pytest.mark.parametrize("bits,rate,fmt", [(16, 44100, "i16"), (24, 96000, "i32")])
+def test_bit_perfect_with_the_equalizer_on_applies_it_with_dither(tmp_path, bits, rate, fmt):
+    """2.3: the equalizer is no longer bypassed: the device still runs at the song's rate in
+    its integer format, the volume stays unused, and the changed samples get TPDF dither of
+    ±1 LSB before they are rounded; turned off, the output is the file's integers again."""
+    path = int_song(tmp_path / f"e{bits}.flac", 1.0, rate, bits)
+    out = ManualOutput()
+    p = Player(out)
+    p.set_volume(0.5)
+    state = rock()
+    p.set_eq(state)
+    p.set_bit_perfect(True)
+    assert p.gain == 1.0
+    p.play(path)
+    got, events = pull_all(p, out, block=999)
+    assert events[-1] == ("finished", path)
+    assert out.opened == [rate] and out.opened_formats == [fmt] and out.exclusive_opened == [True]
+    want = ints(path, bits).reshape(-1, 2)
+    assert got.shape == want.shape and not np.array_equal(got.astype(np.int64), want), "the equalizer did nothing"
+    top = float(1 << (15 if fmt == "i16" else 31))
+    ref = eq_reference(path, state, rate).astype(np.float64) * top
+    assert len(ref) == len(got)
+    diff = got.astype(np.float64) - ref
+    inside = np.abs(ref) < top - 2  # no clamping there
+    assert inside.mean() > 0.99 and np.max(np.abs(diff[inside])) < 1.5, "more than the dither and rounding"
+    if fmt == "i16":  # TPDF: about half the samples land on another integer than plain rounding gives
+        moved = np.mean(got != np.rint(ref))
+        assert 0.2 < moved < 0.7, moved
+        assert abs(np.mean(diff[inside])) < 0.05, "the dither is not centred"
+    p.play(path)
+    out.pull(1000)
+    info = p.output_info()
+    khz = player.fmt_khz(rate)
+    assert info["bit_perfect"] == f"No: The equalizer is on, so the samples are changed. The device still runs at {khz}."
+    assert info["rate"] == rate and info["sample_format"] == fmt and info["gain"] == 1.0
+    # the equalizer off while playing: FFmpeg restarts at the position, the samples are exact again
+    gen = p._gen
+    off = dict(state, enabled=False)
+    p.set_eq(off)
+    assert wait_for(lambda: p._eq_timer is None and p._gen > gen)
+    pos = int(round(p.position() * rate))
+    clean = out.pull(2000)
+    assert np.array_equal(clean.astype(np.int64), want[pos:pos + 2000]), "not bit-exact with the equalizer off"
+    assert p.output_info()["bit_perfect"].startswith("Yes: ")
+    p.close()
+
+
+def test_bit_perfect_equalizer_on_a_float_device_is_not_dithered(tmp_path):
+    """A device that takes floats (macOS) gets the equalizer's float32 output as it is."""
+    path = int_song(tmp_path / "f.flac", 0.5, 48000, 24)
+    out = ManualOutput(formats=["f32"])
+    p = Player(out)
+    state = rock()
+    p.set_eq(state)
+    p.set_bit_perfect(True)
+    p.play(path)
+    got, _ = pull_all(p, out)
+    assert out.opened_formats == ["f32"] and got.dtype == np.float32
+    assert np.array_equal(got, eq_reference(path, state, 48000))
     p.close()
 
 
@@ -373,9 +444,13 @@ def test_bit_perfect_resamples_when_the_device_lacks_the_rate(tmp_path):
 
 
 def test_bit_perfect_joins_songs_gaplessly_only_at_the_same_rate_and_format(tmp_path):
+    # b and c last longer than the 0.35 s buffer, so each is still being decoded when its
+    # "advanced" event is read and the test names the song after it (a song that fits in
+    # the buffer is decoded to its end before it is heard, and on a slow runner its end
+    # came before the test's set_next())
     a = int_song(tmp_path / "a.flac", 0.4, 44100, 16, seed=1)
-    b = int_song(tmp_path / "b.flac", 0.3, 44100, 16, seed=2)
-    c = int_song(tmp_path / "c.flac", 0.3, 48000, 16, seed=3)
+    b = int_song(tmp_path / "b.flac", 1.0, 44100, 16, seed=2)
+    c = int_song(tmp_path / "c.flac", 1.0, 48000, 16, seed=3)
     d = int_song(tmp_path / "d.flac", 0.3, 48000, 24, seed=4)
     out = ManualOutput()
     p = Player(out)

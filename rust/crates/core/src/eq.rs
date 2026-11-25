@@ -412,22 +412,40 @@ impl EqProcessor {
         !self.coeffs.is_empty() || (self.gain - 1.0).abs() > 1e-12
     }
 
+    /// One sample of channel `c` through the pre-amp and the stages (64-bit float).
+    #[inline]
+    fn sample(&mut self, x: f64, c: usize) -> f64 {
+        let ch = self.channels.max(1);
+        let mut x = x * self.gain;
+        for (k, [b0, b1, b2, a1, a2]) in self.coeffs.iter().enumerate() {
+            let idx = k * ch + c;
+            let y = b0 * x + self.z1[idx];
+            self.z1[idx] = b1 * x - a1 * y + self.z2[idx];
+            self.z2[idx] = b2 * x - a2 * y;
+            x = y;
+        }
+        x
+    }
+
     pub fn process(&mut self, samples: &mut [f32]) {
         if !self.is_active() {
             return;
         }
         let ch = self.channels.max(1);
         for (i, s) in samples.iter_mut().enumerate() {
-            let c = i % ch;
-            let mut x = *s as f64 * self.gain;
-            for (k, [b0, b1, b2, a1, a2]) in self.coeffs.iter().enumerate() {
-                let idx = k * ch + c;
-                let y = b0 * x + self.z1[idx];
-                self.z1[idx] = b1 * x - a1 * y + self.z2[idx];
-                self.z2[idx] = b2 * x - a2 * y;
-                x = y;
-            }
-            *s = x as f32;
+            *s = self.sample(*s as f64, i % ch) as f32;
+        }
+    }
+
+    /// The same in 64-bit float throughout (2.3: bit-perfect playback with the equalizer
+    /// on dithers this into the device's integers, `bitperfect::dithered_int_sample()`).
+    pub fn process_f64(&mut self, samples: &mut [f64]) {
+        if !self.is_active() {
+            return;
+        }
+        let ch = self.channels.max(1);
+        for (i, s) in samples.iter_mut().enumerate() {
+            *s = self.sample(*s, i % ch);
         }
     }
 }
@@ -494,6 +512,13 @@ mod tests {
         let mut same = orig.clone();
         flat.process(&mut same);
         assert_eq!(same, orig);
+        // the 64-bit path gives the same samples before they are rounded to f32
+        let mut wide: Vec<f64> = orig.iter().map(|x| *x as f64).collect();
+        EqProcessor::new(&s, 44100.0, 2).process_f64(&mut wide);
+        assert!(buf.iter().zip(wide.iter()).all(|(a, b)| *a == *b as f32));
+        let mut flat_wide: Vec<f64> = orig.iter().map(|x| *x as f64).collect();
+        flat.process_f64(&mut flat_wide);
+        assert!(flat_wide.iter().zip(orig.iter()).all(|(a, b)| *a == *b as f64));
     }
 }
 

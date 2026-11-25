@@ -11,6 +11,7 @@ from tkinter import ttk
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import i18n, musiclib, stats
+from . import settings as settings_mod
 from .i18n import N_, tr, tr_name, tr_text
 from .musiclib import Track
 from .player_pages import (Page, album_menu, album_order, frame, label, library_groups, plural, song_table,
@@ -88,12 +89,19 @@ TILES = [  # page, name (English: shown as tr(name)), icon
 ]
 
 
+LAYOUTS = settings_mod.LIBRARY_LAYOUTS  # "Tiles", "List" (2.3)
+LAYOUT_ICONS = [("Tiles", "tiles"), ("List", "list")]  # the buttons at the right of the title, left to right
+
+
 class LibraryPage(Page):
-    """The start page: the fourteen entries as tiles, the newest albums, and a
-    Your Stats banner when there are plays this year."""
+    """The start page: its entries (the fourteen of TILES, then those that come
+    after them) as tiles or, with the setting library_layout = "List" (2.3), as
+    rows; the newest albums, and a Your Stats banner when there are plays this
+    year.  The two buttons at the right of the title switch the layout."""
 
     list_name = N_("Library")
     TILE_W, TILE_H, GAP, MARGIN = 180, 66, 14, 28  # TILE_W: the narrowest a tile may be
+    ROW_H = 44  # a row of the list (2.3)
     CARD = 150
 
     def __init__(self, app):
@@ -103,6 +111,8 @@ class LibraryPage(Page):
         self.c = self.area.c
         self.hits: List[Tuple[tuple, Callable[[], None]]] = []
         self.album_hits: List[Tuple[tuple, dict]] = []  # the Recently Added cards (their right-click menu)
+        self.entry_hits: List[Tuple[tuple, str]] = []  # where each entry was drawn (its key)
+        self.layout_hits: Dict[str, tuple] = {}  # the tiles and list buttons, by layout
         self.hover: Optional[tuple] = None
         self.counts: Dict[str, str] = {}
         self.newest: List[dict] = []
@@ -148,21 +158,44 @@ class LibraryPage(Page):
                              reverse=True)[:12]
         self.area.redraw()
 
-    def _draw(self) -> float:
+    def entries(self) -> List[Tuple[str, str, str, str, Callable[[], None]]]:
+        """The page's entries in their order, as (key, name shown, icon, count, open): the
+        fourteen of TILES, then the entries that come after them (more_entries())."""
+        out = [(key, tr(name), icon, self.counts.get(key, ""), lambda key=key: self.app.show_page(key))
+               for key, name, icon in TILES]
+        return out + self.more_entries()
+
+    def more_entries(self) -> List[Tuple[str, str, str, str, Callable[[], None]]]:
+        """Entries after the fourteen: the custom tabs (2.3), with their songs."""
+        return self.app.tab_entries()
+
+    def layout(self) -> str:
+        return self.app.cfg.library_layout if self.app.cfg.library_layout in LAYOUTS else LAYOUTS[0]
+
+    def _draw_layout_buttons(self, W: float) -> None:
+        """The tiles and list buttons at the right of the title; the one in use is drawn on."""
         t, c = self.theme, self.c
-        W = c.winfo_width()
-        self.hits = []
-        self.album_hits = []
+        self.layout_hits = {}
+        for i, (name, icon) in enumerate(reversed(LAYOUT_ICONS)):
+            cx = W - self.MARGIN - 16 - i * 38
+            box = (cx - 16, 24, cx + 16, 56)
+            on = self.layout() == name
+            if on or self.hover == box:
+                round_rect(c, *box, 8, fill=t.c("hover" if self.hover == box else "lcd"), outline="")
+            draw_icon(c, icon, cx, 40, 16, t.c("accent") if on else t.c("text2"))
+            self.layout_hits[name] = box
+            self.hits.append((box, lambda name=name: self.app.set_library_layout(name)))
+
+    def _draw_tiles(self, entries, W: float, y0: float) -> float:
+        t, c = self.theme, self.c
         m = self.MARGIN
-        c.create_text(m, 40, text=tr("Library"), anchor="w", fill=t.c("text"), font=t.f("title"))
         cols = max(1, int((W - 2 * m + self.GAP) // (self.TILE_W + self.GAP)))
         if i18n.language() != "en":  # fewer, wider tiles rather than cut names (Japanese names are longer)
-            widest = max(t.f("tile").measure(tr(name)) for _, name, _ in TILES)
+            widest = max(t.f("tile").measure(e[1]) for e in entries)
             while cols > 1 and (W - 2 * m - (cols - 1) * self.GAP) / cols - 66 < widest:
                 cols -= 1
         tw = (W - 2 * m - (cols - 1) * self.GAP) / cols
-        y0 = 78
-        for i, (key, name, icon) in enumerate(TILES):
+        for i, (key, name, icon, count, fn) in enumerate(entries):
             r, k = divmod(i, cols)
             x = m + k * (tw + self.GAP)
             y = y0 + r * (self.TILE_H + self.GAP)
@@ -170,12 +203,52 @@ class LibraryPage(Page):
             hov = self.hover == box
             round_rect(c, *box, 10, fill=t.c("hover" if hov else "lcd"), outline="")
             draw_icon(c, icon, x + 30, y + self.TILE_H / 2, 22, t.c("accent"), filled=icon in ("heart",))
-            c.create_text(x + 56, y + 24, text=fit_text(t.f("tile"), tr(name), int(tw - 66), self._fit), anchor="w",
+            c.create_text(x + 56, y + 24, text=fit_text(t.f("tile"), name, int(tw - 66), self._fit), anchor="w",
                           fill=t.c("text"), font=t.f("tile"))
-            c.create_text(x + 56, y + 44, text=fit_text(t.f("small"), self.counts.get(key, ""), int(tw - 66),
-                                                        self._fit), anchor="w", fill=t.c("text2"), font=t.f("small"))
-            self.hits.append((box, lambda key=key: self.app.show_page(key)))
-        y = y0 + ((len(TILES) + cols - 1) // cols) * (self.TILE_H + self.GAP) + 20
+            c.create_text(x + 56, y + 44, text=fit_text(t.f("small"), count, int(tw - 66), self._fit), anchor="w",
+                          fill=t.c("text2"), font=t.f("small"))
+            self.hits.append((box, fn))
+            self.entry_hits.append((box, key))
+        return y0 + ((len(entries) + cols - 1) // cols) * (self.TILE_H + self.GAP)
+
+    def _draw_list(self, entries, W: float, y0: float) -> float:
+        """One row per entry, the width of the page: the icon in the accent colour, the name in
+        bold, its count on the right in grey, a line between rows."""
+        t, c = self.theme, self.c
+        m, h = self.MARGIN, self.ROW_H
+        y = y0
+        for i, (key, name, icon, count, fn) in enumerate(entries):
+            box = (m, y, W - m, y + h)
+            if self.hover == box:
+                round_rect(c, *box, 8, fill=t.c("hover"), outline="")
+            draw_icon(c, icon, m + 24, y + h / 2, 20, t.c("accent"), filled=icon in ("heart",))
+            count_w = t.f("body").measure(count)
+            c.create_text(W - m - 14, y + h / 2, text=count, anchor="e", fill=t.c("text2"), font=t.f("body"))
+            c.create_text(m + 50, y + h / 2, text=fit_text(t.f("tile"), name, int(W - 2 * m - 80 - count_w),
+                                                           self._fit),
+                          anchor="w", fill=t.c("text"), font=t.f("tile"))
+            if i < len(entries) - 1:
+                c.create_line(m + 50, y + h, W - m, y + h, fill=t.c("sep"))
+            self.hits.append((box, fn))
+            self.entry_hits.append((box, key))
+            y += h
+        return y + self.GAP
+
+    def _draw(self) -> float:
+        t, c = self.theme, self.c
+        W = c.winfo_width()
+        self.hits = []
+        self.album_hits = []
+        self.entry_hits = []
+        m = self.MARGIN
+        c.create_text(m, 40, text=tr("Library"), anchor="w", fill=t.c("text"), font=t.f("title"))
+        self._draw_layout_buttons(W)
+        entries = self.entries()
+        if self.layout() == "List":
+            y = self._draw_list(entries, W, 78)
+        else:
+            y = self._draw_tiles(entries, W, 78)
+        y += 20
         if self.newest:
             c.create_text(m, y + 12, text=tr("Recently Added"), anchor="w", fill=t.c("text"), font=t.f("h2"))
             more = c.create_text(W - m, y + 12, text=tr("See All"), anchor="e", fill=t.c("accent"),
@@ -381,9 +454,16 @@ class PlaylistsPage(Page):
         self.sub = label(box, t, "", "body", fg="text2")
         self.sub.pack(anchor="w")
         PillButton(top, t, tr("New Playlist…"), icon="plus", command=lambda: app.new_playlist()).pack(side="right")
-        self.grid_w = AlbumGrid(self, t, app.covers, self._open)
+        self.grid_w = AlbumGrid(self, t, app.covers, self._open, on_context=self._context,
+                                label_of=lambda a: app.label_of("playlist", a["key"]))
         self.grid_w.pack(fill="both", expand=True)
         self.refresh()
+
+    def _context(self, i: int, e) -> None:
+        """A playlist card's menu (2.3): Play, Shuffle, Rename…, Delete…, Colour Label."""
+        items = self.grid_w.albums
+        if 0 <= i < len(items) and not items[i].get("new"):
+            self.app.playlist_menu(items[i]["key"]).tk_popup(e.x_root, e.y_root)
 
     def refresh(self) -> None:
         app = self.app
@@ -557,12 +637,17 @@ def this_month(now: Optional[float] = None) -> Tuple[int, int]:
 
 class StatsPage(Page):
     """A month calendar (2.1: ‹ month ›, Monday first, days tinted by the minutes
-    played, today outlined; a click on a day lists its plays under it, a click on
-    a song plays it), then the summary cards of the period chosen in the menu
-    (stats.cards()), each in its own colour."""
+    played, today outlined; a click on a day lists its plays, a click on a song
+    plays it), then the summary cards of the period chosen in the menu
+    (stats.cards()), each in its own colour.  The day's plays (or the hint) fill the
+    space to the right of the calendar, as tall as it and scrolling inside it (2.3:
+    `day_c`, a canvas of its own); on a page narrower than the calendar plus
+    SIDE_MIN they go under it."""
 
     list_name = N_("Your Stats")
     CELL_W, CELL_H, ROW_H = 62, 44, 30
+    SIDE_MIN, SIDE_GAP = 360, 24  # 2.3: the room the day's plays need beside the calendar, and the gap
+    MARGIN = 28
     TINTS = (0.0, 0.25, 0.45, 0.7, 1.0)  # the share of the accent colour for stats.month_levels() 0..4
 
     def __init__(self, app):
@@ -598,6 +683,16 @@ class StatsPage(Page):
         c.bind("<Button-1>", self._click)
         c.bind("<Motion>", self._motion)
         c.bind("<Leave>", lambda e: self._set_hover(None))
+        # 2.3: the day's plays beside the calendar, scrolling inside the calendar's height
+        self.day_c = tk.Canvas(c, highlightthickness=0, bd=0, width=200, height=100)
+        t.reg(self.day_c, bg="bg")
+        self.day_hits: List[Tuple[tuple, Callable[[], None]]] = []
+        self.day_hover: Optional[tuple] = None
+        self.day_box: Optional[Tuple[float, float, float, float]] = None  # (x, y, width, height) when beside
+        self.day_c.bind("<Button-1>", self._day_click)
+        self.day_c.bind("<Motion>", self._day_motion)
+        self.day_c.bind("<Leave>", lambda e: self._set_day_hover(None))
+        bind_wheel(self.day_c, self._day_wheel)
 
     def _period(self) -> None:
         i = self.period_box.current()
@@ -644,6 +739,7 @@ class StatsPage(Page):
         chosen = (self.month[0], self.month[1], day) if day else None
         self.day = None if chosen == self.day else chosen
         self._load_calendar()
+        self.day_c.yview_moveto(0)
         self.area.redraw()
 
     def play_row(self, i: int) -> None:
@@ -679,11 +775,20 @@ class StatsPage(Page):
             self.hover = box
             self.area.redraw()
 
+    def cell_width(self, W: float) -> float:
+        return max(30.0, min(self.CELL_W, (W - 2 * self.MARGIN) / 7))
+
+    def side_by_side(self, W: Optional[float] = None) -> bool:
+        """Whether the day's plays go to the right of the calendar (2.3): when the page has
+        room for the calendar and SIDE_MIN more."""
+        W = self.area.c.winfo_width() if W is None else W
+        return W - 2 * self.MARGIN >= 7 * self.cell_width(W) + self.SIDE_MIN
+
     def _draw_calendar(self, y: float) -> float:
         t, c = self.theme, self.area.c
         W = c.winfo_width()
-        m = 28
-        cw, ch = max(30.0, min(self.CELL_W, (W - 2 * m) / 7)), self.CELL_H
+        m = self.MARGIN
+        cw, ch = self.cell_width(W), self.CELL_H
         right = m + 7 * cw
         year, month = self.month
         title = c.create_text(m, y + 16, text=tr_text(stats.month_title(year, month)), anchor="w", fill=t.c("text"),
@@ -706,14 +811,14 @@ class StatsPage(Page):
         y += 22
         now = time.localtime()
         today = (now.tm_year, now.tm_mon, now.tm_mday)
-        accent, base = t.c("accent"), t.c("lcd")
+        accent, base, tint = t.c("accent"), t.c("lcd"), t.c("calendar")  # 2.3: the tint is the theme's
         for week in stats.month_grid(year, month):
             for k, d in enumerate(week):
                 if not d:
                     continue
                 box = (m + k * cw + 2, y + 2, m + (k + 1) * cw - 2, y + ch - 2)
                 level = self.levels[d - 1] if d - 1 < len(self.levels) else 0
-                fill = mix(base, accent, self.TINTS[level])
+                fill = mix(base, tint, self.TINTS[level])
                 if self.hover == box:
                     fill = mix(fill, t.c("text"), 0.1)
                 chosen, is_today = self.day == (year, month, d), today == (year, month, d)
@@ -726,50 +831,108 @@ class StatsPage(Page):
             y += ch
         return y + 12
 
-    def _draw_day(self, y: float) -> float:
-        t, c = self.theme, self.area.c
-        W = c.winfo_width()
-        m = 28
+    def _draw_day(self, c: tk.Canvas, x: float, y: float, width: float, hits: list,
+                  hover: Optional[tuple]) -> float:
+        """The chosen day's title, summary and plays (or the hint) from (x, y), `width` wide,
+        on `c` (the page, or `day_c` beside the calendar); returns the bottom."""
+        t = self.theme
+        right = x + width
         if self.day is None:
-            c.create_text(m, y + 10, text=tr("Click a day to see the songs you played on it."), anchor="w",
+            c.create_text(x, y + 10, text=tr("Click a day to see the songs you played on it."), anchor="w",
                           fill=t.c("text2"), font=t.f("body"))
             return y + 40
-        c.create_text(m, y + 12, text=tr_text(stats.day_title(*self.day)), anchor="w", fill=t.c("text"),
+        c.create_text(x, y + 12, text=tr_text(stats.day_title(*self.day)), anchor="w", fill=t.c("text"),
                       font=t.f("h2"))
-        c.create_text(m, y + 36, text=tr_text(stats.day_summary(self.day_rows)), anchor="w", fill=t.c("text2"),
+        c.create_text(x, y + 36, text=tr_text(stats.day_summary(self.day_rows)), anchor="w", fill=t.c("text2"),
                       font=t.f("body"))
         y += 56
-        rest = W - 2 * m - 70 - 90
+        rest = width - 70 - 90
         tw = rest * 0.55
         aw = rest - tw - 16
         for i, r in enumerate(self.day_rows):
-            box = (m, y, W - m, y + self.ROW_H)
+            box = (x, y, right, y + self.ROW_H)
             playable = r["path"] in self.app.by_path
-            if playable and self.hover == box:
+            if playable and hover == box:
                 round_rect(c, *box, 6, fill=t.c("hover"), outline="")
             elif i % 2:
                 round_rect(c, *box, 6, fill=t.c("zebra"), outline="")
             mid = y + self.ROW_H / 2
             playing = r["path"] == self.app.current
             font = t.f("body_b" if playing else "body")
-            c.create_text(m + 12, mid, text=r["time"], anchor="w", fill=t.c("text2"), font=t.f("body"))
-            c.create_text(m + 70, mid, text=fit_text(font, r["title"], int(tw), self._fit), anchor="w",
+            c.create_text(x + 12, mid, text=r["time"], anchor="w", fill=t.c("text2"), font=t.f("body"))
+            c.create_text(x + 70, mid, text=fit_text(font, r["title"], int(tw), self._fit), anchor="w",
                           fill=t.c("accent") if playing else t.c("text") if playable else t.c("text2"), font=font)
-            c.create_text(m + 70 + tw + 16, mid, text=fit_text(t.f("body"), tr_name(r["artist"]), int(aw), self._fit),
+            c.create_text(x + 70 + tw + 16, mid, text=fit_text(t.f("body"), tr_name(r["artist"]), int(aw), self._fit),
                           anchor="w", fill=t.c("text2"), font=t.f("body"))
-            c.create_text(W - m - 12, mid, text=tr_text(r["minutes"]), anchor="e", fill=t.c("text2"),
+            c.create_text(right - 12, mid, text=tr_text(r["minutes"]), anchor="e", fill=t.c("text2"),
                           font=t.f("body"))
             if playable:
-                self.hits.append((box, lambda i=i: self.play_row(i)))
+                hits.append((box, lambda i=i: self.play_row(i)))
             y += self.ROW_H
         return y + 18
+
+    # ---- the day's plays beside the calendar (2.3) -----------------------
+    def _redraw_day(self) -> None:
+        """Draw the day's plays into day_c, which scrolls when they are taller than it."""
+        if self.day_box is None:
+            return
+        dc = self.day_c
+        _x, _y, w, h = self.day_box
+        dc.delete("all")
+        self.day_hits = []
+        bottom = self._draw_day(dc, 0, 0, w, self.day_hits, self.day_hover)
+        dc.configure(scrollregion=(0, 0, w, max(bottom, h)), yscrollincrement=24)
+
+    def day_list_scrolls(self) -> bool:
+        """The day's plays beside the calendar are taller than it (they scroll inside)."""
+        if self.day_box is None:
+            return False
+        region = self.day_c.cget("scrollregion").split()
+        return bool(region) and float(region[3]) > self.day_box[3] + 0.5
+
+    def _day_wheel(self, n: int) -> None:
+        if self.day_list_scrolls():
+            self.day_c.yview_scroll(n, "units")
+        else:  # nothing to scroll inside: the page scrolls
+            self.area.c.yview_scroll(n, "units")
+
+    def _day_hit(self, e) -> Optional[tuple]:
+        x, y = self.day_c.canvasx(e.x), self.day_c.canvasy(e.y)
+        for box, fn in self.day_hits:
+            if box[0] <= x <= box[2] and box[1] <= y <= box[3]:
+                return box, fn
+        return None
+
+    def _day_click(self, e) -> None:
+        hit = self._day_hit(e)
+        if hit:
+            hit[1]()
+
+    def _day_motion(self, e) -> None:
+        hit = self._day_hit(e)
+        self.day_c.configure(cursor="hand2" if hit else "")
+        self._set_day_hover(hit[0] if hit else None)
+
+    def _set_day_hover(self, box: Optional[tuple]) -> None:
+        if box != self.day_hover:
+            self.day_hover = box
+            self._redraw_day()
 
     def _draw(self) -> float:
         t, c = self.theme, self.area.c
         W = c.winfo_width()
-        m, gap = 28, 16
+        m, gap = self.MARGIN, 16
         self.hits = []
-        y0 = self._draw_day(self._draw_calendar(8))
+        top = 8
+        y0 = self._draw_calendar(top)
+        if self.side_by_side(W):  # the day's plays to the right, as tall as the calendar
+            x = m + 7 * self.cell_width(W) + self.SIDE_GAP
+            self.day_box = (x, top, W - m - x, y0 - 12 - top)
+            c.create_window(x, top, window=self.day_c, anchor="nw", width=self.day_box[2], height=self.day_box[3])
+            self._redraw_day()
+        else:
+            self.day_box = None
+            y0 = self._draw_day(c, m, y0, W - 2 * m, self.hits, self.hover)
         cards = stats.cards(self.st) if self.st else []
         if not cards:
             c.create_text(W / 2, y0 + 40, text=tr("No listening yet in this period. Play some music and come back."),

@@ -3119,7 +3119,7 @@ dependencies = [
 
 [[package]]
 name = "realhires-cli"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -3130,7 +3130,7 @@ dependencies = [
 
 [[package]]
 name = "realhires-core"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
  "chrono",
  "crc32fast",
@@ -3147,8 +3147,9 @@ dependencies = [
 
 [[package]]
 name = "realhires-gui"
-version = "2.2.0"
+version = "2.3.0"
 dependencies = [
+ "arboard",
  "chrono",
  "cpal",
  "eframe",
@@ -3158,6 +3159,7 @@ dependencies = [
  "image",
  "realhires-core",
  "rfd",
+ "webbrowser",
  "windows",
  "winit",
  "winresource",

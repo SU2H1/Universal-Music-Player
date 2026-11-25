@@ -1,30 +1,20 @@
-## What's new in 2.2.0
+## What's new in 2.3.0
 
-**A cleaner window.** The menu bar is gone from both apps. Quality Check is always in the sidebar, the About box is on the Settings page, and the Quality Check page now looks like the rest of the player, in your theme: a page title with the scan's status under it, an accent-coloured Scan button, verdict chips with counts, and a **…** (More) button that holds what the old menus held. Every keyboard shortcut works as before. The **mouse's back and forward buttons** (and Alt+← / Alt+→, Cmd+[ / Cmd+] on a Mac) move between pages, as in a browser. The app has a new icon.
+**Up Next can be edited.** Drag a song in Up Next (the panel or Now Playing's Up Next view) to another place, with a line showing where it will go, or right-click it and choose **Remove from Up Next**. A removed song stays out until you play another list, also when you change the shuffle mode.
 
-**Bit-perfect playback** (Settings → Playback, off by default) sends each song to your sound device exactly as it is in the file: at its own sample rate, without the equalizer, the volume control or resampling, and with the device to the app alone where the system allows it (WASAPI exclusive mode on Windows, the ALSA hardware device on Linux; on macOS the device is switched to the song's rate). Set the volume on your amplifier or DAC. The Playback info says whether a song really plays bit-perfect, and if not, why. The tests check that 16-bit and 24-bit songs reach the output sample for sample; the exclusive device access could only be built and checked on CI, so please tell us how it works with your DAC.
+**Custom tabs.** A tab is a saved set of rules that picks songs from your library, such as "Hi-Res", "Lossy", "Added in the last 30 days" or anything else, shown in the sidebar under **Tabs** and on the Library page. **New Tab…** opens the tab window, where each rule is a field (title, artist, genre, quality, year, bit depth, sample rate, bit rate, length, days since added, liked and more), an operator and a value, and a line says how many songs match while you change them. Each tab is one small `.json` file in the tabs folder, so tabs can be shared: **Export Tab…** writes the file, and **Settings → Library → Import tab…** (or dropping the file onto the Rust version's window, or copying it into the tabs folder) adds it. A tab file holds only fields, operators and values, so no code runs when you open one.
 
-**Now Playing**
-- A switch above the lyrics: **Lyrics**, **Up Next** (the queue) and **Details** (the song's information, format, comment and Quality Check verdict).
-- The lyrics say whether they are synced or plain text and where they come from; **A− / A+** change their size (remembered); after you scroll synced lyrics, **Back to the current line** returns to the music.
-- The Lyrics button hides the lyrics and leaves you on the page, with the cover centred; the cover, title and artist form one centred block.
-- The album name opens the album and each artist name opens that artist (also in the playback bar). A click on the cover opens the new **Cover** window.
-- **Get lyrics** now downloads at once (it used to open a window that waited for a second click), from Now Playing and from every song's menu.
-- Lyrics saved by **LRCGET** now show synced: synced lyrics inside a file used to lose to a plain `.txt` next to it, and LRC text kept as plain lyrics now counts as synced.
+**Colours.** The theme editor lists **More colours**: every other colour the app draws, from the row under the pointer, the selected item and text fields to the quality colours and the Quality Check verdicts. Unless your theme sets them, they follow its eight colours. The quality badge and the Quality column now show Hi-Res Lossless in gold, Lossless in the accent colour and lossy in grey. **Colour Label ▸** in the menu of every song, album, artist, album artist, genre, year, composer, playlist and tab marks it with a small dot in a colour of your choice.
 
-**Your library**
-- **Play Next** and **Add to Queue** in every song's menu.
-- **Acquire Metadata…** in the right-click menu of songs and of albums fills in their information from MusicBrainz; albums' covers have a right-click menu everywhere now (Play, Shuffle, Play Next, Add to Queue, Acquire Metadata…, Album Properties…).
-- Artists, Album Artists, Genres, Years and Composers are **card grids** like Albums.
-- **Several artists in one field** ("Mariah Carey, Michael Bublé") are separate artists, each with a page of its own and a link of its own; band names such as "Earth, Wind & Fire" stay whole.
-- **Rename** genres, composers and years, and **merge** genres (several at once, too); only the songs' tags change.
-- **Choose the columns** of song lists by right-clicking their headings (All Songs, Folders and album pages each remember their own); album pages show the full columns. Hovering a Quality cell shows the bit depth and sample rate.
-- **Your Stats** starts with a **calendar**: click a day to see what you played and when.
-- **Properties…** (formerly Edit Info) can be resized.
-- The **Cover** window shows a cover large, with its size and where it comes from, and can **change**, **save** or **remove** it for an album or a song (also **Cover…** in every song's menu). FLAC, MP3, Ogg and Opus are changed directly in their tags, M4A and AIFF by FFmpeg without re-encoding, checked sample for sample.
-- **Covers are kept** on disk and made ahead, so scrolling no longer waits for them, and scrolling big libraries is much smoother.
-- The equalizer's **Delete** works again for your own presets.
-- Everything new is in Japanese too when Settings → Appearance → Language is set to 日本語, and Song information from MusicBrainz (new in 2.1.0) is in every song's menu and on album pages next to **Properties…**.
+**Now Playing.** A back link at the top left returns to where you came from (the search results, All Songs, an album and so on). **Lyrics only** (next to A− / A+) hides the cover so that the lyrics fill the page, and an instrumental song's cover is centred by itself. Drag or swipe the cover sideways to see the album's songs, with the one playing in bold. **Details** is centred like the cover.
+
+**Covers and song information.** **Change Cover…** is in the right-click menus of songs and albums, and the Cover window has **Search Cover Online**, which opens your browser on an image search for the artist and album. The **Properties** window has **Acquire Metadata…**, and each field has a **Search** button that opens your browser on a web search for that field (for example the composer of the song); text you copy there within two minutes is filled in for you.
+
+**Library.** **Settings → Appearance → Library page** (or the two small buttons next to the Library title) shows the Library page as tiles or as a list. On the Genres page, **Select** lets you choose several genres and **Merge…** them under one name. In Your Stats, the songs of the chosen day are listed beside the calendar instead of under it, when the window is wide enough.
+
+**Equalizer.** The equalizer now works together with bit-perfect playback: it is applied in 64-bit precision, with dither for devices that take integers, while the device still runs at the song's own rate for this app alone. The Playback info says so, and turning the equalizer off gives bit-perfect sound again. The Equalizer window's close button is at its right edge, and its rows wrap instead of being cut off.
+
+Everything new is in Japanese too when Settings → Appearance → Language is set to 日本語.
 
 ## Download
 

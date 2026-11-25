@@ -10,13 +10,14 @@ import pytest
 @pytest.fixture(autouse=True)
 def _saved_results_in_tmp(tmp_path, monkeypatch):
     """Never touch the user's saved results (store.py), library index, player state,
-    themes or saved album covers (2.0); subprocesses inherit the variables.  Tests
-    that need their own files set them again."""
+    themes, saved album covers (2.0) or custom tabs (2.3); subprocesses inherit the
+    variables.  Tests that need their own files set them again."""
     monkeypatch.setenv("REALHIRES_RESULTS", str(tmp_path / "results.sqlite"))
     monkeypatch.setenv("REALHIRES_LIBRARY", str(tmp_path / "library.sqlite"))
     monkeypatch.setenv("REALHIRES_PLAYER", str(tmp_path / "player.json"))
     monkeypatch.setenv("REALHIRES_THEMES", str(tmp_path / "themes.json"))
     monkeypatch.setenv("REALHIRES_COVERS", str(tmp_path / "covers"))
+    monkeypatch.setenv("REALHIRES_TABS", str(tmp_path / "tabs"))
 
 
 def music_like(fs: int, seconds: float = 6.0, top_hz: float = None, seed: int = 0,

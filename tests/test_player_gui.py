@@ -353,6 +353,8 @@ def lyrics_ok():
     # the equalizer: heard at once, saved when the window closes
     app.open_eq()
     w = app.eq_window
+    root.update()
+    assert not w.preset_wrapped and not w.presets2.winfo_ismapped()  # in English the preset row fits
     w.v_on.set(True); w._toggles()
     w._preset("Rock")
     assert w.v_preset.get() == "Rock" and app.engine.eq_state["enabled"]
@@ -389,6 +391,49 @@ def lyrics_ok():
     # Up Next lists the rest of the album
     app.toggle_up_next(); root.update()
     assert [t.display_title for t in app.up_next.list.rows] == ["Midnight Sun", "Polar Drift"]
+    # 2.3: Up Next can be edited: drag a song to another place, right-click to remove one.  Playback
+    # is paused here, and the song to follow gaplessly is checked by what the app tells the engine
+    # (the engine forgets it once it has started decoding that song)
+    assert not app.engine.playing
+    nexts = []
+    set_next = app.engine.set_next
+    app.engine.set_next = lambda path, after=None: (nexts.append(path), set_next(path, after))
+    midnight, polar = LIB["songs"]["Midnight Sun"], LIB["songs"]["Polar Drift"]
+    ul = app.up_next.list
+    if root.grab_current() is not None:  # the pop-up menus unposted above may still hold X11's grab
+        root.grab_current().grab_release()
+    def drag(lst, y0, y1):
+        lst.canvas.event_generate("<ButtonPress-1>", x=60, y=y0)
+        lst.canvas.event_generate("<B1-Motion>", x=60, y=y0 + 2)  # under 5 px: still a click
+        assert lst.drag_from is None
+        lst.canvas.event_generate("<B1-Motion>", x=60, y=(y0 + y1) // 2)
+        lst.canvas.event_generate("<B1-Motion>", x=60, y=y1)
+        dragging = lst.drag_from is not None and lst.drop_at is not None
+        assert not dragging or lst.canvas.find_withtag("drop"), "no drop line"
+        lst.canvas.event_generate("<ButtonRelease-1>", x=60, y=y1)
+        root.update()
+        return dragging
+    assert drag(ul, ul.rh + ul.rh // 2, 4)  # Polar Drift above Midnight Sun
+    assert [t.display_title for t in ul.rows] == ["Polar Drift", "Midnight Sun"] and ul.selected == 0
+    assert app.queue.up_next(5) == [polar, midnight] and nexts[-1] == polar, (app.queue.up_next(5), nexts)
+    assert not ul.canvas.find_withtag("drop") and ul.drag_from is None
+    assert drag(ul, ul.rh // 2, 2 * ul.rh - 2)  # and back below it
+    assert app.queue.up_next(5) == [midnight, polar] and nexts[-1] == midnight, (app.queue.up_next(5), nexts)
+    # Now Playing's Up Next view shows the same and is wired the same way
+    npq = app.page("nowplaying").queue_list
+    assert [t.path for t in npq.rows] == [midnight, polar]
+    assert npq.on_move == app.move_in_up_next and npq.on_context is not None
+    m = app.up_next_menu(1)
+    assert [m.entrycget(i, "label") for i in range(m.index("end") + 1)] == ["Remove from Up Next"]
+    m.invoke(0); root.update()
+    assert [t.display_title for t in ul.rows] == ["Midnight Sun"] and app.queue.up_next(5) == [midnight]
+    assert [t.path for t in npq.rows] == [midnight] and nexts[-1] == midnight
+    app.set_shuffle("off")  # the order is built again: the removed song stays out
+    assert app.queue.up_next(5) == [midnight] and app.queue.removed == {{polar}}
+    app.queue.order.append(polar); app.queue.removed.clear()  # put it back for the rest of the test
+    app.engine.set_next = set_next
+    app._update_next(); app.up_next.refresh()
+    assert [t.display_title for t in app.up_next.list.rows] == ["Midnight Sun", "Polar Drift"]
     # 2.1: Play Next from a song's menu comes first; the gapless look-ahead leaves the queue alone
     menu = app.song_menu(app.by_path[umbrella])
     labels = [menu.entrycget(i, "label") for i in range(menu.index("end") + 1) if menu.type(i) == "command"]
@@ -405,7 +450,8 @@ def lyrics_ok():
     am = player_pages.album_menu(app, small)
     def entries(m):
         return [m.entrycget(i, "label") if m.type(i) != "separator" else "-" for i in range(m.index("end") + 1)]
-    ALBUM_MENU = ["Play", "Shuffle", "Play Next", "Add to Queue", "-", "Acquire Metadata…", "Album Properties…"]
+    ALBUM_MENU = ["Play", "Shuffle", "Play Next", "Add to Queue", "-", "Album Properties…", "Acquire Metadata…",
+                  "Change Cover…", "-", "Colour Label"]  # 2.3: Colour Label
     assert entries(am) == ALBUM_MENU, entries(am)
     assert app.last_menu is am
     am.invoke(ALBUM_MENU.index("Add to Queue")); root.update()
@@ -829,14 +875,22 @@ def second_heard():
     assert st.day == (first.tm_year, first.tm_mon, first.tm_mday), st.day
     want = [p for p in reversed(plays) if time.localtime(p.started)[:3] == first[:3]]
     assert [r["path"] for r in st.day_rows] == [p.path for p in want], st.day_rows
-    shown = texts(c)
+    # 2.3: on a wide page the day's plays are to the right of the calendar, in a canvas of their own;
+    # the CI runners' 1024 x 768 screens leave the page too narrow, and then they are under the calendar
+    if st.side_by_side():
+        assert st.day_c.winfo_ismapped()
+        dc = st.day_c
+    else:
+        assert not st.day_c.winfo_ismapped() and st.day_box is None
+        dc = c
+    shown = texts(dc)
     assert stats.day_title(*st.day) in shown and stats.day_summary(st.day_rows) in shown
     row = st.day_rows[-1]
     assert row["time"] == time.strftime("%H:%M", time.localtime(row["started"])) and row["time"] in shown
     assert row["title"] == "First Light" and row["artist"] == "Aurora Fields" and row["minutes"] == "<1 min"
-    item = next(i for i in c.find_all() if c.type(i) == "text" and c.itemcget(i, "text") == "First Light")
-    x, y = c.coords(item)
-    c.event_generate("<Button-1>", x=int(x), y=int(y))
+    item = next(i for i in dc.find_all() if dc.type(i) == "text" and dc.itemcget(i, "text") == "First Light")
+    x, y = dc.coords(item)
+    dc.event_generate("<Button-1>", x=int(x), y=int(y))
     root.update()
     assert app.current == S["First Light"] and app.context_name == "Your Stats"
     app.engine.pause()
@@ -1189,12 +1243,12 @@ def loaded():
     m = app.song_menu(app.track(S["Taxi Lights"]))
     labels = menu_labels(m)
     for needed in ("プレイリストに追加", "お気に入り", "次に再生", "キューに追加", "歌詞を取得…", "プロパティ…",
-                   "メタデータを取得…", "アートワーク…"):
+                   "メタデータを取得…", "アートワークを変更…"):
         assert needed in labels, (needed, labels)
     # an album card's menu (2.2) and the album page's buttons
     am = player_pages.album_menu(app, album)
-    assert menu_labels(am) == [tr("Play"), tr("Shuffle"), "次に再生", "キューに追加", "メタデータを取得…",
-                               "アルバムのプロパティ…"], menu_labels(am)
+    assert menu_labels(am) == [tr("Play"), tr("Shuffle"), "次に再生", "キューに追加", "アルバムのプロパティ…",
+                               "メタデータを取得…", "アートワークを変更…", "カラーラベル"], menu_labels(am)
     assert app.page("album").mb_b.text == "メタデータを取得…" and app.page("album").edit_b.text == "アルバムのプロパティ…"
     # a name dialog: a new playlist
     def answer(tries=0):
@@ -1248,14 +1302,34 @@ def heard():
     for needed in ("トラック", "タイトル: ", "サンプリング周波数: 96 kHz", "デコーダ", "ギャップレス: オン"):
         assert needed in info, (needed, info)
     app.info_window.close()
+    app.cfg.bit_perfect = True  # 2.3: with its note above the curve, the window still holds its content
     app.open_eq()
     w = app.eq_window
     root.update()
     assert w.win.title() == "イコライザ"
     assert [w.nb.tab(i, "text") for i in range(2)] == ["グラフィック", "パラメトリック"]
     assert "完了" in widget_texts(w.win) and "プリアンプ" in widget_texts(w.win)
+    assert w.bypass.cget("text").startswith("ビットパーフェクト再生がオンです")
+    def outside(win):
+        # the widgets that end past the window's right edge
+        out = []
+        def walk(x):
+            for c in x.winfo_children():
+                if isinstance(c, tk.Toplevel) or not c.winfo_ismapped():
+                    continue
+                if c.winfo_rootx() + c.winfo_width() > win.winfo_rootx() + win.winfo_width():
+                    out.append(str(c))
+                walk(c)
+        walk(win)
+        return out
+    # the preset row wraps to a second line instead of making the window wider than its content
+    assert w.preset_wrapped and w.presets2.winfo_ismapped(), "the preset row did not wrap"
+    assert w.win.winfo_reqwidth() <= w.PRESET_ROW_MAX + 40 + 2, w.win.winfo_reqwidth()
+    assert not outside(w.win), outside(w.win)
     w.nb.select(1); root.update()
     w._add_band(); root.update()
+    assert not outside(w.win), outside(w.win)
+    app.cfg.bit_perfect = False
     menu = w.build_preset_menu()
     assert menu_labels(menu)[0] == tr("Flat")
     w._preset("Rock")
@@ -1433,7 +1507,8 @@ root.mainloop()
 def test_bit_perfect_playback_controls(tmp_path):
     """Settings → Playback → Bit-perfect playback (2.1): the song restarts where it was in
     the song's own format, the volume slider shows full volume and cannot move, the
-    Equalizer window says it is bypassed, and the Playback info has the Bit-perfect line."""
+    Equalizer window has its note, and the Playback info has the Bit-perfect line; 2.3: the
+    equalizer is heard, and the Bit-perfect line then says why it is not bit-perfect."""
     lib = make_library(tmp_path, seconds=4, mp3=False)
     from realhires import settings
 
@@ -1492,16 +1567,40 @@ def switched():
     assert not app.bar.volume.enabled and app.bar.volume.value == 1.0 and app.state.volume == 0.5
     assert settings.load().bit_perfect  # saved at once, as every setting
     app.open_eq()
-    assert app.eq_window.bypass.cget("text") == "Bypassed while bit-perfect playback is on."
+    assert app.eq_window.bypass.cget("text") == ("Bit-perfect playback is on: with the equalizer on, the sound is "
+                                                 "not bit-perfect. The device still gets the song's own sample rate.")
     assert app.eq_window.bypass.winfo_manager() == "pack"
     app.eq_window.close()
     app.open_info()
     info = app.info_window.text()
     for needed in ("Output: 96 kHz, 24-bit integer in 32-bit, stereo",
                    "Bit-perfect: Yes: 24-bit, 96 kHz, NULL Playback Device",
-                   "Volume: 0.0 dB", "Equalizer: Bypassed while bit-perfect playback is on."):
+                   "Volume: 0.0 dB", "Equalizer: Off"):
         assert needed in info, (needed, info)
     app.info_window.close()
+    # the equalizer on: heard (the song restarts where it is), the device keeps the song's rate; the
+    # restart count is taken before the change, because on a slow runner the restart happened while
+    # the window closed, before a count taken after it (the wait then never ended)
+    state["gen"] = app.engine._gen
+    app.open_eq()
+    w = app.eq_window
+    w.v_on.set(True); w._toggles(); w._preset("Rock")
+    assert app.bar.eq.on
+    w.close()
+    wait(lambda: app.engine._gen > state["gen"] and app.engine.position() > 0, eq_heard, what="the equalizer heard")
+
+def eq_heard():
+    app.open_info()
+    info = app.info_window.text()
+    for needed in ("Output: 96 kHz, 24-bit integer in 32-bit, stereo",
+                   "Bit-perfect: No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz.",
+                   "Equalizer: Graphic: Rock"):
+        assert needed in info, (needed, info)
+    app.info_window.close()
+    app.open_eq()
+    w = app.eq_window
+    w.v_on.set(False); w._toggles()
+    w.close()
     app.volume_step(-0.05)  # the keys leave the saved volume alone too
     assert app.state.volume == 0.5
     setting(False)
@@ -1811,7 +1910,7 @@ def loaded():
     # rename a genre from its page ("…"): the files change, the page follows the new name
     app.show_page("group", kind="genres", group="Jazz")
     gp = app.page("group")
-    assert labels(gp.menu()) == ["Play", "Shuffle", "Rename genre…", "Merge into…"]
+    assert labels(gp.menu()) == ["Play", "Shuffle", "Rename genre…", "Merge into…", "Colour Label"]  # 2.3
     answer("Smooth Jazz")
     job = player_pages.rename_group(app, "genres", "Jazz")
     state["job"] = job

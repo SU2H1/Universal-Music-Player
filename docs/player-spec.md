@@ -675,3 +675,234 @@ song/album via musisbrainz".
 - Every album cover card (Albums, Recently Added, an artist's albums, search results) has a right-click menu:
   **Play**, **Shuffle**, **Play Next**, **Add to Queue**, then **Acquire Metadata…** (the MusicBrainz window for the
   whole album, as from the album page) and **Album Properties…** (the Properties window for all its songs).
+
+## 2.3 (asked for on 2026-11-25, after 2.2.0 was released)
+
+Fifteen requests, all in both apps, with every new text translated into Japanese as the Language section says, and
+the shared maths and data checked against Python's answers with parity vectors, as before. Where a request names a
+place ("full screen") it means Now Playing, the page with the cover on the left.
+
+### Up Next can be edited
+
+"Allow user to drag to change order or right click and select to remove from queue." Up Next is three parts (see
+"Play Next and Add to Queue"): the songs stepped back over with Previous (`order[pos+1..=top]`), the queued songs
+(`queued`), then the rest of the order (`order[top+1..]`). `PlayQueue` (both versions) gains:
+
+- `remove_upcoming(index)` (an index into `up_next()`; returns the path, or None when out of range): a stepped-back
+  song is removed from `order` (and `top` moves down by one), a queued song from `queued`, a song of the rest from
+  `order`. A removed song that came from the list (stepped-back or rest) goes into `removed`, unless it is the song
+  playing: `_upcoming()` and `_restart_album()` leave `removed` songs out, so a removed song stays out when the order
+  is built again (another shuffle mode, repeat album) until a new list is played (`start()` empties `removed`).
+- `move_upcoming(src, dst)` (indices into `up_next()`, `dst` counted after the move; False when either is out of
+  range or they are equal): the song is taken out of its part (without going into `removed`) and put at `dst`, into
+  the part of the song it is now placed before (at the very end: the rest of the order). So a song dragged to the top,
+  before queued songs, becomes queued; a queued song dragged among the list's songs becomes part of the order.
+  `inserted` positions are kept pointing at the same songs whenever `order` changes.
+- Parity vectors `edit_runs` in `python_queue.json` (moves and removals within and across the three parts, then
+  next/previous/shuffle/repeat album).
+
+In the Up Next panel and in Now Playing's Up Next view: a row can be dragged to another place (a press becomes a drag
+after 5 px; a line in the accent colour with a small circle at its left end shows the gap it will drop into; the
+list scrolls when the pointer is near its top or bottom edge; only the primary button drags), and a right-click
+opens a menu with one item, **Remove from Up Next**. After either, the song that follows gaplessly is set again.
+
+### 1. Change Cover… in the menus, and Search Cover Online
+
+"Change cover tab should be displayed when user right clicks then selects to change jacket. Next to change cover,
+there should be option to search cover; it should redirect user to browser that searches image of [artist name]
+[album name]." Every song menu (right-click, and "…"), every album card's menu and the album page's menu get
+**Change Cover…**, which opens the Cover window for that song's album (the window of "Inspecting and changing a
+cover", with Change cover… as before). In the Cover window, right after **Change cover…**, a button **Search Cover
+Online** opens the system's browser at Google Images, `https://www.google.com/search?tbm=isch&q=` + the URL-encoded
+query `<album artist (else artist)> <album>` (a song without an album: `<artist> <title>`; parts that are unknown are
+left out). The query is built by one core function in both versions (`covers.cover_search_url()`), with vectors.
+
+### 2. The Library page as a list
+
+"User should have the option to have All Songs, Folders etc. to be in a list." New setting `library_layout`
+(Appearance group, label "Library page", choices "Tiles" (default) and "List"; not a Detection setting). List shows
+the Library page's entries (the fourteen, then the custom tabs of item 6) as rows 44 px high, the width of the page:
+the entry's icon in the accent colour, its name in bold and its count in secondary text on the right, a line between
+rows, hover in the theme's hover colour; a click opens the entry as a tile click does. The Library page's title row
+gets two small icon buttons on its right (tiles, list) that switch the same setting (the one in use is drawn on).
+
+### 3. Choosing genres to merge
+
+"User should be able to merge the genre folders/lists then rename them." The Genres page's title row gets a pill
+button **Select**. In select mode a click on a card toggles it (a filled check mark in the accent colour in the
+cover's top-right corner, a ring in the accent colour around the cover) instead of opening it, and the title row
+shows "N selected", **Merge…** (enabled from two genres), **Rename…** (exactly one) and **Done** (leaves select mode
+and clears the selection). Merge… asks for the merged genre's name in one dialog (a combobox listing the selected
+genres, prefilled with the one with the most songs, and free to type a new name), then confirms how many files will
+change, as Merge N genres… did. Ctrl-click (Cmd-click on macOS, where Ctrl-click is a right-click) still selects
+without select mode, and the page's hint names the right key for the system.
+
+### 4. Instrumental songs: the cover in the centre
+
+"If song is instrumental, jacket should be automatically centered." When the song's lyrics are marked instrumental
+(`[au: instrumental]` from LRCGET/LRCLIB) and Now Playing shows the Lyrics view, the page uses the centred layout: the
+cover with the title and the artist under it and "Instrumental" under them in secondary text (no lyrics column, no
+Get lyrics). Up Next and Details keep the two halves.
+
+### 5. Back from Now Playing
+
+"After clicking on a song then full screening, there should be an option to return in the full screen top left.
+Return to whatever was the last screen, i.e. search bar result, all songs etc." Now Playing gets a back button at
+its top left: a chevron and the name of the page it returns to ("All Songs", "Search", the album's name, "Genres",
+a playlist's name…), drawn in the accent colour, pointer cursor. A click goes back to that page as the mouse's back
+button does (a search page comes back with its text and results). It is shown only when there is a page to go back
+to.
+
+### 6. Custom tabs
+
+"Allow user to add custom tabs like High Res or anything via files. Make it benefit the fact this is open source."
+A **tab** is a saved set of rules that picks songs from the library, shown in the sidebar like a playlist. No code
+runs, so a shared tab file is safe to open.
+
+- Core module `realhires/smarttabs.py` / `rust/crates/core/src/smarttabs.rs`. A tab is JSON:
+  `{"format": "universal-music-player-tab", "version": 1, "name": "Hi-Res", "match": "all" | "any", "rules": [{"field":
+  …, "op": …, "value": …}, …], "sort": <field>, "descending": false, "limit": 0}`. Fields: text `title`, `artist`,
+  `album`, `album_artist`, `genre`, `composer`, `format` (the codec as the Quality column's tooltip names it, e.g.
+  "FLAC", "MP3"), `folder` (the song's folder path), `quality` ("Hi-Res Lossless", "Lossless" or "Lossy"); numbers
+  `year`, `bits` (0 for lossy), `sample_rate` (Hz), `bit_rate` (kbps), `duration` (seconds), `added_days` (days since
+  the file's modification time); yes/no `lossless`, `liked`, `disliked`. Operators: text `is`, `is_not`, `contains`,
+  `not_contains`, `starts_with` (case-folded); numbers `=`, `!=`, `>`, `>=`, `<`, `<=`; yes/no `is`. `matches(tab,
+  track, ctx)` (ctx: liked and disliked sets, the time now) and `tab_songs(tab, tracks, ctx)` (the matching paths,
+  sorted by `sort` then title, at most `limit` when it is above 0). `check_tab()` raises `TabError` with a full
+  sentence for a missing name, an unknown field or operator, a value of the wrong kind, or a format/version it does
+  not know. `TEMPLATES`: "Hi-Res" (quality is "Hi-Res Lossless": the rules are a flat all/any list, so the badge's
+  own definition stands in for "lossless and (bits >= 24 or sample_rate > 48000)"), "Lossy" (lossless is no),
+  "Added in the last 30 days" (added_days <= 30, sorted by added_days), "Long songs" (duration >= 600). A tab
+  without rules has every song; a new rule starts with an operator every song passes (text contains "", number
+  >= 0, yes/no is Yes), so the count does not drop to 0 before a value is typed; Quality's value is chosen from a
+  menu (shown translated, stored in English). Names are unique case-insensitively; at most 100 rules, a limit of
+  0..100000, files over 1 MB are skipped.
+- Files: one `.json` per tab in the tabs folder (`tabs` in `store.data_dir()`, `$REALHIRES_TABS` overrides it),
+  read in file-name order (`load_tabs()`, which skips files that are not tabs and says which); `save_tab()` (written
+  through a temp file), `delete_tab()`, `export_tab(tab, path)`, `import_tab(path)` (copied into the folder; a taken
+  name gets " 2", " 3"…), `tab_file_name()`. Both versions write the same bytes (vectors `python_tabs.json`: rule
+  evaluation on invented tracks, every check message, file round trips).
+- Sidebar: a heading **Tabs** after Playlists, with each tab (a filter icon) and **New Tab…**. The Library page lists
+  the tabs after its fourteen entries, with their song counts. A tab's page: its name as the title, "N songs, M
+  minutes", Play and Shuffle, and the song table (column kind "songs"). A right-click on a tab in the sidebar (and
+  "…" on its page): **Edit Tab…**, **Export Tab…**, **Delete Tab…** (confirmed; the file is deleted) and
+  **Colour Label** (the label follows a rename and goes with a delete). Saving a new tab, importing one or dropping a
+  tab file opens its page; renaming a tab renames its file.
+- The tab window (New Tab… / Edit Tab…): Name; "Start from" (the templates, New Tab… only); "Match all / any of these
+  rules"; one row per rule (field menu, operator menu fitting the field, value: an entry, or Yes/No); Add rule and a
+  remove button per row; Sort by (field menu and Descending); Limit (0 = no limit); a live line "N songs match"; Save
+  and Cancel. Errors from `check_tab()` are shown under the rules and keep the window open.
+- Settings → Library gets **Import tab…** and **Open tabs folder**. The Rust app also imports a tab file dropped onto
+  its window (as themes). The folder is read at start, after every change made in the app, and whenever the Library
+  page or a tab's page is shown, so files copied into it appear without a restart.
+
+### 7. The equalizer with bit-perfect playback
+
+"Is it possible for bit perfect and EQ to work together? Currently Bypassed while bit-perfect playback is on." While
+bit-perfect playback is on and the equalizer is on, the equalizer is applied (it is no longer bypassed); everything
+else of bit-perfect playback stays: the device runs at the song's own rate, in exclusive mode / on the hardware
+device, and the volume control is not used (gain 1, the slider disabled as before). The equalizer runs in 64-bit
+float on the decoded samples; when the device takes integers, the result is converted with TPDF dither (±1 LSB of the
+output format) and clamped. With the equalizer off the output is bit-perfect exactly as before (the tests' bit-exact
+checks keep passing). Playback info's "Bit-perfect" line then reads "No: The equalizer is on, so the samples are
+changed. The device still runs at 96 kHz in exclusive mode." (the rate and the access from the plan), and the
+Equalizer window's note reads "Bit-perfect playback is on: with the equalizer on, the sound is not bit-perfect. The
+device still gets the song's own sample rate." The texts come from `bitperfect` in both versions (vectors).
+
+### 8. The Equalizer window's close button
+
+"Equalizer X button is not on the actual right." In Japanese (and with the bit-perfect note) the Rust window's
+content was wider than its fixed width, so the content overflowed and the title bar with its X kept the smaller
+width. Both apps: the Equalizer window is as wide as its content in every language, and its title bar (with the
+close button) spans the whole window. The preset row wraps to a second line rather than overflowing when it is too
+wide. A test opens the window in Japanese with bit-perfect on and checks that no widget lies outside the window.
+
+### 9. Colours
+
+"Currently quality color is all gray, allow user to customize the color code each quality type. In fact, allow user to
+color code anything."
+
+- **Every colour the app draws is a theme colour.** Besides the eight `COLOR_KEYS`, a theme may set the colours that
+  are now derived from them (`EXTRA_COLOR_KEYS`, each with a label and its derivation from the eight, in
+  `themes.py`/`themes.rs`): `row_hover`, `zebra`, `selection`, `field`, `placeholder`, `placeholder_icon`,
+  `disabled`, `on_accent`; the quality colours `quality_hires`, `quality_lossless`, `quality_lossy`; the verdict
+  colours of the Quality Check page (`verdict_fake_lossless`, `verdict_fake_hires`, `verdict_suspicious`,
+  `verdict_real_hires`, `verdict_cd`, `verdict_lossy`, `verdict_error`); and `calendar` (the tint of days with plays).
+  `themes.colors(theme)` returns all of them (a theme's own value, else the derivation), with vectors. Built-in
+  themes keep their look, except that the quality colours are no longer grey: Hi-Res Lossless in gold (`#c9a227`
+  in light themes, `#e0b84a` in dark ones), Lossless in the accent colour, Lossy in the secondary text colour.
+- The theme editor shows the eight colours as before, then a section **More colours** with every extra colour (its
+  swatch shows the derived colour while it is not set, and a small Reset button returns it to derived). Exported and
+  imported theme files carry the extra colours that are set; older files without them keep working.
+- **Quality colours** are used by the playback bar's quality badge (outline and text) and the Quality column of the
+  song tables (the text).
+- **Colour labels.** Every song menu, album card menu, artist/album artist/genre/year/composer card menu, playlist
+  menu and tab menu gets **Colour Label ▸** with Red, Orange, Yellow, Green, Blue, Purple, Grey (fixed colours that
+  read on light and dark themes), **Custom…** (the system's colour chooser) and **None**. Labels are kept in
+  `player.json` as `labels`: `{"song": {path: "#rrggbb"}, "album": {album key: …}, "artist": {…}, "album_artist":
+  {…}, "genre": {…}, "year": {…}, "composer": {…}, "playlist": {id: …}, "tab": {name: …}}` (PlayerState
+  `label_of(kind, key)`, `set_label(kind, key, color or None)`, vectors). A label is drawn as a dot 8 px wide: before
+  the title in song tables (and Up Next), at the bottom-left corner of a card's cover, and after a playlist's or tab's
+  name in the sidebar.
+- As built: both apps use the same derivations (the Python app's former ones), so the Rust app's text fields are the
+  "Text fields" colour (grey in Light) and its missing covers the grey placeholder. "Selected item" colours the
+  sidebar selection (and the selected song row in Rust; Python's tables keep their accent-filled row). Not theme
+  colours: the Quality Check card rings, the plots, the error/warning/ok texts, the Your Stats hero cards and egui's
+  text-selection highlight. Label keys of artists, album artists, genres and composers are case-folded, since the
+  groupings join names in any case; albums use the album key, years are kept as written, playlists by id, tabs by
+  name. A playlist's menu (right-click in the sidebar or on a Playlists card) has Play, Shuffle, Rename…, Delete… and
+  Colour Label. The Rust editor's More colours grid drops to one column below 660 px.
+
+### 10. Lyrics filling Now Playing
+
+"Allow synced lyrics to be full screen." The lyrics header (next to A− / A+) gets a button **Lyrics only** (an
+expand icon; on while active). While it is on, the cover column is hidden and the lyrics use the whole page width,
+centred, one step (4 px) larger than the chosen size; the header with the Lyrics / Up Next / Details switch stays.
+Pressed again, or Esc, brings the cover back. It lasts for the session (`lyrics_wide`) and applies to synced and plain
+lyrics (an instrumental song or a song without lyrics keeps the centred cover).
+
+### 11. Swiping the cover to the album's songs
+
+"Allow user to drag/swipe jacket while in full screen to see album's playlist and make the current song's title
+bold." On Now Playing, dragging the cover sideways by more than 60 px (or a horizontal scroll / trackpad swipe over
+it) turns the left half to the album's songs: a list of the album's tracks in track order (number, title, time), the
+song playing in bold with the speaker icon, hover in the theme's colour, a double-click plays that song with the album
+as the list. Two small dots under it (cover, songs) show which one is shown and switch on a click; swiping the other
+way returns to the cover. A click on the cover without a drag still opens the Cover window. The choice lasts for the
+session and follows the song (a song from another album shows that album's songs).
+
+### 12. Properties: Acquire Metadata and searching the web
+
+"Acquire data should be under properties. Additionally acquire data should have option for google as well: if they
+select a song then want to acquire the data for composer, allow user to press a button that redirects them to their
+browser with an already googled result, then if copied, autofill."
+
+- In every menu, **Acquire Metadata…** comes right after **Properties…** (and Album Properties…).
+- The Properties window gets **Acquire Metadata…** at the bottom left (it opens the MusicBrainz window for the same
+  songs, as the menu item does).
+- Every field of the Properties window gets a small **Search** button (a magnifier icon, tooltip "Search the web for
+  the composer") at its right end. A click opens the browser at `https://www.google.com/search?q=` + the URL-encoded
+  query: for a song, `"<title>" <artist> <field>`; for several songs (Album Properties), `"<album>" <album artist>
+  <field>`; the field's English name in lower case ("composer", "release date" for the date, "genre", "album artist",
+  "track number", "disc number"…), or its Japanese name when the language is Japanese. The query comes from one core
+  function (`tagedit.web_search_url(field, values, language)`, vectors).
+- After the click the window watches the clipboard for up to two minutes (Tk: `clipboard_get()` every 500 ms; Rust:
+  the system clipboard through `arboard`): the first new text that differs from what the clipboard held at the click,
+  trimmed, one line, at most `MAX_VALUE` characters, is put into that field (the field flashes in the accent colour
+  and the note "Filled in from the clipboard." appears under the fields). It is not saved until Save. Clicking
+  another field's Search, closing the window or Save stops the watch. A note under the fields says, while watching:
+  "Copy the answer in your browser and it will be filled in here."
+
+### 13. Your Stats: the day's songs beside the calendar
+
+"If user press your stats then clicks on a date, use the space next to calendar, it's wasted space." The calendar
+keeps its size on the left, and the day's plays (and the hint "Click a day to see the songs you played on it.") fill
+the space to its right, as tall as the calendar and scrolling inside it when longer. When the page is narrower than
+the calendar plus 360 px, the list goes under the calendar as before.
+
+### 14. Details in the centre
+
+"When user clicks details, details should be centered like the jacket." Now Playing's Details view is one block
+centred vertically in the right half (and horizontally, the labels and values kept in their two columns), as the cover
+block is in the left half; a long file path wraps within the block. When the block is taller than the page it starts
+at the top and scrolls.

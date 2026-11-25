@@ -1,8 +1,9 @@
 //! The Cover window (2.1, `docs/player-spec.md` → "Inspecting and changing a
 //! cover"), the counterpart of Python's `player_windows.CoverWindow`: the cover
 //! of a song's album as large as the window allows, its size in pixels, format
-//! and where it comes from (`covers::cover_source()`), and Change cover…, Save
-//! image as…, Remove cover (confirmed in the window), Show album and Close
+//! and where it comes from (`covers::cover_source()`), and Change cover…, Search
+//! Cover Online (2.3: Google Images in the browser, `covers::cover_search_url()`),
+//! Save image as…, Remove cover (confirmed in the window), Show album and Close
 //! (Esc).  Reading the cover and changing or removing it run in threads
 //! (`tagedit::set_cover()`/`remove_cover()`), for all the album's songs or this
 //! song only, with a progress line and `tagedit::cover_summary()` afterwards.
@@ -51,6 +52,9 @@ pub struct CoverWin {
     pub all_songs: bool,
     /// "Also save it as cover.jpg in the album's folder"
     pub also_folder: bool,
+    /// Search Cover Online's address: Google Images for the album artist and album
+    /// (a song without an album: its artist and title), from the song's tags
+    pub search_url: String,
     pub source: Option<CoverSource>,
     pub reading: bool,
     pub busy: bool,
@@ -93,7 +97,12 @@ impl CoverWin {
             ),
             (None, None) => (realhires::paths::file_name(path), String::new()),
         };
+        let search_url = match track {
+            Some(t) => covers::cover_search_url(&t.album_artist, &t.artist, &t.album, &t.display_title()),
+            None => covers::cover_search_url("", "", "", &realhires::paths::stem(path)),
+        };
         let mut w = CoverWin {
+            search_url,
             path: path.to_string(),
             album_key: album.map(|a| a.key.clone()),
             heading,
@@ -235,6 +244,15 @@ impl CoverWin {
         true
     }
 
+    /// Search Cover Online (2.3): the browser looks for the cover; a picture saved
+    /// from it can then be chosen with Change cover….
+    pub fn search_online(&mut self) {
+        self.status = match crate::web::open_url(&self.search_url) {
+            Ok(()) => String::new(),
+            Err(e) => tr!("The browser could not be opened: {error}", error = e),
+        };
+    }
+
     /// Save image as…: the picture as it is stored.
     pub fn save_image_to(&mut self, path: &std::path::Path) -> bool {
         let Some(src) = &self.source else { return false };
@@ -293,13 +311,15 @@ impl CoverWin {
         let mut save = false;
         let n = self.album_paths.len();
         let mut open = true;
+        // never narrower than the row of buttons in the language in use (it is one row, as in Python)
+        let row = button_row_width(ctx);
         egui::Window::new(tr!("Cover"))
             .id(egui::Id::new("player-cover"))
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
-            .default_size(vec2(620.0, 760.0))
-            .min_size(vec2(560.0, 560.0))
+            .default_size(vec2(row.max(620.0), 760.0))
+            .min_size(vec2(row.max(560.0), 560.0))
             .pivot(Align2::CENTER_CENTER)
             .default_pos(ctx.content_rect().center())
             .show(ctx, |ui| {
@@ -397,6 +417,9 @@ impl CoverWin {
                     if ui.add_enabled(idle, egui::Button::new(RichText::new(tr!("Change cover…")).strong())).clicked() {
                         pick = true;
                     }
+                    if ui.button(tr!("Search Cover Online")).clicked() {
+                        self.search_online();
+                    }
                     if ui.add_enabled(idle && self.source.is_some(), egui::Button::new(tr!("Save image as…"))).clicked() {
                         save = true;
                     }
@@ -451,6 +474,26 @@ impl CoverWin {
         }
         result
     }
+}
+
+/// How wide the window's row of buttons is (Change cover…, Search Cover Online,
+/// Save image as…, Remove cover, then Show album and Close at the right), with
+/// the window's margins and a gap between the two groups.
+fn button_row_width(ctx: &egui::Context) -> f32 {
+    let style = ctx.global_style();
+    let font = egui::TextStyle::Button.resolve(&style);
+    let pad = style.spacing.button_padding.x * 2.0 + style.spacing.item_spacing.x;
+    let labels = [
+        tr!("Change cover…"),
+        tr!("Search Cover Online"),
+        tr!("Save image as…"),
+        tr!("Remove cover"),
+        tr!("Show album"),
+        tr!("Close"),
+    ];
+    let text: f32 = labels.iter().map(|l| ctx.fonts_mut(|f| f.layout_no_wrap(l.to_string(), font.clone(), Color32::WHITE).size().x)).sum();
+    // the first is drawn bold (a little wider), 24 px between the groups, the window's margins
+    text * 1.04 + pad * labels.len() as f32 + 24.0 + 2.0 * style.spacing.window_margin.leftf()
 }
 
 /// Draw the player's Cover window, if one is open, and do what it asks; true
@@ -538,6 +581,7 @@ mod tests {
         std::env::set_var(realhires::playerstate::PLAYER_ENV, tmp.join("player.json"));
         std::env::set_var(crate::audio::BACKEND_ENV, "null");
         std::env::set_var(realhires::themes::THEMES_ENV, tmp.join("themes.json"));
+        std::env::set_var(realhires::smarttabs::TABS_ENV, tmp.join("tabs"));
         let mut songs = vec![];
         for (n, title) in [(1, "Lanterns Over Water"), (2, "Paper in the Rain")] {
             let f = realhires::paths::abspath(&album.join(format!("0{n} {title}.flac")).to_string_lossy());

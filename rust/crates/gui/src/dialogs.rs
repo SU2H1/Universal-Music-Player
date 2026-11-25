@@ -192,7 +192,8 @@ impl SummaryWindow {
                     ui.add_space(14.0);
                     egui::Grid::new("legend").num_columns(4).spacing([8.0, 2.0]).show(ui, |ui| {
                         for (v, files, p) in &self.breakdown {
-                            let (_, color, desc) = verdict_style(*v);
+                            let (_, _, desc) = verdict_style(*v);
+                            let color = pal.verdict(*v);
                             let (label, desc) = (verdict_label(*v), i18n::tr(desc));
                             let (r, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
                             ui.painter().circle_filled(r.center(), 5.5, color);
@@ -272,7 +273,7 @@ impl SummaryWindow {
         let mut spans = vec![];
         for (v, count, pc) in &self.breakdown {
             let ext = *count as f32 / total * std::f32::consts::TAU;
-            arc(&p, c, (outer + hole) / 2.0, start, start + ext, outer - hole, verdict_style(*v).1);
+            arc(&p, c, (outer + hole) / 2.0, start, start + ext, outer - hole, pal.verdict(*v));
             if *pc >= 7.0 {
                 let mid = start + ext / 2.0;
                 let r = outer * 0.78;
@@ -354,9 +355,9 @@ impl SettingsWindow {
                             if sel {
                                 ui.painter().rect_filled(rect, CornerRadius::same(6), pal.accent);
                             } else if resp.hovered() {
-                                ui.painter().rect_filled(rect, CornerRadius::same(6), pal.hover);
+                                ui.painter().rect_filled(rect, CornerRadius::same(6), pal.row_hover);
                             }
-                            let color = if sel { Color32::WHITE } else { pal.text };
+                            let color = if sel { pal.on_accent } else { pal.text };
                             ui.painter().text(
                                 pos2(rect.left() + 10.0, rect.center().y),
                                 Align2::LEFT_CENTER,

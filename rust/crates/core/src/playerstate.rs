@@ -63,6 +63,49 @@ pub fn normalize_columns(kind: &str, names: &[String]) -> Vec<String> {
     SONG_COLUMNS.iter().filter(|c| **c == "title" || wanted.contains(c)).map(|c| c.to_string()).collect()
 }
 
+/// Colour labels (2.3, "allow user to color code anything"): {kind: {key: "#rrggbb"}} in
+/// player.json (Python `LABEL_KINDS`).  The keys: a song's path, an album's key
+/// (`playqueue::Song::album_key`), the name of an artist, album artist, genre or composer
+/// (case-folded, as the groupings join names in any case), a year as written, a
+/// playlist's id and a tab's name.
+pub const LABEL_KINDS: [&str; 9] = ["song", "album", "artist", "album_artist", "genre", "year", "composer", "playlist", "tab"];
+const FOLDED_KINDS: [&str; 4] = ["artist", "album_artist", "genre", "composer"];
+/// The fixed colours of the Colour Label menu (Apple's system colours, which read on
+/// light and dark themes); Custom… takes any other colour (Python `LABEL_COLORS`).
+pub const LABEL_COLORS: [(&str, &str); 7] = [
+    ("Red", "#ff3b30"),
+    ("Orange", "#ff9500"),
+    ("Yellow", "#ffcc00"),
+    ("Green", "#34c759"),
+    ("Blue", "#007aff"),
+    ("Purple", "#af52de"),
+    ("Grey", "#8e8e93"),
+];
+
+/// "#rrggbb" in lower case, or "" for anything else (Python `clean_label_color`).
+pub fn clean_label_color(value: &str) -> String {
+    let v = crate::pyunicode::strip(value).to_lowercase();
+    if v.len() == 7 && v.starts_with('#') && v[1..].bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
+        v
+    } else {
+        String::new()
+    }
+}
+
+/// The key a label of this kind is kept under ("" when there is none): names of artists,
+/// album artists, genres and composers case-folded, the others as they are (Python
+/// `label_key`).
+pub fn label_key(kind: &str, key: &str) -> String {
+    if !LABEL_KINDS.contains(&kind) || key.is_empty() {
+        return String::new();
+    }
+    if FOLDED_KINDS.contains(&kind) {
+        casefold(key)
+    } else {
+        key.to_string()
+    }
+}
+
 /// A playlist or preset name that cannot be used; the message says why.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InvalidName(pub String);
@@ -117,6 +160,8 @@ pub struct PlayerState {
     pub lyrics_size: i64,
     /// the columns the user chose per kind of song list ("songs", "folders", "album")
     pub columns: Vec<(String, Vec<String>)>,
+    /// the colour labels (2.3): (kind, key) -> "#rrggbb"
+    pub labels: std::collections::BTreeMap<(String, String), String>,
 }
 
 impl Default for PlayerState {
@@ -135,6 +180,7 @@ impl Default for PlayerState {
             playlists: vec![],
             lyrics_size: LYRICS_SIZE_DEFAULT,
             columns: vec![],
+            labels: Default::default(),
         }
     }
 }
@@ -166,6 +212,33 @@ impl PlayerState {
         }
         self.disliked.sort();
         self.disliked.dedup();
+    }
+
+    // ---------------------------------------------------- colour labels ---
+    /// The colour label ("#rrggbb") of a song, album, artist... or None.
+    pub fn label_of(&self, kind: &str, key: &str) -> Option<&str> {
+        let k = label_key(kind, key);
+        if k.is_empty() {
+            return None;
+        }
+        self.labels.get(&(kind.to_string(), k)).map(String::as_str)
+    }
+
+    /// Give a song, album, artist... a colour label, or take it away (None, or a value
+    /// that is not a colour); returns the label it has now.
+    pub fn set_label(&mut self, kind: &str, key: &str, color: Option<&str>) -> Option<String> {
+        let k = label_key(kind, key);
+        if k.is_empty() {
+            return None;
+        }
+        let c = clean_label_color(color.unwrap_or(""));
+        if c.is_empty() {
+            self.labels.remove(&(kind.to_string(), k));
+            None
+        } else {
+            self.labels.insert((kind.to_string(), k), c.clone());
+            Some(c)
+        }
     }
 
     // ------------------------------------------------------ lyrics size ---
@@ -405,6 +478,23 @@ impl PlayerState {
                 ),
             )
             .put("lyrics_size", self.lyrics_size.clamp(LYRICS_SIZE_MIN, LYRICS_SIZE_MAX))
+            .put("labels", {
+                let mut labels = ObjectBuilder::new();
+                for kind in LABEL_KINDS {
+                    let mut of = ObjectBuilder::new();
+                    let mut any = false;
+                    for ((k, key), c) in &self.labels {
+                        if k == kind {
+                            of = of.put(key, c.as_str());
+                            any = true;
+                        }
+                    }
+                    if any {
+                        labels = labels.put(kind, of.build());
+                    }
+                }
+                labels.build()
+            })
             .build()
     }
 
@@ -492,6 +582,15 @@ impl PlayerState {
                         _ => vec![],
                     };
                     st.columns.push((k.to_string(), normalize_columns(k, &names)));
+                }
+            }
+        }
+        if let Some(labels @ Value::Object(_)) = data.get("labels") {
+            for kind in LABEL_KINDS {
+                if let Some(Value::Object(given)) = labels.get(kind) {
+                    for (key, color) in given {
+                        st.set_label(kind, key, color.as_str());
+                    }
                 }
             }
         }

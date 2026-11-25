@@ -26,6 +26,8 @@ pub const LYRICS_SAVE_CHOICES: [&str; 4] = [
 /// The built-in theme names (2.0); with the user's own themes: `themes::names()`.
 pub const THEMES: [&str; 9] = ["Match the system", "Light", "Dark", "Midnight", "Graphite", "Forest", "Ocean", "Sepia", "Rose"];
 pub const SETTINGS_VERSION: i64 = 160;
+/// How the player's Library page shows its entries (2.3).
+pub const LIBRARY_LAYOUTS: [&str; 2] = ["Tiles", "List"];
 
 pub const ALL_VERDICTS: [&str; 7] =
     ["FAKE LOSSLESS", "FAKE HI-RES", "SUSPICIOUS", "REAL HI-RES", "NOT HI-RES", "LOSSY FORMAT", "ERROR"];
@@ -256,6 +258,10 @@ settings! {
     font_family: String = s(""), "Appearance", "Font",
         s("The font of the app. Empty = SF Pro, the system font, on macOS and Inter on Windows and Linux (SF Pro may \
            only be used on Apple systems). Any font installed on your computer can be chosen."), Str, None, None, NUMS;
+    library_layout: String = s("Tiles"), "Appearance", "Library page",
+        s("How the Library page shows All Songs, Folders, Albums and its other entries: as tiles, several side by \
+           side, or as a list with one entry per row. The two buttons at the right of the Library page's title \
+           switch it too."), Choice, None, None, &LIBRARY_LAYOUTS;
     theme: String = s("Match the system"), "Appearance", "Theme",
         s("The colours of the app: \"Match the system\" (light or dark as the system is), a built-in theme (Light, \
            Dark, Midnight, Graphite, Forest, Ocean, Sepia, Rose), one of your own themes, or a theme file put into \
@@ -668,6 +674,22 @@ mod tests {
         assert_eq!(Settings::from_json(&v).fix_output, "Replace the file");
         let v = json::parse(r#"{"fix_output": "Saving a copy next to it", "_version": 160}"#).unwrap();
         assert_eq!(Settings::from_json(&v).fix_output, "Saving a copy next to it");
+    }
+
+    #[test]
+    fn library_layout_is_an_appearance_choice() {
+        // 2.3: "Tiles" (the default) or "List"; not a Detection setting, so saved results stay valid
+        let s = Settings::default();
+        assert_eq!(s.library_layout, "Tiles");
+        let info = Settings::field_info().into_iter().find(|f| f.name == "library_layout").unwrap();
+        assert_eq!((info.group, info.label, info.kind, info.choices), ("Appearance", "Library page", Kind::Choice, &LIBRARY_LAYOUTS[..]));
+        let mut list = s.clone();
+        list.set_value("library_layout", "List").unwrap();
+        assert_eq!(Settings::from_json(&list.to_json()).library_layout, "List");
+        assert!(list.set_value("library_layout", "Grid").is_err());
+        let bad = json::parse(r#"{"library_layout": "Grid"}"#).unwrap();
+        assert_eq!(Settings::from_json(&bad).library_layout, "Tiles");
+        assert_eq!(crate::store::settings_key(&list), crate::store::settings_key(&s));
     }
 
     #[test]

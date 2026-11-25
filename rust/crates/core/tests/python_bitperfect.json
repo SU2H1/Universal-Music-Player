@@ -394,6 +394,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 16-bit, 44.1 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz in exclusive mode.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -410,6 +411,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -424,6 +426,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 16-bit, 44.1 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 44.1 kHz.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -440,6 +443,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -454,6 +458,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio).",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -468,6 +473,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 16-bit, 44.1 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -484,6 +490,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -500,6 +507,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -516,6 +524,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer in 32-bit, 8 channels"
 },
 {
@@ -530,6 +539,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio).",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -544,6 +554,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 16-bit, 44.1 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -558,6 +569,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 16-bit, 44.1 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz in exclusive mode.",
 "output": "44.1 kHz, 16-bit integer in 24-bit, stereo"
 },
 {
@@ -572,6 +584,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 16-bit, 44.1 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 44.1 kHz.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -588,6 +601,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 16-bit integer in 32-bit, stereo"
 },
 {
@@ -602,6 +616,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 16-bit, 48 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 48 kHz.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -618,6 +633,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -632,6 +648,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 48 kHz, the device runs at 48 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz (CoreAudio).",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -648,6 +665,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -662,6 +680,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 16-bit, 48 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -676,6 +695,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 16-bit, 48 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz in exclusive mode.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -692,6 +712,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -706,6 +727,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 16-bit, 48 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 48 kHz.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -720,6 +742,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 48 kHz, the device runs at 48 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz (CoreAudio).",
 "output": "48 kHz, 16-bit integer in 32-bit, 8 channels"
 },
 {
@@ -734,6 +757,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 16-bit, 48 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -748,6 +772,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 16-bit, 48 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz in exclusive mode.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -764,6 +789,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer in 24-bit, stereo"
 },
 {
@@ -778,6 +804,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 48 kHz, the device runs at 48 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz (CoreAudio).",
 "output": "48 kHz, 16-bit integer in 32-bit, 4 channels"
 },
 {
@@ -794,6 +821,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 16-bit integer in 32-bit, stereo"
 },
 {
@@ -808,6 +836,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 24-bit, 96 kHz, the device runs at 96 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz (CoreAudio).",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -824,6 +853,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -838,6 +868,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 96 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -854,6 +885,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -871,6 +903,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -885,6 +918,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 96 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 96 kHz.",
 "output": "96 kHz, 32-bit float, stereo"
 },
 {
@@ -901,6 +935,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit float, stereo"
 },
 {
@@ -915,6 +950,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 24-bit, 96 kHz, the device runs at 96 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz (CoreAudio).",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -931,6 +967,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -945,6 +982,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 96 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz in exclusive mode.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -959,6 +997,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 96 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 96 kHz.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -975,6 +1014,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -991,6 +1031,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 4 channels"
 },
 {
@@ -1005,6 +1046,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 96 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 96 kHz in exclusive mode.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1019,6 +1061,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 192 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 192 kHz.",
 "output": "192 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1035,6 +1078,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "192 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1049,6 +1093,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 192 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 192 kHz in exclusive mode.",
 "output": "192 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1065,6 +1110,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "192 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1082,6 +1128,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -1096,6 +1143,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 24-bit, 192 kHz, the device runs at 192 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 192 kHz (CoreAudio).",
 "output": "192 kHz, 32-bit float, stereo"
 },
 {
@@ -1112,6 +1160,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "192 kHz, 32-bit float, stereo"
 },
 {
@@ -1128,6 +1177,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -1144,6 +1194,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -1158,6 +1209,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 192 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 192 kHz.",
 "output": "192 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1174,6 +1226,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "192 kHz, 16-bit integer, stereo"
 },
 {
@@ -1190,6 +1243,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -1206,6 +1260,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 4 channels"
 },
 {
@@ -1222,6 +1277,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 192 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 192 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1236,6 +1292,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 88.2 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 88.2 kHz in exclusive mode.",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1252,6 +1309,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1266,6 +1324,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 88.2 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 88.2 kHz.",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1282,6 +1341,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1299,6 +1359,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -1313,6 +1374,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 88.2 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 88.2 kHz.",
 "output": "88.2 kHz, 32-bit float, stereo"
 },
 {
@@ -1329,6 +1391,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "88.2 kHz, 32-bit float, stereo"
 },
 {
@@ -1345,6 +1408,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -1361,6 +1425,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -1375,6 +1440,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 24-bit, 88.2 kHz, the device runs at 88.2 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 88.2 kHz (CoreAudio).",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1389,6 +1455,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 88.2 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 88.2 kHz.",
 "output": "88.2 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1405,6 +1472,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -1421,6 +1489,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -1437,6 +1506,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 88.2 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 88.2 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1451,6 +1521,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 176.4 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 176.4 kHz.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1467,6 +1538,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1481,6 +1553,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 24-bit, 176.4 kHz, the device runs at 176.4 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 176.4 kHz (CoreAudio).",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1497,6 +1570,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1514,6 +1588,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -1528,6 +1603,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 176.4 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 176.4 kHz in exclusive mode.",
 "output": "176.4 kHz, 32-bit float, stereo"
 },
 {
@@ -1544,6 +1620,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 32-bit float, stereo"
 },
 {
@@ -1560,6 +1637,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -1576,6 +1654,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -1590,6 +1669,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 176.4 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 176.4 kHz.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1606,6 +1686,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 16-bit integer, stereo"
 },
 {
@@ -1622,6 +1703,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -1638,6 +1720,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -1654,6 +1737,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 176.4 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 176.4 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -1670,6 +1754,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1687,6 +1772,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1703,6 +1789,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1720,6 +1807,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1737,6 +1825,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The device has no 32-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The device has no 32-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -1753,6 +1842,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit float, stereo"
 },
 {
@@ -1770,6 +1860,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit float, stereo"
 },
 {
@@ -1786,6 +1877,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -1803,6 +1895,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit integer, 8 channels"
 },
 {
@@ -1819,6 +1912,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1835,6 +1929,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1852,6 +1947,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 44.1 kHz. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 44.1 kHz. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -1869,6 +1965,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The device cannot play 96 kHz, so the song is resampled to 48 kHz. The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit integer, 4 channels"
 },
 {
@@ -1885,6 +1982,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The 32-bit samples are played with 24-bit precision.",
+"status_eq": "No: The 32-bit samples are played with 24-bit precision. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -1899,6 +1997,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 32-bit float, 48 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -1915,6 +2014,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -1929,6 +2029,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 32-bit float, 48 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz in exclusive mode.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -1945,6 +2046,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -1961,6 +2063,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -1975,6 +2078,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 32-bit float, 48 kHz, the device runs at 48 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz (CoreAudio).",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -1991,6 +2095,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -2007,6 +2112,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer, stereo"
 },
 {
@@ -2023,6 +2129,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit integer, 8 channels"
 },
 {
@@ -2037,6 +2144,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 32-bit float, 48 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 48 kHz.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -2053,6 +2161,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit integer, stereo"
 },
 {
@@ -2070,6 +2179,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz. The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -2084,6 +2194,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 32-bit float, 48 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 48 kHz in exclusive mode.",
 "output": "48 kHz, 32-bit float, 6 channels"
 },
 {
@@ -2101,6 +2212,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -2117,6 +2229,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2134,6 +2247,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2150,6 +2264,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2167,6 +2282,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2183,6 +2299,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -2199,6 +2316,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2216,6 +2334,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2233,6 +2352,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer, stereo"
 },
 {
@@ -2250,6 +2370,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit integer, 8 channels"
 },
 {
@@ -2266,6 +2387,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2282,6 +2404,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit integer, stereo"
 },
 {
@@ -2298,6 +2421,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -2314,6 +2438,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The 64-bit float samples are played as 32-bit float.",
+"status_eq": "No: The 64-bit float samples are played as 32-bit float. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -2331,6 +2456,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -2345,6 +2471,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes (decoded lossy audio): 32-bit float, 44.1 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 44.1 kHz. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2361,6 +2488,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2375,6 +2503,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes (decoded lossy audio): 32-bit float, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio). The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2391,6 +2520,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2407,6 +2537,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -2421,6 +2552,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes (decoded lossy audio): 32-bit float, 44.1 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz in exclusive mode. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2437,6 +2569,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2454,6 +2587,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "48 kHz, 24-bit integer, stereo"
 },
 {
@@ -2471,6 +2605,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "48 kHz, 32-bit integer, 8 channels"
 },
 {
@@ -2485,6 +2620,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes (decoded lossy audio): 32-bit float, 44.1 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2501,6 +2637,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit integer, stereo"
 },
 {
@@ -2517,6 +2654,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -2531,6 +2669,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes (decoded lossy audio): 32-bit float, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio). The song is decoded from a lossy format, so it is played as decoded.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -2548,6 +2687,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted. The song is decoded from a lossy format, so it is played as decoded.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The device has no 32-bit float format, so the samples are converted. The equalizer is on, so the samples are changed. The song is decoded from a lossy format, so it is played as decoded.",
 "output": "96 kHz, 32-bit integer, stereo"
 },
 {
@@ -2564,6 +2704,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2581,6 +2722,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2597,6 +2739,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2614,6 +2757,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2631,6 +2775,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device has no 24-bit format, so the samples are converted. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device has no 24-bit format, so the samples are converted. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -2647,6 +2792,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -2664,6 +2810,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 32-bit float, stereo"
 },
 {
@@ -2680,6 +2827,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer, stereo"
 },
 {
@@ -2696,6 +2844,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -2712,6 +2861,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2728,6 +2878,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2745,6 +2896,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 44.1 kHz. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -2761,6 +2913,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: This 6-channel song is mixed down to stereo.",
+"status_eq": "No: This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 4 channels"
 },
 {
@@ -2778,6 +2931,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz. This 6-channel song is mixed down to stereo.",
+"status_eq": "No: The device cannot play 48 kHz, so the song is resampled to 96 kHz. This 6-channel song is mixed down to stereo. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2792,6 +2946,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 32-bit integer, 44.1 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz.",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2808,6 +2963,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2822,6 +2978,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 32-bit integer, 44.1 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz in exclusive mode.",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2838,6 +2995,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2854,6 +3012,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -2868,6 +3027,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 32-bit float, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio).",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2884,6 +3044,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, stereo"
 },
 {
@@ -2900,6 +3061,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer, stereo"
 },
 {
@@ -2916,6 +3078,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -2930,6 +3093,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 32-bit integer, 44.1 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 44.1 kHz.",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2944,6 +3108,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 32-bit integer, 44.1 kHz, the device runs at 44.1 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz (CoreAudio).",
 "output": "44.1 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -2958,6 +3123,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit integer, 44.1 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -2972,6 +3138,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 32-bit float, 44.1 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 44.1 kHz in exclusive mode.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -2988,6 +3155,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 44.1 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3002,6 +3170,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 8-bit, 22.05 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 22.05 kHz in exclusive mode.",
 "output": "22.05 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3018,6 +3187,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "22.05 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3034,6 +3204,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3051,6 +3222,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3067,6 +3239,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3081,6 +3254,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 8-bit, 22.05 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 22.05 kHz.",
 "output": "22.05 kHz, 32-bit float, stereo"
 },
 {
@@ -3097,6 +3271,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "22.05 kHz, 32-bit float, stereo"
 },
 {
@@ -3113,6 +3288,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3129,6 +3305,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 8-bit integer in 32-bit, 8 channels"
 },
 {
@@ -3143,6 +3320,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 8-bit, 22.05 kHz, the device runs at 22.05 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 22.05 kHz (CoreAudio).",
 "output": "22.05 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3159,6 +3337,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 8-bit integer in 16-bit, stereo"
 },
 {
@@ -3175,6 +3354,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 8-bit integer in 24-bit, stereo"
 },
 {
@@ -3191,6 +3371,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -3207,6 +3388,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 22.05 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 22.05 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 8-bit integer in 32-bit, stereo"
 },
 {
@@ -3221,6 +3403,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 24-bit, 352.8 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 352.8 kHz.",
 "output": "352.8 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3237,6 +3420,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "352.8 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3253,6 +3437,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3270,6 +3455,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz. The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz. The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3287,6 +3473,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -3301,6 +3488,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 24-bit, 352.8 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 352.8 kHz in exclusive mode.",
 "output": "352.8 kHz, 32-bit float, stereo"
 },
 {
@@ -3317,6 +3505,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "352.8 kHz, 32-bit float, stereo"
 },
 {
@@ -3333,6 +3522,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer, stereo"
 },
 {
@@ -3349,6 +3539,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 24-bit integer in 32-bit, 8 channels"
 },
 {
@@ -3363,6 +3554,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "Yes: 24-bit, 352.8 kHz, Test output",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 352.8 kHz.",
 "output": "352.8 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3380,6 +3572,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz. The device has no 24-bit format, so the samples are converted.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 176.4 kHz. The device has no 24-bit format, so the samples are converted. The equalizer is on, so the samples are changed.",
 "output": "176.4 kHz, 16-bit integer, stereo"
 },
 {
@@ -3396,6 +3589,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 24-bit integer, stereo"
 },
 {
@@ -3412,6 +3606,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -3428,6 +3623,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 352.8 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 352.8 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 24-bit integer in 32-bit, stereo"
 },
 {
@@ -3442,6 +3638,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "Yes: 16-bit, 11.025 kHz, the device runs at 11.025 kHz (CoreAudio)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 11.025 kHz (CoreAudio).",
 "output": "11.025 kHz, 16-bit integer, stereo"
 },
 {
@@ -3458,6 +3655,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "11.025 kHz, 16-bit integer, stereo"
 },
 {
@@ -3474,6 +3672,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -3491,6 +3690,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -3507,6 +3707,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -3521,6 +3722,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "Yes: 16-bit, 11.025 kHz, ALSA hardware device hw:1,3",
+"status_eq": "No: The equalizer is on, so the samples are changed. The ALSA hardware device hw:1,3 still runs at 11.025 kHz.",
 "output": "11.025 kHz, 32-bit float, stereo"
 },
 {
@@ -3537,6 +3739,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device is in use by another program, so the sound is mixed by the system.",
+"status_eq": "No: The device is in use by another program, so the sound is mixed by the system. The equalizer is on, so the samples are changed.",
 "output": "11.025 kHz, 32-bit float, stereo"
 },
 {
@@ -3553,6 +3756,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer, stereo"
 },
 {
@@ -3569,6 +3773,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 48 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 48 kHz. The equalizer is on, so the samples are changed.",
 "output": "48 kHz, 16-bit integer in 32-bit, 8 channels"
 },
 {
@@ -3583,6 +3788,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "Yes: 16-bit, 11.025 kHz, exclusive mode (WASAPI)",
+"status_eq": "No: The equalizer is on, so the samples are changed. The device still runs at 11.025 kHz in exclusive mode.",
 "output": "11.025 kHz, 16-bit integer, stereo"
 },
 {
@@ -3599,6 +3805,7 @@
 "access": "alsa",
 "device": "hw:1,3",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer, stereo"
 },
 {
@@ -3615,6 +3822,7 @@
 "access": "coreaudio",
 "device": "MacBook Speakers",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 16-bit integer in 24-bit, stereo"
 },
 {
@@ -3631,6 +3839,7 @@
 "access": "direct",
 "device": "Test output",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 44.1 kHz. The equalizer is on, so the samples are changed.",
 "output": "44.1 kHz, 32-bit float, 6 channels"
 },
 {
@@ -3647,6 +3856,7 @@
 "access": "wasapi",
 "device": "Speakers",
 "status": "No: The device cannot play 11.025 kHz, so the song is resampled to 96 kHz.",
+"status_eq": "No: The device cannot play 11.025 kHz, so the song is resampled to 96 kHz. The equalizer is on, so the samples are changed.",
 "output": "96 kHz, 16-bit integer in 32-bit, stereo"
 }
 ],
@@ -4840,11 +5050,1336 @@
 "texts": {
 "busy": "The device is in use by another program, so the sound is mixed by the system.",
 "lossy": "The song is decoded from a lossy format, so it is played as decoded.",
-"eq": "Bypassed while bit-perfect playback is on.",
+"eq_on": "The equalizer is on, so the samples are changed.",
+"eq_note": "Bit-perfect playback is on: with the equalizer on, the sound is not bit-perfect. The device still gets the song's own sample rate.",
 "wasapi": "Windows gives the device to this app alone only in the format chosen in its Sound settings (the device's Properties, Advanced, Default Format).",
 "off": "Off",
 "idle": "On"
 },
+"still": [
+{
+"rate": 44100,
+"access": "wasapi",
+"device": "",
+"text": "The device still runs at 44.1 kHz in exclusive mode."
+},
+{
+"rate": 44100,
+"access": "wasapi",
+"device": "hw:1,3",
+"text": "The device still runs at 44.1 kHz in exclusive mode."
+},
+{
+"rate": 44100,
+"access": "wasapi",
+"device": "Speakers",
+"text": "The device still runs at 44.1 kHz in exclusive mode."
+},
+{
+"rate": 44100,
+"access": "alsa",
+"device": "",
+"text": "The ALSA hardware device still runs at 44.1 kHz."
+},
+{
+"rate": 44100,
+"access": "alsa",
+"device": "hw:1,3",
+"text": "The ALSA hardware device hw:1,3 still runs at 44.1 kHz."
+},
+{
+"rate": 44100,
+"access": "alsa",
+"device": "Speakers",
+"text": "The ALSA hardware device Speakers still runs at 44.1 kHz."
+},
+{
+"rate": 44100,
+"access": "coreaudio",
+"device": "",
+"text": "The device still runs at 44.1 kHz (CoreAudio)."
+},
+{
+"rate": 44100,
+"access": "coreaudio",
+"device": "hw:1,3",
+"text": "The device still runs at 44.1 kHz (CoreAudio)."
+},
+{
+"rate": 44100,
+"access": "coreaudio",
+"device": "Speakers",
+"text": "The device still runs at 44.1 kHz (CoreAudio)."
+},
+{
+"rate": 44100,
+"access": "direct",
+"device": "",
+"text": "The device still runs at 44.1 kHz."
+},
+{
+"rate": 44100,
+"access": "direct",
+"device": "hw:1,3",
+"text": "The device still runs at 44.1 kHz."
+},
+{
+"rate": 44100,
+"access": "direct",
+"device": "Speakers",
+"text": "The device still runs at 44.1 kHz."
+},
+{
+"rate": 96000,
+"access": "wasapi",
+"device": "",
+"text": "The device still runs at 96 kHz in exclusive mode."
+},
+{
+"rate": 96000,
+"access": "wasapi",
+"device": "hw:1,3",
+"text": "The device still runs at 96 kHz in exclusive mode."
+},
+{
+"rate": 96000,
+"access": "wasapi",
+"device": "Speakers",
+"text": "The device still runs at 96 kHz in exclusive mode."
+},
+{
+"rate": 96000,
+"access": "alsa",
+"device": "",
+"text": "The ALSA hardware device still runs at 96 kHz."
+},
+{
+"rate": 96000,
+"access": "alsa",
+"device": "hw:1,3",
+"text": "The ALSA hardware device hw:1,3 still runs at 96 kHz."
+},
+{
+"rate": 96000,
+"access": "alsa",
+"device": "Speakers",
+"text": "The ALSA hardware device Speakers still runs at 96 kHz."
+},
+{
+"rate": 96000,
+"access": "coreaudio",
+"device": "",
+"text": "The device still runs at 96 kHz (CoreAudio)."
+},
+{
+"rate": 96000,
+"access": "coreaudio",
+"device": "hw:1,3",
+"text": "The device still runs at 96 kHz (CoreAudio)."
+},
+{
+"rate": 96000,
+"access": "coreaudio",
+"device": "Speakers",
+"text": "The device still runs at 96 kHz (CoreAudio)."
+},
+{
+"rate": 96000,
+"access": "direct",
+"device": "",
+"text": "The device still runs at 96 kHz."
+},
+{
+"rate": 96000,
+"access": "direct",
+"device": "hw:1,3",
+"text": "The device still runs at 96 kHz."
+},
+{
+"rate": 96000,
+"access": "direct",
+"device": "Speakers",
+"text": "The device still runs at 96 kHz."
+}
+],
+"dither": [
+{
+"x": 0.0,
+"d": 0.0,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": 0.0,
+"d": 0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": 0.0,
+"d": -0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": 0.0,
+"d": 0.999,
+"i16": 1,
+"i24": 1,
+"i32": 1
+},
+{
+"x": 0.0,
+"d": -0.999,
+"i16": -1,
+"i24": -1,
+"i32": -1
+},
+{
+"x": 0.0,
+"d": 0.25,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": 0.0,
+"d": -0.75,
+"i16": -1,
+"i24": -1,
+"i32": -1
+},
+{
+"x": 0.0,
+"d": 1.5,
+"i16": 2,
+"i24": 2,
+"i32": 2
+},
+{
+"x": -0.0,
+"d": 0.0,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": -0.0,
+"d": 0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": -0.0,
+"d": -0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": -0.0,
+"d": 0.999,
+"i16": 1,
+"i24": 1,
+"i32": 1
+},
+{
+"x": -0.0,
+"d": -0.999,
+"i16": -1,
+"i24": -1,
+"i32": -1
+},
+{
+"x": -0.0,
+"d": 0.25,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": -0.0,
+"d": -0.75,
+"i16": -1,
+"i24": -1,
+"i32": -1
+},
+{
+"x": -0.0,
+"d": 1.5,
+"i16": 2,
+"i24": 2,
+"i32": 2
+},
+{
+"x": 1.0,
+"d": 0.0,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": 0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": -0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": 0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": -0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": 0.25,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": -0.75,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 1.0,
+"d": 1.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": -1.0,
+"d": 0.0,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": -0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.999,
+"i16": -32767,
+"i24": -8388607,
+"i32": -2147483647
+},
+{
+"x": -1.0,
+"d": -0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.25,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": -0.75,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 1.5,
+"i16": -32766,
+"i24": -8388606,
+"i32": -2147483646
+},
+{
+"x": 0.5,
+"d": 0.0,
+"i16": 16384,
+"i24": 4194304,
+"i32": 1073741824
+},
+{
+"x": 0.5,
+"d": 0.5,
+"i16": 16384,
+"i24": 4194304,
+"i32": 1073741824
+},
+{
+"x": 0.5,
+"d": -0.5,
+"i16": 16384,
+"i24": 4194304,
+"i32": 1073741824
+},
+{
+"x": 0.5,
+"d": 0.999,
+"i16": 16385,
+"i24": 4194305,
+"i32": 1073741825
+},
+{
+"x": 0.5,
+"d": -0.999,
+"i16": 16383,
+"i24": 4194303,
+"i32": 1073741823
+},
+{
+"x": 0.5,
+"d": 0.25,
+"i16": 16384,
+"i24": 4194304,
+"i32": 1073741824
+},
+{
+"x": 0.5,
+"d": -0.75,
+"i16": 16383,
+"i24": 4194303,
+"i32": 1073741823
+},
+{
+"x": 0.5,
+"d": 1.5,
+"i16": 16386,
+"i24": 4194306,
+"i32": 1073741826
+},
+{
+"x": -0.5,
+"d": 0.0,
+"i16": -16384,
+"i24": -4194304,
+"i32": -1073741824
+},
+{
+"x": -0.5,
+"d": 0.5,
+"i16": -16384,
+"i24": -4194304,
+"i32": -1073741824
+},
+{
+"x": -0.5,
+"d": -0.5,
+"i16": -16384,
+"i24": -4194304,
+"i32": -1073741824
+},
+{
+"x": -0.5,
+"d": 0.999,
+"i16": -16383,
+"i24": -4194303,
+"i32": -1073741823
+},
+{
+"x": -0.5,
+"d": -0.999,
+"i16": -16385,
+"i24": -4194305,
+"i32": -1073741825
+},
+{
+"x": -0.5,
+"d": 0.25,
+"i16": -16384,
+"i24": -4194304,
+"i32": -1073741824
+},
+{
+"x": -0.5,
+"d": -0.75,
+"i16": -16385,
+"i24": -4194305,
+"i32": -1073741825
+},
+{
+"x": -0.5,
+"d": 1.5,
+"i16": -16382,
+"i24": -4194302,
+"i32": -1073741822
+},
+{
+"x": 2.0,
+"d": 0.0,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": 0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": -0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": 0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": -0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": 0.25,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": -0.75,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": 2.0,
+"d": 1.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": -3.0,
+"d": 0.0,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": 0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": -0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": 0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": -0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": 0.25,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": -0.75,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -3.0,
+"d": 1.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": 4.57763671875e-05,
+"d": 0.0,
+"i16": 2,
+"i24": 384,
+"i32": 98304
+},
+{
+"x": 4.57763671875e-05,
+"d": 0.5,
+"i16": 2,
+"i24": 384,
+"i32": 98304
+},
+{
+"x": 4.57763671875e-05,
+"d": -0.5,
+"i16": 1,
+"i24": 384,
+"i32": 98304
+},
+{
+"x": 4.57763671875e-05,
+"d": 0.999,
+"i16": 2,
+"i24": 385,
+"i32": 98305
+},
+{
+"x": 4.57763671875e-05,
+"d": -0.999,
+"i16": 1,
+"i24": 383,
+"i32": 98303
+},
+{
+"x": 4.57763671875e-05,
+"d": 0.25,
+"i16": 2,
+"i24": 384,
+"i32": 98304
+},
+{
+"x": 4.57763671875e-05,
+"d": -0.75,
+"i16": 1,
+"i24": 383,
+"i32": 98303
+},
+{
+"x": 4.57763671875e-05,
+"d": 1.5,
+"i16": 3,
+"i24": 386,
+"i32": 98306
+},
+{
+"x": 7.62939453125e-05,
+"d": 0.0,
+"i16": 2,
+"i24": 640,
+"i32": 163840
+},
+{
+"x": 7.62939453125e-05,
+"d": 0.5,
+"i16": 3,
+"i24": 640,
+"i32": 163840
+},
+{
+"x": 7.62939453125e-05,
+"d": -0.5,
+"i16": 2,
+"i24": 640,
+"i32": 163840
+},
+{
+"x": 7.62939453125e-05,
+"d": 0.999,
+"i16": 3,
+"i24": 641,
+"i32": 163841
+},
+{
+"x": 7.62939453125e-05,
+"d": -0.999,
+"i16": 2,
+"i24": 639,
+"i32": 163839
+},
+{
+"x": 7.62939453125e-05,
+"d": 0.25,
+"i16": 3,
+"i24": 640,
+"i32": 163840
+},
+{
+"x": 7.62939453125e-05,
+"d": -0.75,
+"i16": 2,
+"i24": 639,
+"i32": 163839
+},
+{
+"x": 7.62939453125e-05,
+"d": 1.5,
+"i16": 4,
+"i24": 642,
+"i32": 163842
+},
+{
+"x": -4.57763671875e-05,
+"d": 0.0,
+"i16": -2,
+"i24": -384,
+"i32": -98304
+},
+{
+"x": -4.57763671875e-05,
+"d": 0.5,
+"i16": -1,
+"i24": -384,
+"i32": -98304
+},
+{
+"x": -4.57763671875e-05,
+"d": -0.5,
+"i16": -2,
+"i24": -384,
+"i32": -98304
+},
+{
+"x": -4.57763671875e-05,
+"d": 0.999,
+"i16": -1,
+"i24": -383,
+"i32": -98303
+},
+{
+"x": -4.57763671875e-05,
+"d": -0.999,
+"i16": -2,
+"i24": -385,
+"i32": -98305
+},
+{
+"x": -4.57763671875e-05,
+"d": 0.25,
+"i16": -1,
+"i24": -384,
+"i32": -98304
+},
+{
+"x": -4.57763671875e-05,
+"d": -0.75,
+"i16": -2,
+"i24": -385,
+"i32": -98305
+},
+{
+"x": -4.57763671875e-05,
+"d": 1.5,
+"i16": 0,
+"i24": -382,
+"i32": -98302
+},
+{
+"x": 0.999969482421875,
+"d": 0.0,
+"i16": 32767,
+"i24": 8388352,
+"i32": 2147418112
+},
+{
+"x": 0.999969482421875,
+"d": 0.5,
+"i16": 32767,
+"i24": 8388352,
+"i32": 2147418112
+},
+{
+"x": 0.999969482421875,
+"d": -0.5,
+"i16": 32766,
+"i24": 8388352,
+"i32": 2147418112
+},
+{
+"x": 0.999969482421875,
+"d": 0.999,
+"i16": 32767,
+"i24": 8388353,
+"i32": 2147418113
+},
+{
+"x": 0.999969482421875,
+"d": -0.999,
+"i16": 32766,
+"i24": 8388351,
+"i32": 2147418111
+},
+{
+"x": 0.999969482421875,
+"d": 0.25,
+"i16": 32767,
+"i24": 8388352,
+"i32": 2147418112
+},
+{
+"x": 0.999969482421875,
+"d": -0.75,
+"i16": 32766,
+"i24": 8388351,
+"i32": 2147418111
+},
+{
+"x": 0.999969482421875,
+"d": 1.5,
+"i16": 32767,
+"i24": 8388354,
+"i32": 2147418114
+},
+{
+"x": 0.9999998807907104,
+"d": 0.0,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483392
+},
+{
+"x": 0.9999998807907104,
+"d": 0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483392
+},
+{
+"x": 0.9999998807907104,
+"d": -0.5,
+"i16": 32767,
+"i24": 8388606,
+"i32": 2147483392
+},
+{
+"x": 0.9999998807907104,
+"d": 0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483393
+},
+{
+"x": 0.9999998807907104,
+"d": -0.999,
+"i16": 32767,
+"i24": 8388606,
+"i32": 2147483391
+},
+{
+"x": 0.9999998807907104,
+"d": 0.25,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483392
+},
+{
+"x": 0.9999998807907104,
+"d": -0.75,
+"i16": 32767,
+"i24": 8388606,
+"i32": 2147483391
+},
+{
+"x": 0.9999998807907104,
+"d": 1.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483394
+},
+{
+"x": -1.0,
+"d": 0.0,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": -0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.999,
+"i16": -32767,
+"i24": -8388607,
+"i32": -2147483647
+},
+{
+"x": -1.0,
+"d": -0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 0.25,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": -0.75,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -1.0,
+"d": 1.5,
+"i16": -32766,
+"i24": -8388606,
+"i32": -2147483646
+},
+{
+"x": 0.123456789,
+"d": 0.0,
+"i16": 4045,
+"i24": 1035631,
+"i32": 265121436
+},
+{
+"x": 0.123456789,
+"d": 0.5,
+"i16": 4046,
+"i24": 1035631,
+"i32": 265121436
+},
+{
+"x": 0.123456789,
+"d": -0.5,
+"i16": 4045,
+"i24": 1035630,
+"i32": 265121435
+},
+{
+"x": 0.123456789,
+"d": 0.999,
+"i16": 4046,
+"i24": 1035632,
+"i32": 265121437
+},
+{
+"x": 0.123456789,
+"d": -0.999,
+"i16": 4044,
+"i24": 1035630,
+"i32": 265121435
+},
+{
+"x": 0.123456789,
+"d": 0.25,
+"i16": 4046,
+"i24": 1035631,
+"i32": 265121436
+},
+{
+"x": 0.123456789,
+"d": -0.75,
+"i16": 4045,
+"i24": 1035630,
+"i32": 265121435
+},
+{
+"x": 0.123456789,
+"d": 1.5,
+"i16": 4047,
+"i24": 1035632,
+"i32": 265121437
+},
+{
+"x": -0.987654321,
+"d": 0.0,
+"i16": -32363,
+"i24": -8285045,
+"i32": -2120971504
+},
+{
+"x": -0.987654321,
+"d": 0.5,
+"i16": -32363,
+"i24": -8285044,
+"i32": -2120971504
+},
+{
+"x": -0.987654321,
+"d": -0.5,
+"i16": -32364,
+"i24": -8285045,
+"i32": -2120971505
+},
+{
+"x": -0.987654321,
+"d": 0.999,
+"i16": -32362,
+"i24": -8285044,
+"i32": -2120971503
+},
+{
+"x": -0.987654321,
+"d": -0.999,
+"i16": -32364,
+"i24": -8285046,
+"i32": -2120971505
+},
+{
+"x": -0.987654321,
+"d": 0.25,
+"i16": -32363,
+"i24": -8285045,
+"i32": -2120971504
+},
+{
+"x": -0.987654321,
+"d": -0.75,
+"i16": -32364,
+"i24": -8285046,
+"i32": -2120971505
+},
+{
+"x": -0.987654321,
+"d": 1.5,
+"i16": -32362,
+"i24": -8285043,
+"i32": -2120971503
+},
+{
+"x": 1e-09,
+"d": 0.0,
+"i16": 0,
+"i24": 0,
+"i32": 2
+},
+{
+"x": 1e-09,
+"d": 0.5,
+"i16": 1,
+"i24": 1,
+"i32": 3
+},
+{
+"x": 1e-09,
+"d": -0.5,
+"i16": 0,
+"i24": 0,
+"i32": 2
+},
+{
+"x": 1e-09,
+"d": 0.999,
+"i16": 1,
+"i24": 1,
+"i32": 3
+},
+{
+"x": 1e-09,
+"d": -0.999,
+"i16": -1,
+"i24": -1,
+"i32": 1
+},
+{
+"x": 1e-09,
+"d": 0.25,
+"i16": 0,
+"i24": 0,
+"i32": 2
+},
+{
+"x": 1e-09,
+"d": -0.75,
+"i16": -1,
+"i24": -1,
+"i32": 1
+},
+{
+"x": 1e-09,
+"d": 1.5,
+"i16": 2,
+"i24": 2,
+"i32": 4
+},
+{
+"x": 4.656612873077393e-10,
+"d": 0.0,
+"i16": 0,
+"i24": 0,
+"i32": 1
+},
+{
+"x": 4.656612873077393e-10,
+"d": 0.5,
+"i16": 1,
+"i24": 1,
+"i32": 2
+},
+{
+"x": 4.656612873077393e-10,
+"d": -0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": 4.656612873077393e-10,
+"d": 0.999,
+"i16": 1,
+"i24": 1,
+"i32": 2
+},
+{
+"x": 4.656612873077393e-10,
+"d": -0.999,
+"i16": -1,
+"i24": -1,
+"i32": 0
+},
+{
+"x": 4.656612873077393e-10,
+"d": 0.25,
+"i16": 0,
+"i24": 0,
+"i32": 1
+},
+{
+"x": 4.656612873077393e-10,
+"d": -0.75,
+"i16": -1,
+"i24": -1,
+"i32": 0
+},
+{
+"x": 4.656612873077393e-10,
+"d": 1.5,
+"i16": 2,
+"i24": 2,
+"i32": 2
+},
+{
+"x": NaN,
+"d": 0.0,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": 0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": -0.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": 0.999,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": -0.999,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": 0.25,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": -0.75,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": NaN,
+"d": 1.5,
+"i16": 0,
+"i24": 0,
+"i32": 0
+},
+{
+"x": Infinity,
+"d": 0.0,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": 0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": -0.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": 0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": -0.999,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": 0.25,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": -0.75,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": Infinity,
+"d": 1.5,
+"i16": 32767,
+"i24": 8388607,
+"i32": 2147483647
+},
+{
+"x": -Infinity,
+"d": 0.0,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": 0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": -0.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": 0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": -0.999,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": 0.25,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": -0.75,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+},
+{
+"x": -Infinity,
+"d": 1.5,
+"i16": -32768,
+"i24": -8388608,
+"i32": -2147483648
+}
+],
 "standard_rates": [
 8000,
 11025,

@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/core", "crates/cli", "crates/gui"]
 
 [workspace.package]
-version = "2.2.0"
+version = "2.3.0"
 license = "GPL-3.0-only"
 repository = "https://github.com/SU2H1/Universal-Music-Player"
 edition = "2021"

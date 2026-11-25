@@ -711,3 +711,31 @@ pub fn save_folder_cover(folder: &str, data: &[u8]) -> std::io::Result<String> {
     crate::embed::replace_file(&path, data)?;
     Ok(path)
 }
+
+// ------------------------------------------------- Search Cover Online (2.3) ---
+
+/// Google Images (with `tbm=isch`).
+pub const IMAGE_SEARCH_URL: &str = "https://www.google.com/search";
+
+/// The words Search Cover Online looks for: "<album artist (else artist)>
+/// <album>", or, for a song without an album, "<artist (else album artist)>
+/// <title>"; unknown parts are left out (Python `cover_search_query`).
+pub fn cover_search_query(album_artist: &str, artist: &str, album: &str, title: &str) -> String {
+    let part = crate::tagedit::clean_value;
+    let album = part(album);
+    let parts = if !album.is_empty() {
+        let who = part(album_artist);
+        [if who.is_empty() { part(artist) } else { who }, album]
+    } else {
+        let who = part(artist);
+        [if who.is_empty() { part(album_artist) } else { who }, part(title)]
+    };
+    parts.into_iter().filter(|p| !p.is_empty()).collect::<Vec<_>>().join(" ")
+}
+
+/// Google Images searching for the cover (`cover_search_query()`), as the
+/// browser opens it (Python `cover_search_url`).
+pub fn cover_search_url(album_artist: &str, artist: &str, album: &str, title: &str) -> String {
+    let q = cover_search_query(album_artist, artist, album, title);
+    format!("{IMAGE_SEARCH_URL}?{}", crate::lyrics::urlencode(&[("tbm".into(), "isch".into()), ("q".into(), q)]))
+}

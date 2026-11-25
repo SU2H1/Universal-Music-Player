@@ -8,6 +8,7 @@ import math
 import os
 import queue
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
@@ -15,7 +16,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 from . import bitperfect, eq, i18n, tagedit
 from .i18n import N_, tr, tr_name, tr_text
 from .player import fmt_db
-from .player_theme import PillButton, Slider
+from .player_theme import IconButton, PillButton, Slider
 from .player_pages import frame, label
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -194,6 +195,7 @@ class EqualizerWindow:
     Parametric tabs.  Changes are heard at once; saved when the window closes."""
 
     CURVE_W, CURVE_H = 660, 150
+    PRESET_ROW_MAX = 720  # wider, the preset row wraps (English needs 674 px, Japanese about 800)
 
     def __init__(self, app: "PlayerApp"):
         self.app, self.t = app, app.theme
@@ -214,22 +216,28 @@ class EqualizerWindow:
                         command=self._toggles).pack(side="left", padx=(18, 0))
         self.pre_note = label(top, t, "", "small", fg="text2")
         self.pre_note.pack(side="right")
-        presets = frame(box, t)
+        # the preset row: the menu, then the buttons on its right, or (2.3) on a second line
+        # for the buttons that do not fit the window's width (_wrap_presets())
+        presets = self.presets = frame(box, t)
         presets.pack(fill="x", pady=(10, 0))
-        label(presets, t, tr("Preset"), "body", fg="text2").pack(side="left", padx=(0, 8))
+        self.presets2 = frame(box, t)
+        self.preset_text = label(presets, t, tr("Preset"), "body", fg="text2")
+        self.preset_text.pack(side="left", padx=(0, 8))
         self.v_preset = tk.StringVar(value="")
         self.preset_btn = PillButton(presets, t, "", kind="plain", arrow=True, command=self._post_presets)
         self.preset_btn.pack(side="left")
-        for text, cmd in ((tr("Export…"), self._export), (tr("Import…"), self._import), (tr("Delete…"), self._delete),
-                          (tr("Rename…"), self._rename), (tr("Save as preset…"), self._save_as)):
-            b = PillButton(presets, t, text, kind="plain", command=cmd)
-            b.pack(side="right", padx=(8, 0))
+        self.preset_buttons: List[PillButton] = []
+        for text, cmd in ((tr("Save as preset…"), self._save_as), (tr("Rename…"), self._rename),
+                          (tr("Delete…"), self._delete), (tr("Import…"), self._import), (tr("Export…"), self._export)):
+            b = PillButton(box, t, text, kind="plain", command=cmd)  # packed into either line
+            self.preset_buttons.append(b)
             if cmd == self._delete:
                 self.delete_btn = b
+        self.preset_wrapped = False
         self.note = label(box, t, "", "small", fg="text2", wraplength=640, justify="left")
         self.note.pack(anchor="w", pady=(4, 0))
-        # bit-perfect playback bypasses the equalizer (its settings are kept); shown only then,
-        # so it leaves no empty line above the curve (show_bypass())
+        # with bit-perfect playback on, a note that the equalizer changes the samples (2.3; before,
+        # it was bypassed then); shown only then, so it leaves no empty line above the curve
         self.bypass = label(box, t, "", "body", fg="accent", wraplength=640, justify="left")
         self.preset_menu: Optional[tk.Menu] = None
         self.delete_menu: Optional[tk.Menu] = None
@@ -250,15 +258,17 @@ class EqualizerWindow:
         PillButton(bottom, t, tr("Done"), command=self.close).pack(side="right")
         PillButton(bottom, t, tr("Reset"), kind="plain", command=self._reset).pack(side="right", padx=(0, 8))
         t.on_change(self.draw_curve, self.win)
+        t.on_change(self._wrap_presets, self.win)  # another font measures differently
         self.win.minsize(700, 600)
         self.draw_curve()
         self._show_preset()
         self.show_bypass()
 
     def show_bypass(self) -> None:
-        """'Bypassed while bit-perfect playback is on.' while that setting is on."""
+        """While bit-perfect playback is on: the equalizer works, but the sound is then not
+        bit-perfect (`bitperfect.EQ_NOTE`)."""
         on = bool(self.app.cfg.bit_perfect)
-        self.bypass.configure(text=tr(bitperfect.EQ_BYPASSED) if on else "")
+        self.bypass.configure(text=tr(bitperfect.EQ_NOTE) if on else "")
         if on:
             self.bypass.pack(anchor="w", pady=(4, 0), before=self.curve)
         else:
@@ -466,6 +476,34 @@ class EqualizerWindow:
         name = self.preset_label()
         self.v_preset.set(name)
         self.preset_btn.set(text=self.shown_name(name))
+        self._wrap_presets()
+
+    def _wrap_presets(self) -> None:
+        """Lay the preset row out within `PRESET_ROW_MAX` pixels: the buttons that do not
+        fit after the menu go to a second line (2.3: in Japanese the row made the window
+        much wider than its other content)."""
+        gap = 8
+        used = self.preset_text.winfo_reqwidth() + gap + self.preset_btn.winfo_reqwidth()
+        first, rest = [], []
+        for b in self.preset_buttons:
+            w = gap + b.winfo_reqwidth()
+            if not rest and used + w <= self.PRESET_ROW_MAX:
+                first.append(b)
+                used += w
+            else:
+                rest.append(b)
+        for b in self.preset_buttons:
+            b.pack_forget()
+        # packed from the right in reverse order: they read left to right as listed
+        for b in reversed(first):
+            b.pack(in_=self.presets, side="right", padx=(gap, 0))
+        for b in reversed(rest):
+            b.pack(in_=self.presets2, side="right", padx=(gap, 0))
+        self.preset_wrapped = bool(rest)
+        if rest:
+            self.presets2.pack(fill="x", pady=(6, 0), after=self.presets)
+        else:
+            self.presets2.pack_forget()
 
     def build_preset_menu(self) -> tk.Menu:
         """Built-in presets, "My presets", and "Custom" when the gains match none."""
@@ -707,17 +745,34 @@ class EditInfoWindow:
     refreshes the library; it closes when everything was saved without a note, else
     it shows tagedit.save_summary().  Results reach Tk through `self.q`.  The window
     can be resized (never smaller than its contents), the fields grow with its
-    width, and a size the user chose is kept in `app.edit_size` for the session."""
+    width, and a size the user chose is kept in `app.edit_size` for the session.
+
+    2.3: Acquire Metadata… (bottom left) opens the MusicBrainz window for the same
+    songs; when it saves, `files_changed()` reads the songs again and updates the
+    fields nothing was typed into.  Each field's Search button opens the browser at
+    tagedit.web_search_url() and then watches the clipboard (`app.clipboard_text()`,
+    every tagedit.WATCH_POLL_MS for tagedit.WATCH_SECONDS): the first new text copied
+    is put into that field (tagedit.clipboard_value()), which flashes."""
 
     TITLE = N_("Properties")   # shown as tr(TITLE)
     SEVERAL = N_("Several values: kept unless you type here")  # shown as tr(SEVERAL)
+    WATCHING = N_("Copy the answer in your browser and it will be filled in here.")
+    FILLED = N_("Filled in from the clipboard.")
     MIN_WIDTH = 560
+    FLASH_MS = 1200
 
-    def __init__(self, app: "PlayerApp", tracks: list, heading: str = "", subheading: str = ""):
+    def __init__(self, app: "PlayerApp", tracks: list, heading: str = "", subheading: str = "",
+                 album: bool = False):
         from .settings import Settings
 
         self.app, t = app, app.theme
+        self.tracks = list(tracks)
+        self.album, self.heading, self.subheading = album, heading, subheading  # for Acquire Metadata…
         self.paths: List[str] = [tr.path for tr in tracks]
+        self.clock: Callable[[], float] = time.monotonic  # the clipboard watch's clock (tests move it)
+        self.watch: Optional[dict] = None   # the clipboard watch: field, the text at the click, until
+        self._watch_job: Optional[str] = None
+        self.filled: Optional[str] = None   # the field filled in from the clipboard last
         self.cfg = Settings.from_dict(app.cfg.to_dict())  # the threads get their own copy
         self.q: "queue.Queue" = queue.Queue()
         self.ready = self.saving = self.done = False
@@ -744,6 +799,7 @@ class EditInfoWindow:
         self.vars: Dict[str, tk.StringVar] = {}
         self.entries: Dict[str, ttk.Entry] = {}
         self.notes: Dict[str, tk.Label] = {}
+        self.search_bs: Dict[str, IconButton] = {}
         for i, f in enumerate(tagedit.FIELDS):
             label(grid, t, tr(tagedit.LABELS[f]), "body", fg="text2").grid(row=2 * i, column=0, sticky="w",
                                                                            padx=(0, 16), pady=(7, 0))
@@ -753,6 +809,12 @@ class EditInfoWindow:
             e.state(["disabled"])
             e.bind("<Return>", lambda ev: self.save())
             e.bind("<KP_Enter>", lambda ev: self.save())
+            # 2.3: search the web for this field ("Search the web for the composer")
+            b = IconButton(grid, t, "search", command=lambda f=f: self.search(f), size=26, icon_size=14,
+                           tooltip=lambda f=f: self.search_tip(f))
+            b.grid(row=2 * i, column=2, sticky="e", padx=(6, 0), pady=(7, 0))
+            b.set(enabled=False)
+            self.search_bs[f] = b
             note = label(grid, t, tr(tagedit.HINTS.get(f, "")) if tagedit.HINTS.get(f) else "", "small",
                          fg="text2", wraplength=440, justify="left")
             note.grid(row=2 * i + 1, column=1, sticky="w")
@@ -760,8 +822,10 @@ class EditInfoWindow:
                 note.grid_remove()
             self.vars[f], self.entries[f], self.notes[f] = var, e, note
         grid.columnconfigure(1, weight=1)
+        self.watch_note = label(box, t, "", "small", fg="text2", wraplength=520, justify="left")
+        self.watch_note.pack(anchor="w", pady=(10, 0))
         self.error = label(box, t, "", "small", fg="error", wraplength=520, justify="left")
-        self.error.pack(anchor="w", pady=(10, 0))
+        self.error.pack(anchor="w", pady=(4, 0))
         self.summary = label(box, t, "", "body", wraplength=520, justify="left")
         self.summary.pack(anchor="w")
         self.btns = frame(box, t)
@@ -770,6 +834,9 @@ class EditInfoWindow:
         self.save_b.pack(side="right")
         self.cancel_b = PillButton(self.btns, t, tr("Cancel"), kind="plain", command=self.cancel)
         self.cancel_b.pack(side="right", padx=(0, 8))
+        # 2.3: the MusicBrainz window for the same songs, at the bottom left
+        self.acquire_b = PillButton(self.btns, t, tr("Acquire Metadata…"), kind="plain", command=self.acquire)
+        self.acquire_b.pack(side="left")
         if app.edit_size:
             self.win.geometry("%dx%d" % app.edit_size)
         self._fit()
@@ -777,7 +844,7 @@ class EditInfoWindow:
         self.win.after(100, self._poll)
 
     # ---- threads ------------------------------------------------------------
-    def _read(self) -> None:
+    def _read(self, kind: str = "tags") -> None:
         from .probe import probe
 
         tags = []
@@ -786,7 +853,7 @@ class EditInfoWindow:
                 tags.append(probe(p).tags or {})
             except Exception:  # noqa: BLE001 (an unreadable file has no tags to show)
                 tags.append({})
-        self.q.put(("tags", tags))
+        self.q.put((kind, tags))
 
     def _write(self, changes: Dict[str, str]) -> None:
         try:
@@ -808,6 +875,8 @@ class EditInfoWindow:
                 kind, *rest = self.q.get_nowait()
                 if kind == "tags":
                     self._fill(rest[0])
+                elif kind == "retags":
+                    self._refill(rest[0])
                 elif kind == "progress":
                     i, n = rest
                     if i < n:
@@ -829,17 +898,27 @@ class EditInfoWindow:
         except tk.TclError:
             pass
 
+    def _note(self, f: str, value: Optional[str]) -> None:
+        """The grey line under a field: its hint, with "Several values…" while the songs differ."""
+        hint = tr(tagedit.HINTS[f]) if tagedit.HINTS.get(f) else ""
+        if value is None:
+            self.notes[f].configure(text=tr("{several}. {hint}", several=tr(self.SEVERAL),
+                                            hint=hint[0].upper() + hint[1:]) if hint else tr(self.SEVERAL))
+            self.notes[f].grid()
+        else:
+            self.notes[f].configure(text=hint)
+            if not hint:
+                self.notes[f].grid_remove()
+
     def _fill(self, tags: List[dict]) -> None:
         self.initial = tagedit.common_values(tags)
         for f in tagedit.FIELDS:
             value = self.initial[f]
             self.vars[f].set(value or "")
             self.entries[f].state(["!disabled"])
-            hint = tr(tagedit.HINTS[f]) if tagedit.HINTS.get(f) else ""
+            self.search_bs[f].set(enabled=True)
             if value is None:
-                self.notes[f].configure(text=tr("{several}. {hint}", several=tr(self.SEVERAL),
-                                                hint=hint[0].upper() + hint[1:]) if hint else tr(self.SEVERAL))
-                self.notes[f].grid()
+                self._note(f, None)
         self.status.configure(text="")
         self.ready = True
         self._fit()
@@ -847,22 +926,127 @@ class EditInfoWindow:
         first.focus_set()
         first.select_range(0, "end")
 
+    def _changed(self, f: str) -> bool:
+        text, start = self.vars[f].get(), self.initial.get(f)
+        if start is None:
+            return bool(tagedit.clean_value(text))
+        return tagedit.clean_value(text) != tagedit.clean_value(start)
+
     def changes(self) -> Dict[str, str]:
         """The fields whose text differs from what they started with (a "several
         values" field: when something was typed)."""
-        out = {}
+        return {f: self.vars[f].get() for f in tagedit.FIELDS if self._changed(f)}
+
+    # ---- Acquire Metadata… and searching the web (2.3) ------------------------------
+    def acquire(self):
+        """Acquire Metadata…: the MusicBrainz window for the same songs (this window stays)."""
+        if self.saving:
+            return None
+        return self.app.musicbrainz(self.tracks, self.album, self.heading, self.subheading)
+
+    def files_changed(self, paths: List[str]) -> None:
+        """Other windows (MusicBrainz) wrote into these files: read the songs again and
+        show the new values in the fields nothing was typed into."""
+        if not self.ready or self.saving or self.done or not set(paths) & set(self.paths):
+            return
+        threading.Thread(target=self._read, args=("retags",), daemon=True, name="realhires-edit-reread").start()
+
+    def _refill(self, tags: List[dict]) -> None:
+        if self.saving or self.done:
+            return
+        fresh = tagedit.common_values(tags)
         for f in tagedit.FIELDS:
-            text, start = self.vars[f].get(), self.initial.get(f)
-            if start is None:
-                if tagedit.clean_value(text):
-                    out[f] = text
-            elif tagedit.clean_value(text) != tagedit.clean_value(start):
-                out[f] = text
-        return out
+            if not self._changed(f):
+                self.vars[f].set(fresh[f] or "")
+                self._note(f, fresh[f])
+            self.initial[f] = fresh[f]
+        self._fit()
+
+    def search_values(self) -> Dict[str, str]:
+        """What the Search buttons search with: the fields as they are now (several songs:
+        without the title, so the album is searched for)."""
+        values = {f: tagedit.clean_value(self.vars[f].get()) for f in ("title", "artist", "album", "album_artist")}
+        if len(self.paths) > 1:
+            values["title"] = ""
+        return values
+
+    def search_tip(self, f: str) -> str:
+        return tr("Search the web for the {field}", field=tagedit.search_name(f, i18n.language()))
+
+    def search_url(self, f: str) -> str:
+        return tagedit.web_search_url(f, self.search_values(), i18n.language())
+
+    def search(self, f: str) -> None:
+        """A field's Search button: the browser searches for it, and the next text copied
+        within two minutes is put into the field."""
+        if not self.ready or self.saving or self.done:
+            return
+        self.stop_watch()
+        error = self.app.open_url(self.search_url(f))
+        if error:
+            self.watch_note.configure(text=error)
+            return
+        self.watch = {"field": f, "start": self.app.clipboard_text(), "until": self.clock() + tagedit.WATCH_SECONDS}
+        self.watch_note.configure(text=tr(self.WATCHING))
+        self._watch_job = self.win.after(tagedit.WATCH_POLL_MS, self._watch_tick)
+
+    def stop_watch(self) -> None:
+        if self._watch_job is not None:
+            try:
+                self.win.after_cancel(self._watch_job)
+            except tk.TclError:
+                pass
+            self._watch_job = None
+        if self.watch is not None:
+            self.watch = None
+            try:
+                self.watch_note.configure(text="")
+            except tk.TclError:
+                pass
+
+    def watch_step(self) -> Optional[str]:
+        """Look at the clipboard once; the field filled in, or None."""
+        w = self.watch
+        if w is None:
+            return None
+        if self.clock() > w["until"]:
+            self.stop_watch()
+            return None
+        text = self.app.clipboard_text()
+        value = tagedit.clipboard_value(text) if text != w["start"] else ""
+        if not value:
+            return None
+        f = w["field"]
+        self.stop_watch()
+        self.vars[f].set(value)
+        self.filled = f
+        self.watch_note.configure(text=tr(self.FILLED))
+        e = self.entries[f]
+        e.configure(style="Flash.P.TEntry")
+        self.win.after(self.FLASH_MS, lambda: self._unflash(e))
+        return f
+
+    def _unflash(self, e: ttk.Entry) -> None:
+        try:
+            e.configure(style="P.TEntry")
+        except tk.TclError:
+            pass
+
+    def _watch_tick(self) -> None:
+        self._watch_job = None
+        try:
+            if not self.win.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        self.watch_step()
+        if self.watch is not None:
+            self._watch_job = self.win.after(tagedit.WATCH_POLL_MS, self._watch_tick)
 
     def save(self) -> None:
         if not self.ready or self.saving or self.done:
             return
+        self.stop_watch()
         changes = self.changes()
         try:
             changes = tagedit.check_changes(changes)
@@ -877,8 +1061,11 @@ class EditInfoWindow:
         self.saving = True
         for e in self.entries.values():
             e.state(["disabled"])
+        for b in self.search_bs.values():
+            b.set(enabled=False)
         self.save_b.pack_forget()
         self.cancel_b.pack_forget()
+        self.acquire_b.pack_forget()
         n = len(self.paths)
         self.status.configure(text=tr("Saving {i} of {n}…", i="1", n=f"{n:,}") if n > 1 else tr("Saving…"))
         threading.Thread(target=self._write, args=(changes,), daemon=True, name="realhires-edit-save").start()
@@ -903,6 +1090,7 @@ class EditInfoWindow:
     def close(self) -> None:
         if self.saving:
             return
+        self.stop_watch()
         if self.app.edit_window is self:
             self.app.edit_window = None
         try:  # a size the user chose (it differs from what the contents ask for) is kept
@@ -1036,7 +1224,8 @@ class CoverWindow:
     """The Cover window (2.1, docs/player-spec.md "Inspecting and changing a cover"):
     the cover of a song's album as large as the window allows (FFmpeg makes a PNG that
     fits, covers.fit_png(), because Tk cannot decode JPEG), its size in pixels, format
-    and where it comes from (covers.cover_source()), and Change cover…, Save image as…,
+    and where it comes from (covers.cover_source()), and Change cover…, Search Cover
+    Online (2.3: Google Images in the browser, covers.cover_search_url()), Save image as…,
     Remove cover, Show album and Close.  Changing and removing run in a thread
     (tagedit.set_cover()/remove_cover()) for all the album's songs or this song only,
     with a progress line and tagedit.cover_summary() afterwards; the player's covers
@@ -1052,6 +1241,7 @@ class CoverWindow:
         self.app, t = app, app.theme
         self.path = path
         track = app.track(path) or Track(path)
+        self.track = track
         self.album = None if getattr(track, "missing", False) else app.album_of(track)
         songs = self.album["tracks"] if self.album else [track]
         self.album_paths: List[str] = [x.path for x in songs if not getattr(x, "missing", False)]
@@ -1118,9 +1308,11 @@ class CoverWindow:
         self.close_b = PillButton(btns, t, tr("Close"), kind="plain", command=self.close)
         self.close_b.pack(side="right")
         self.album_b = PillButton(btns, t, tr("Show album"), kind="plain", command=self.show_album)
-        self.album_b.pack(side="right", padx=(0, 8))
+        self.album_b.pack(side="right", padx=(16, 8))  # a gap from the left group when the window is narrow
         self.change_b = PillButton(btns, t, tr("Change cover…"), command=self.change)
         self.change_b.pack(side="left")
+        self.search_b = PillButton(btns, t, tr("Search Cover Online"), kind="plain", command=self.search_online)
+        self.search_b.pack(side="left", padx=(8, 0))
         self.save_b = PillButton(btns, t, tr("Save image as…"), kind="plain", command=self.save_image)
         self.save_b.pack(side="left", padx=(8, 0))
         self.remove_b = PillButton(btns, t, tr("Remove cover"), kind="plain", command=self.remove)
@@ -1380,6 +1572,20 @@ class CoverWindow:
             return False
         self._start(None)
         return True
+
+    def search_url(self) -> str:
+        """Search Cover Online's address: Google Images for the album's artist and title
+        (a song without an album: its artist and title), from the song's tags."""
+        from . import covers
+
+        t = self.track
+        return covers.cover_search_url(t.album_artist, t.artist, t.album, t.title or t.display_title)
+
+    def search_online(self) -> None:
+        """Search Cover Online (2.3): the browser looks for the cover; a picture saved from
+        it can then be chosen with Change cover…."""
+        error = self.app.open_url(self.search_url())
+        self.status.configure(text=error)
 
     def save_image(self) -> None:
         """Save image as…: the picture as it is stored."""

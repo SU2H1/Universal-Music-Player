@@ -1,6 +1,8 @@
 //! Colour themes of the player (2.0), the counterpart of
 //! `realhires/themes.py`: the same built-in themes and the same `themes.json`
-//! with the user's own, so both versions share them.
+//! with the user's own, so both versions share them.  2.3: every other colour
+//! the apps draw (`EXTRA_COLOR_KEYS`) is derived from the eight (`derived()`)
+//! unless the theme sets it; `colors()` gives them all.
 
 use std::path::{Path, PathBuf};
 
@@ -28,6 +30,165 @@ pub fn color_label(key: &str) -> &'static str {
     }
 }
 
+/// 2.3 ("allow user to color code anything"): the colours the apps derived from the
+/// eight before, which a theme may now set too (Python `EXTRA_COLOR_KEYS`).
+pub const EXTRA_COLOR_KEYS: [&str; 19] = [
+    "row_hover",
+    "zebra",
+    "selection",
+    "field",
+    "placeholder",
+    "placeholder_icon",
+    "disabled",
+    "on_accent",
+    "quality_hires",
+    "quality_lossless",
+    "quality_lossy",
+    "verdict_fake_lossless",
+    "verdict_fake_hires",
+    "verdict_suspicious",
+    "verdict_real_hires",
+    "verdict_cd",
+    "verdict_lossy",
+    "verdict_error",
+    "calendar",
+];
+
+/// The English name of an extra colour (Python `EXTRA_COLOR_LABELS`).
+pub fn extra_color_label(key: &str) -> &'static str {
+    match key {
+        "row_hover" => "Row under the pointer",
+        "zebra" => "Every other row",
+        "selection" => "Selected item",
+        "field" => "Text fields",
+        "placeholder" => "Missing cover",
+        "placeholder_icon" => "Missing cover's icon",
+        "disabled" => "Unavailable items",
+        "on_accent" => "Text on the accent colour",
+        "quality_hires" => "Quality: Hi-Res Lossless",
+        "quality_lossless" => "Quality: Lossless",
+        "quality_lossy" => "Quality: Lossy",
+        "verdict_fake_lossless" => "Quality Check: Fake lossless",
+        "verdict_fake_hires" => "Quality Check: Fake hi-res",
+        "verdict_suspicious" => "Quality Check: Suspicious",
+        "verdict_real_hires" => "Quality Check: Real hi-res",
+        "verdict_cd" => "Quality Check: CD quality",
+        "verdict_lossy" => "Quality Check: Lossy format",
+        "verdict_error" => "Quality Check: Error",
+        "calendar" => "Your Stats: days with plays",
+        _ => "",
+    }
+}
+
+/// The English name of any colour key, of the eight or the extra ones.
+pub fn any_color_label(key: &str) -> &'static str {
+    if COLOR_KEYS.contains(&key) {
+        color_label(key)
+    } else {
+        extra_color_label(key)
+    }
+}
+
+pub const QUALITY_GOLD_LIGHT: &str = "#c9a227";
+pub const QUALITY_GOLD_DARK: &str = "#e0b84a";
+
+/// The verdict colours of the Quality Check page (Python `VERDICT_BASE`).
+pub fn verdict_base(key: &str) -> Option<&'static str> {
+    Some(match key {
+        "verdict_fake_lossless" => "#a3122a",
+        "verdict_fake_hires" => "#d32f2f",
+        "verdict_suspicious" => "#b26a00",
+        "verdict_real_hires" => "#2e7d32",
+        "verdict_cd" => "#1565c0",
+        "verdict_lossy" => "#6a1b9a",
+        "verdict_error" => "#616161",
+        _ => return None,
+    })
+}
+
+/// A verdict code ("FAKE HI-RES"...) to its colour key (Python `VERDICT_COLOR_KEYS`).
+pub fn verdict_color_key(code: &str) -> Option<&'static str> {
+    Some(match code {
+        "FAKE LOSSLESS" => "verdict_fake_lossless",
+        "FAKE HI-RES" => "verdict_fake_hires",
+        "SUSPICIOUS" => "verdict_suspicious",
+        "REAL HI-RES" => "verdict_real_hires",
+        "NOT HI-RES" => "verdict_cd",
+        "LOSSY FORMAT" => "verdict_lossy",
+        "ERROR" => "verdict_error",
+        _ => return None,
+    })
+}
+
+/// "hires", "lossless" or "lossy" to its colour key (Python `QUALITY_COLOR_KEYS`).
+pub fn quality_color_key(kind: &str) -> &'static str {
+    match kind {
+        "hires" => "quality_hires",
+        "lossy" => "quality_lossy",
+        _ => "quality_lossless",
+    }
+}
+
+/// "hires", "lossless" or "lossy": the kind of `musiclib::quality()`'s text for a track
+/// (Python `quality_kind`).
+pub fn quality_kind(t: &crate::musiclib::Track) -> &'static str {
+    if t.is_lossy {
+        return "lossy";
+    }
+    let bits = if t.bits == 0 { 16 } else { t.bits };
+    if t.sample_rate > 48000 || bits > 16 || t.is_float {
+        "hires"
+    } else {
+        "lossless"
+    }
+}
+
+fn channels(c: &str) -> [i64; 3] {
+    let v = |i: usize| c.get(i..i + 2).and_then(|h| i64::from_str_radix(h, 16).ok()).unwrap_or(0);
+    [v(1), v(3), v(5)]
+}
+
+/// The colour `t` of the way from `a` to `b` ("#rrggbb"; each channel rounded half to
+/// even, as Python's `round()`).
+pub fn mix(a: &str, b: &str, t: f64) -> String {
+    let (x, y) = (channels(a), channels(b));
+    let c = |i: usize| crate::pyfmt::round_int(x[i] as f64 + (y[i] - x[i]) as f64 * t);
+    format!("#{:02x}{:02x}{:02x}", c(0), c(1), c(2))
+}
+
+pub fn luminance(c: &str) -> f64 {
+    let [r, g, b] = channels(c).map(|v| v as f64 / 255.0);
+    0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/// An extra colour as a theme's eight colours (and whether it is dark) give it
+/// (Python `derived`).
+pub fn derived(key: &str, t: &Theme) -> String {
+    let c = |k: &str| t.color(k).to_string();
+    match key {
+        "row_hover" => mix(&c("background"), &c("hover"), 0.7),
+        "zebra" => mix(&c("background"), &c("hover"), 0.3),
+        "selection" | "field" | "placeholder" => c("hover"),
+        "placeholder_icon" => mix(&c("hover"), &c("secondary"), 0.6),
+        "disabled" => mix(&c("background"), &c("secondary"), 0.45),
+        "on_accent" => if luminance(&c("accent")) > 0.62 { "#1d1d1f" } else { "#ffffff" }.to_string(),
+        "quality_hires" => if t.dark { QUALITY_GOLD_DARK } else { QUALITY_GOLD_LIGHT }.to_string(),
+        "quality_lossless" | "calendar" => c("accent"),
+        "quality_lossy" => c("secondary"),
+        k => verdict_base(k).unwrap_or("#000000").to_string(),
+    }
+}
+
+/// Every colour of a theme, the eight then the extra ones (its own value, else
+/// derived), as (key, "#rrggbb") (Python `colors`).
+pub fn colors(t: &Theme) -> Vec<(&'static str, String)> {
+    let mut out: Vec<(&'static str, String)> = COLOR_KEYS.iter().zip(t.colors.iter()).map(|(k, v)| (*k, v.clone())).collect();
+    for k in EXTRA_COLOR_KEYS {
+        out.push((k, t.extra_color(k).map(str::to_string).unwrap_or_else(|| derived(k, t))));
+    }
+    out
+}
+
 /// (name, dark, colours in COLOR_KEYS order)
 pub const BUILTIN: [(&str, bool, [&str; 8]); 8] = [
     ("Light", false, ["#ffffff", "#f5f5f7", "#1d1d1f", "#6e6e73", "#d2d2d7", "#fa2d48", "#f2f2f4", "#e8e8ed"]),
@@ -46,6 +207,8 @@ pub struct Theme {
     pub dark: bool,
     /// "#rrggbb" in COLOR_KEYS order
     pub colors: [String; 8],
+    /// 2.3: the extra colours the theme sets, (key, "#rrggbb") in EXTRA_COLOR_KEYS order
+    pub extra: Vec<(String, String)>,
 }
 
 impl Theme {
@@ -53,12 +216,51 @@ impl Theme {
         COLOR_KEYS.iter().position(|k| *k == key).map(|i| self.colors[i].as_str()).unwrap_or("#000000")
     }
 
-    pub fn to_json(&self) -> Value {
+    /// An extra colour the theme sets itself (None: it is derived).
+    pub fn extra_color(&self, key: &str) -> Option<&str> {
+        self.extra.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str())
+    }
+
+    /// Set an extra colour ("#rrggbb"), or make it derived again (None or a value
+    /// that is not a colour); keeps EXTRA_COLOR_KEYS order.
+    pub fn set_extra(&mut self, key: &str, value: Option<&str>) {
+        self.extra.retain(|(k, _)| k != key);
+        let v = value.map(|v| crate::pyunicode::strip(v).to_lowercase()).unwrap_or_default();
+        if EXTRA_COLOR_KEYS.contains(&key) && is_hex(&v) {
+            self.extra.push((key.to_string(), v));
+            self.extra.sort_by_key(|(k, _)| EXTRA_COLOR_KEYS.iter().position(|e| e == k));
+        }
+    }
+
+    /// Every colour (the eight, then the extra ones set or derived): `colors(self)`.
+    pub fn all_colors(&self) -> Vec<(&'static str, String)> {
+        colors(self)
+    }
+
+    /// One colour of `all_colors()` by its key.
+    pub fn any_color(&self, key: &str) -> String {
+        if COLOR_KEYS.contains(&key) {
+            self.color(key).to_string()
+        } else if EXTRA_COLOR_KEYS.contains(&key) {
+            self.extra_color(key).map(str::to_string).unwrap_or_else(|| derived(key, self))
+        } else {
+            "#000000".into()
+        }
+    }
+
+    fn colors_json(&self) -> Value {
         let mut colors = ObjectBuilder::new();
         for (k, v) in COLOR_KEYS.iter().zip(self.colors.iter()) {
             colors = colors.put(k, v.as_str());
         }
-        ObjectBuilder::new().put("name", self.name.as_str()).put("dark", self.dark).put("colors", colors.build()).build()
+        for (k, v) in &self.extra {
+            colors = colors.put(k, v.as_str());
+        }
+        colors.build()
+    }
+
+    pub fn to_json(&self) -> Value {
+        ObjectBuilder::new().put("name", self.name.as_str()).put("dark", self.dark).put("colors", self.colors_json()).build()
     }
 }
 
@@ -76,6 +278,7 @@ pub fn builtin(name: &str) -> Option<Theme> {
         name: n.to_string(),
         dark: *dark,
         colors: c.map(str::to_string),
+        extra: vec![],
     })
 }
 
@@ -115,7 +318,16 @@ pub fn normalize(v: &Value) -> Option<Theme> {
             }
         }
     }
-    Some(Theme { name, dark, colors })
+    let mut extra = vec![];
+    for k in EXTRA_COLOR_KEYS {
+        if let Some(s) = given.and_then(|g| g.get(k)).and_then(Value::as_str) {
+            let s = crate::pyunicode::strip(s).to_lowercase();
+            if is_hex(&s) {
+                extra.push((k.to_string(), s));
+            }
+        }
+    }
+    Some(Theme { name, dark, colors, extra })
 }
 
 pub fn load_custom(path: Option<&Path>) -> Vec<Theme> {
@@ -202,16 +414,12 @@ pub fn copy_name(base: &str, custom: &[Theme]) -> String {
 }
 
 pub fn export_theme(t: &Theme) -> String {
-    let mut colors = ObjectBuilder::new();
-    for (k, v) in COLOR_KEYS.iter().zip(t.colors.iter()) {
-        colors = colors.put(k, v.as_str());
-    }
     let data = ObjectBuilder::new()
         .put("format", THEME_FILE_FORMAT)
         .put("version", 1i64)
         .put("name", t.name.as_str())
         .put("dark", t.dark)
-        .put("colors", colors.build())
+        .put("colors", t.colors_json())
         .build();
     let style = json::Style { indent: Some(2), compact: false, ensure_ascii: false, sort_keys: true };
     json::dumps(&data, style) + "\n"

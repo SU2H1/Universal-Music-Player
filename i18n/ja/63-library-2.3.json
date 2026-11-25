@@ -1,0 +1,13 @@
+{
+ "strings": {
+  "Select": "選択",
+  "Merge…": "統合…",
+  "Click genres to select them": "ジャンルをクリックして選択します",
+  "Press Select or {mod}-click genres to merge or rename them": "「選択」を押すか{mod}+クリックでジャンルを選ぶと、統合したり名前を変更したりできます",
+  "Library page": "ライブラリのページ",
+  "How the Library page shows All Songs, Folders, Albums and its other entries: as tiles, several side by side, or as a list with one entry per row. The two buttons at the right of the Library page's title switch it too.": "ライブラリのページで「すべての曲」「フォルダ」「アルバム」などの項目をどう表示するかです。タイル（横に並べて表示）か、リスト（1行に1項目）を選べます。ライブラリのページのタイトルの右にある2つのボタンでも切り替えられます。",
+  "Tiles": "タイル",
+  "List": "リスト"
+ },
+ "patterns": {}
+}

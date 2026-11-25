@@ -33,6 +33,8 @@ LYRICS_SAVE_CHOICES = ["An .lrc file next to the song", "Inside the audio file (
                        "Both: .lrc file and inside the audio file", "Plain lyrics inside the audio file (no timing)"]
 # the built-in theme names (2.0); the full list, with the user's own themes, is themes.names()
 THEMES = ["Match the system", "Light", "Dark", "Midnight", "Graphite", "Forest", "Ocean", "Sepia", "Rose"]
+# how the player's Library page shows its entries (2.3)
+LIBRARY_LAYOUTS = ["Tiles", "List"]
 DEFAULT_EXTENSIONS = (".flac .wav .wave .w64 .rf64 .aif .aiff .aifc .caf .m4a .mp4 .alac .ape .wv "
                       ".tta .tak .dsf .dff .mka .ogg .oga .opus .mp3 .aac .wma .mpc .ac3 .dts")
 
@@ -102,6 +104,11 @@ class Settings:
         "The font of the app. Empty = SF Pro, the system font, on macOS and Inter on Windows and Linux "
         "(SF Pro may only be used on Apple systems). Any font installed on your computer can be chosen.",
         kind="str")
+    library_layout: str = _f(
+        "Tiles", "Appearance", "Library page",
+        "How the Library page shows All Songs, Folders, Albums and its other entries: as tiles, several side by "
+        "side, or as a list with one entry per row. The two buttons at the right of the Library page's title "
+        "switch it too.", choices=LIBRARY_LAYOUTS, kind="choice")
     theme: str = _f(
         "Match the system", "Appearance", "Theme",
         "The colours of the app: \"Match the system\" (light or dark as the system is), a built-in theme "

@@ -63,7 +63,7 @@ def idle(w):
 
 def loaded():
     taxi = app.track(S["Taxi Lights"])
-    assert "Cover…" in menu_labels(app.song_menu(taxi))
+    assert "Change Cover…" in menu_labels(app.song_menu(taxi))
     w = app.open_cover_window(S["Taxi Lights"])
     assert app.open_cover_window(S["Taxi Lights"]) is w, "one Cover window at a time"
     state["w"] = w

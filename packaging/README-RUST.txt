@@ -47,8 +47,21 @@ into that folder appear in the theme menu as they are, and a theme file
 dropped onto the window is imported.  "Properties..." in a
 song's menu and "Album Properties..." on an album page change the title,
 artist, album, album artist, genre, release date, track, disc and composer
-(only the tags change, never the audio).  Every other function is in
-Settings too:
+(only the tags change, never the audio).
+
+Custom tabs (2.3): "New Tab..." in the sidebar makes a tab, a set of rules
+(field, operator, value, e.g. Quality is Hi-Res Lossless) that picks songs
+from your library.  Each tab is a small .json file in the tabs folder
+(Settings > Library > "Open tabs folder"); "Export Tab..." writes one to
+share, and Settings > Library > "Import tab..." adds one (or drop it onto
+the window).  A tab
+file holds only fields, operators and values, never code.  The theme editor
+also lists "More colours" (every colour the app draws, including the
+quality colours: Hi-Res Lossless in gold), and every song, album, artist,
+genre, year, composer, playlist and tab has "Colour Label" in its menu.
+Up Next songs can be dragged to a new place or removed with a right-click.
+
+Every other function is in Settings too:
 Settings > Library > "Scan library" checks your library for fake files in
 the quality checker described below.
 

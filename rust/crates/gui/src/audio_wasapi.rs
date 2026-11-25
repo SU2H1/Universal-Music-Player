@@ -4,9 +4,10 @@
 //! `probe()` asks the device which stereo formats and rates it takes in
 //! exclusive mode (`IAudioClient::IsFormatSupported`), and `open()` starts an
 //! event-driven exclusive stream in one of them on a thread of its own: every
-//! period it takes the frames from the engine (`audio::render`, with the
-//! equalizer bypassed and the gain at exactly 1) and writes them as the
-//! device's integers (`bitperfect::int_sample`) or floats.  Another program
+//! period it takes the frames from the engine with the gain at exactly 1 and
+//! writes them as the device's integers (`audio::render_ints`: the file's own
+//! integers, or with the equalizer on its 64-bit output with TPDF dither, 2.3)
+//! or as floats (`audio::render`).  Another program
 //! holding the device, or Windows not allowing exclusive use of it
 //! ("Allow applications to take exclusive control of this device"), is
 //! reported so that the engine plays the song through the normal path.
@@ -34,7 +35,7 @@ use windows::Win32::System::Com::{
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObject};
 use windows::Win32::System::Variant::VT_LPWSTR;
 
-use crate::audio::{render, Event, RenderState, Shared};
+use crate::audio::{render, render_ints, Event, RenderState, Shared};
 
 /// Why the device could not be had for this app alone.
 #[derive(Debug)]
@@ -270,17 +271,25 @@ unsafe fn start_stream(device: &IMMDevice, label: &str, rate: u32, format: Forma
     })
 }
 
-/// Write `samples` (interleaved floats) into the device's buffer in its format.
-unsafe fn write(dst: *mut u8, samples: &[f32], format: Format, variant: (u16, u16, bool)) {
+/// Write `samples` (interleaved floats) into the device's buffer (a float format).
+unsafe fn write_floats(dst: *mut u8, samples: &[f32]) {
+    let out = std::slice::from_raw_parts_mut(dst, samples.len() * 4);
+    for (o, x) in out.chunks_exact_mut(4).zip(samples) {
+        o.copy_from_slice(&x.to_le_bytes());
+    }
+}
+
+/// Write `samples` (interleaved integers of `format`, from `render_ints()`) into the
+/// device's buffer: 16-bit, 24-bit in 3 bytes, or 32-bit words (whose 24 valid bits are
+/// the top ones, as the engine's 32-bit integers are left-justified).
+unsafe fn write_ints(dst: *mut u8, samples: &[i32], format: Format, variant: (u16, u16, bool)) {
     let bytes = variant.0 as usize / 8;
     let out = std::slice::from_raw_parts_mut(dst, samples.len() * bytes);
-    for (i, x) in samples.iter().enumerate() {
-        let o = &mut out[i * bytes..(i + 1) * bytes];
+    for (o, x) in out.chunks_exact_mut(bytes).zip(samples) {
         match format {
-            Format::F32 => o.copy_from_slice(&x.to_le_bytes()),
-            Format::I16 => o.copy_from_slice(&(bitperfect::int_sample_f32(*x, Format::I16) as i16).to_le_bytes()),
-            Format::I24 => o.copy_from_slice(&bitperfect::int_sample_f32(*x, Format::I24).to_le_bytes()[..3]),
-            Format::I32 => o.copy_from_slice(&bitperfect::int_sample_f32(*x, Format::I32).to_le_bytes()),
+            Format::I16 => o.copy_from_slice(&(*x as i16).to_le_bytes()),
+            Format::I24 => o.copy_from_slice(&x.to_le_bytes()[..3]),
+            _ => o.copy_from_slice(&x.to_le_bytes()),
         }
     }
 }
@@ -310,14 +319,24 @@ pub fn open(name: &str, rate: u32, format: Format, channels: u32, shared: Arc<Sh
                 };
                 let mut st = RenderState::new(&shared, rate);
                 let mut tmp = vec![0f32; stream.frames as usize * channels as usize];
+                let mut ints = vec![0i32; stream.frames as usize * channels as usize];
                 // the first buffer is filled before the stream starts, as WASAPI asks
-                let fill = |stream: &Stream, st: &mut RenderState, tmp: &mut Vec<f32>| -> windows::core::Result<()> {
+                let fill = |stream: &Stream,
+                            st: &mut RenderState,
+                            tmp: &mut Vec<f32>,
+                            ints: &mut Vec<i32>|
+                 -> windows::core::Result<()> {
                     let dst = stream.render.GetBuffer(stream.frames)?;
-                    render(&shared, st, tmp, channels as usize);
-                    write(dst, tmp, format, stream.variant);
+                    if format == Format::F32 {
+                        render(&shared, st, tmp, channels as usize);
+                        write_floats(dst, tmp);
+                    } else {
+                        render_ints(&shared, st, ints, channels as usize, format);
+                        write_ints(dst, ints, format, stream.variant);
+                    }
                     stream.render.ReleaseBuffer(stream.frames, 0)
                 };
-                let ok = fill(&stream, &mut st, &mut tmp).and_then(|_| stream.client.Start());
+                let ok = fill(&stream, &mut st, &mut tmp, &mut ints).and_then(|_| stream.client.Start());
                 if let Err(e) = ok {
                     let _ = tx.send(Err(WasapiError::from_win(&e, &name)));
                     let _ = CloseHandle(stream.event);
@@ -328,7 +347,7 @@ pub fn open(name: &str, rate: u32, format: Format, channels: u32, shared: Arc<Sh
                     if WaitForSingleObject(stream.event, 500) != WAIT_OBJECT_0 {
                         continue;
                     }
-                    if let Err(e) = fill(&stream, &mut st, &mut tmp) {
+                    if let Err(e) = fill(&stream, &mut st, &mut tmp, &mut ints) {
                         shared.events.lock().unwrap().push(Event::OutputError(realhires::tr!(
                             "The audio output failed: {e}.",
                             e = e.message().trim().trim_end_matches('.')

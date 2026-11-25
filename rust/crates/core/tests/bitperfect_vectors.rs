@@ -77,6 +77,11 @@ fn plans_reasons_and_texts_equal_python() {
         let access = Access::from_name(&text(c, "access")).unwrap();
         assert_eq!(bitperfect::status(Some(s), Some(&p), access, &text(c, "device"), true), text(c, "status"), "{what}");
         assert_eq!(
+            bitperfect::status_eq(Some(s), Some(&p), access, &text(c, "device"), true, true),
+            text(c, "status_eq"),
+            "{what} with the equalizer on"
+        );
+        assert_eq!(
             bitperfect::output_label(p.rate, p.format, bitperfect::song_bits(s), p.channels),
             text(c, "output"),
             "{what}"
@@ -99,7 +104,12 @@ fn plans_reasons_and_texts_equal_python() {
     let t = d.get("texts").unwrap();
     assert_eq!(bitperfect::BUSY, text(t, "busy"));
     assert_eq!(bitperfect::LOSSY_NOTE, text(t, "lossy"));
-    assert_eq!(bitperfect::EQ_BYPASSED, text(t, "eq"));
+    assert_eq!(bitperfect::EQ_ON, text(t, "eq_on"));
+    assert_eq!(bitperfect::EQ_NOTE, text(t, "eq_note"));
+    for c in list(d.get("still").unwrap()) {
+        let access = Access::from_name(&text(c, "access")).unwrap();
+        assert_eq!(bitperfect::still_runs(int(c, "rate") as u32, access, &text(c, "device")), text(c, "text"), "{c:?}");
+    }
     assert_eq!(bitperfect::WASAPI_FORMAT_NOTE, text(t, "wasapi"));
     assert_eq!(bitperfect::OFF, text(t, "off"));
     assert_eq!(bitperfect::ON_IDLE, text(t, "idle"));
@@ -141,6 +151,20 @@ fn float_samples_become_the_same_integers() {
         let x = v as f32 / 8_388_608.0;
         assert_eq!(bitperfect::int_sample_f32(x, Format::I24), v);
         assert_eq!(bitperfect::int_sample_f32(x, Format::I32), v << 8);
+    }
+}
+
+#[test]
+fn dithered_samples_become_the_same_integers() {
+    let d = load();
+    let cases = list(d.get("dither").unwrap());
+    assert!(cases.len() > 100);
+    for c in cases {
+        let x = c.get("x").unwrap().as_f64().unwrap();
+        let dither = c.get("d").unwrap().as_f64().unwrap();
+        for f in [Format::I16, Format::I24, Format::I32] {
+            assert_eq!(bitperfect::dithered_int_sample(x, f, dither) as i64, int(c, f.name()), "{x} {dither} {f:?}");
+        }
     }
 }
 

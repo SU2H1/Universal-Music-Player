@@ -2103,7 +2103,8 @@ impl App {
             ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
             let c = self.counts();
             for (i, v) in VERDICT_ORDER.iter().enumerate() {
-                let (_, color, desc) = verdict_style(*v);
+                let (_, _, desc) = verdict_style(*v);
+                let color = pal.verdict(*v); // 2.3: the theme's verdict colour
                 let count = if self.results.is_empty() { None } else { Some(c[i]) };
                 if chip(ui, verdict_label(*v), count, color, self.show[i]).on_hover_text(i18n::tr(desc)).clicked() {
                     self.show[i] = !self.show[i];
@@ -2291,11 +2292,13 @@ impl App {
                     let i = row.index();
                     let path = &rows[i];
                     let (texts, color) = self.row_texts(path, &running);
+                    // 2.3: a verdict in the theme's colour for it
+                    let color = self.results.get(path).map(|r| pal.verdict(r.verdict)).unwrap_or(color);
                     let color = on_page(color, pal);
                     let bg = if self.selection.contains(path) {
-                        Some(pal.hover)
+                        Some(pal.selection)
                     } else if last_hover == Some(i) {
-                        Some(pal.hover.gamma_multiply(0.6))
+                        Some(pal.row_hover)
                     } else if i % 2 == 1 {
                         Some(stripe)
                     } else {
@@ -2517,7 +2520,7 @@ impl App {
     fn dashboard_info(&mut self, ui: &mut Ui, pal: &Palette, r: Option<&FileResult>, cur: Option<&str>) {
         ui.horizontal(|ui| {
             let (text, color) = match (r, cur) {
-                (Some(r), _) => (verdict_label(r.verdict).to_string(), verdict_style(r.verdict).1),
+                (Some(r), _) => (verdict_label(r.verdict).to_string(), pal.verdict(r.verdict)),
                 (None, Some(_)) => (i18n::tr(PENDING_LABEL).to_string(), hex(PENDING_COLOR)),
                 _ => (String::new(), pal.secondary),
             };

@@ -45,9 +45,10 @@ from .player_pages import (AlbumPage, AlbumsPage, GroupItemPage, GroupPage, NowP
                            SettingsPage, SongsPage, album_order, artist_line, frame, label, plural)
 from .player_theme import (IconButton, Slider, Theme, draw_icon, fit_text, load_bundled_font, round_rect,
                            system_is_dark, theme_menu)
-from .player_widgets import Column, CoverCache, SongList, bind_wheel, draw_cover, fmt_time
+from .player_widgets import LABEL_DOT, Column, CoverCache, SongList, bind_wheel, draw_cover, draw_label_dot, fmt_time
 from .player_windows import CoverWindow, EditInfoWindow, EqualizerWindow, PlaybackInfoWindow, ask_name
 from .player_mb import MusicBrainzWindow
+from .player_tabs import TabPage, TabsMixin
 from . import musicbrainz
 from .playqueue import REPEAT_LABELS, REPEAT_MODES, SHUFFLE_LABELS, SHUFFLE_MODES, PlayQueue, SplitMix64
 
@@ -72,6 +73,20 @@ def nav_button(num: int, windowing: str, tk_version: float) -> str:
     if num in (4, 5) and windowing != "x11" and tk_version < 8.7:
         return "back" if num == 4 else "forward"
     return ""
+
+
+from .player_pages import LYRICS_WIDE_EXTRA  # noqa: E402  (Now Playing, 2.3)
+
+# the pages' names as Now Playing's back link shows them (2.3; shown with tr())
+PAGE_TITLES = {
+    "library": N_("Library"), "songs": N_("All Songs"), "folders": N_("Folders"), "albums": N_("Albums"),
+    "album": N_("Albums"), "artists": N_("Artists"), "album_artists": N_("Album Artists"), "genres": N_("Genres"),
+    "years": N_("Years"), "composers": N_("Composers"), "group": N_("Artists"), "playlists": N_("Playlists"),
+    "playlist": N_("Playlists"), "liked": N_("Liked Songs"), "disliked": N_("Disliked Songs"),
+    "played": N_("Recently Played"), "recent": N_("Recently Added"), "stats": N_("Your Stats"),
+    "stats_details": N_("Your Stats"), "search": N_("Search"), "nowplaying": N_("Now Playing"),
+    "settings": N_("Settings"), "quality": N_("Quality Check"), "tab": N_("Tabs"),
+}
 
 
 # ------------------------------------------------------ the 1.x scanner ---
@@ -114,6 +129,7 @@ class QualityCheck(gui.App):
 class Sidebar(tk.Frame):
     """Search; Library (the start page); "Library": All Songs ... Composers;
     "Playlists": Liked Songs, Disliked Songs, the playlists and New Playlist…;
+    "Tabs" (2.3): the custom tabs and New Tab… (a right click on a tab: its menu);
     "History": Recently Played, Recently Added, Your Stats; at the bottom Quality
     Check and Settings (FOOT)."""
 
@@ -169,6 +185,10 @@ class Sidebar(tk.Frame):
         t.reg(self.nav, bg="sidebar")
         self.nav.pack(fill="both", expand=True, padx=8)
         self.nav.bind("<Button-1>", self._click)
+        self.nav.bind("<Button-3>", self._context)  # 2.3: a playlist's menu
+        self.nav.bind("<Button-2>", self._context)  # macOS right click
+        if self.nav.tk.call("tk", "windowingsystem") == "aqua":  # and Ctrl-click, a right click there
+            self.nav.bind("<Control-Button-1>", self._context)
         self.nav.bind("<Motion>", lambda e: self._hover(self._key_at(self.nav.canvasy(e.y))))
         self.nav.bind("<Leave>", lambda e: self._hover(None))
         bind_wheel(self.nav, lambda n: self.nav.yview_scroll(n, "units"))
@@ -212,12 +232,14 @@ class Sidebar(tk.Frame):
     # ---- items ----------------------------------------------------------
     def items(self) -> List[tuple]:
         lists = [(f"playlist:{p['id']}", p["name"], "playlist") for p in self.app.state.playlists]
+        tabs = [(f"tab:{t['name']}", t["name"], "filter") for t in self.app.tabs]
         library = [(k, tr(text), icon) for k, text, icon in self.LIBRARY]
         history = [(k, tr(text), icon) for k, text, icon in self.HISTORY]
         return ([("library", tr("Library"), "library"), ("head", tr("Library"), "")] + library
                 + [("head", tr("Playlists"), ""), ("liked", tr("Liked Songs"), "heart"),
                    ("disliked", tr("Disliked Songs"), "thumbs_down")] + lists
-                + [("new_playlist", tr("New Playlist…"), "plus"), ("head", tr("History"), "")] + history)
+                + [("new_playlist", tr("New Playlist…"), "plus"), ("head", tr("Tabs"), "")] + tabs
+                + [("new_tab", tr("New Tab…"), "plus"), ("head", tr("History"), "")] + history)
 
     def _rows(self):
         rows, y = [], 2
@@ -244,10 +266,31 @@ class Sidebar(tk.Frame):
         key = self._key_at(self.nav.canvasy(e.y))
         if key == "new_playlist":
             self.app.new_playlist()
+        elif key == "new_tab":
+            self.app.new_tab()
+        elif key and key.startswith("tab:"):
+            self.app.open_tab(key[4:])
         elif key and key.startswith("playlist:"):
             self.app.open_playlist(key.split(":", 1)[1])
         elif key:
             self.app.show_page(key)
+
+    def _context(self, e) -> None:
+        """Right click on a playlist or a tab: its menu (2.3: Play, Shuffle, Rename…, Delete…,
+        Colour Label; Edit Tab…, Export Tab…, Delete Tab…, Colour Label)."""
+        key = self._key_at(self.nav.canvasy(e.y))
+        if key and key.startswith("playlist:"):
+            self.app.playlist_menu(key.split(":", 1)[1]).tk_popup(e.x_root, e.y_root)
+        elif key and key.startswith("tab:"):
+            self.app.tab_menu(key[4:]).tk_popup(e.x_root, e.y_root)
+
+    def label_of(self, key: str) -> Optional[str]:
+        """The colour label of a sidebar entry (playlists and tabs; 2.3), drawn after its name."""
+        if key.startswith("playlist:"):
+            return self.app.label_of("playlist", key.split(":", 1)[1])
+        if key.startswith("tab:"):
+            return self.app.label_of("tab", key[4:])
+        return None
 
     def _foot_key(self, y: float) -> Optional[str]:
         i = int((y - 2) // self.ROW)
@@ -268,8 +311,13 @@ class Sidebar(tk.Frame):
         if sel or key == self.hover:
             round_rect(c, 4, y + 1, W - 4, y + h - 1, 7, fill=t.c("side_sel") if sel else t.c("hover"), outline="")
         draw_icon(c, icon, 24, y + h / 2, 15, t.c("accent"), filled=icon == "heart")
-        c.create_text(44, y + h / 2, text=fit_text(t.f("side"), text, W - 52, self.app.fit_cache), anchor="w",
-                      fill=t.c("text2") if key == "new_playlist" else t.c("text"), font=t.f("side"))
+        dot = self.label_of(key)
+        shown = fit_text(t.f("side"), text, W - 52 - (LABEL_DOT + 8 if dot else 0), self.app.fit_cache)
+        c.create_text(44, y + h / 2, text=shown, anchor="w",
+                      fill=t.c("text2") if key in ("new_playlist", "new_tab") else t.c("text"), font=t.f("side"))
+        if dot:  # 2.3: the colour label, after the name
+            x = 44 + t.f("side").measure(shown) + 6 + LABEL_DOT / 2
+            draw_label_dot(c, x, y + h / 2, dot, tags=("label", f"label:{key}"))
 
     def redraw(self) -> None:
         t, c = self.app.theme, self.nav
@@ -365,8 +413,10 @@ class Lcd(tk.Canvas):
         bw = bf.measure(badge) + 14
         bx1 = x1 - 10
         bx0 = bx1 - bw
-        round_rect(self, bx0, cy - 9, bx1, cy + 9, 5, fill="", outline=t.c("badge"), width=1)
-        self.create_text((bx0 + bx1) / 2, cy, text=badge, fill=t.c("badge"), font=bf)
+        # 2.3: in the quality's colour (gold for Hi-Res Lossless, the accent for Lossless...)
+        qc = t.c(themes.QUALITY_COLOR_KEYS[themes.quality_kind(trk)])
+        round_rect(self, bx0, cy - 9, bx1, cy + 9, 5, fill="", outline=qc, width=1, tags="badge")
+        self.create_text((bx0 + bx1) / 2, cy, text=badge, fill=qc, font=bf, tags="badge")
         self.geo["badge"] = (bx0 - 4, cy - 12, bx1 + 4, cy + 12)
         tx0, tx1 = cx0 + self.COVER + 14, bx0 - 14
         mid = (tx0 + tx1) / 2
@@ -558,15 +608,18 @@ class PlaybackBar(tk.Frame):
         self.more.set(enabled=has)
         self.lyrics.set(on=app.page_name == "nowplaying" and not app.lyrics_hidden and app.np_tab == "lyrics")
         self.queue.set(on=app.up_next_shown)
-        # bit-perfect playback: the equalizer is bypassed and the gain is exactly 1, so the slider shows
-        # full volume and cannot move
+        # bit-perfect playback: the gain is exactly 1, so the slider shows full volume and cannot move
+        # (2.3: the equalizer is heard then too, so its button shows whether it is on)
         bit_perfect = app.cfg.bit_perfect
-        self.eq.set(on=bool(st.eq.get("enabled")) and not bit_perfect)
+        self.eq.set(on=bool(st.eq.get("enabled")))
         self.speaker.set(level=0.0 if st.muted else 1.0 if bit_perfect else st.volume)
         self.volume.set(1.0 if bit_perfect else st.volume, enabled=not bit_perfect)
 
 
 class UpNextPanel(tk.Frame):
+    """The queue: double-click a song to play it now, drag it to another place, or
+    right-click it to take it out ("Remove from Up Next", 2.3)."""
+
     WIDTH = 300
 
     def __init__(self, master, app: "PlayerApp"):
@@ -581,21 +634,25 @@ class UpNextPanel(tk.Frame):
         self.list = SongList(self, t, [Column("title", "", 200, True, kind="two", key2="artist")],
                              lambda r, k: r.display_title if k == "title" else tr_name(r.display_artist),
                              header=False, zebra=False, row_height=48, bg_role="sidebar", on_activate=app.jump_to,
-                             empty_text=tr("Nothing is queued."))
+                             empty_text=tr("Nothing is queued."), on_move=app.move_in_up_next,
+                             on_context=lambda i, e: app.up_next_menu(i).tk_popup(e.x_root, e.y_root),
+                             label_of=lambda r: app.label_of("song", r.path))
         self.list.pack(fill="both", expand=True, padx=(4, 0))
 
-    def refresh(self) -> None:
+    def refresh(self, keep: bool = False) -> None:
+        """Show the queue again; `keep` keeps the scroll position and the selected song
+        (after the user moved or removed one)."""
         app = self.app
         q = app.queue
         self.source.configure(text=tr("Playing from {name}", name=app.context_name)
                               if q is not None and app.context_name else "")
-        rows = [app.by_path[p] for p in (q.up_next(50) if q is not None else []) if p in app.by_path]
-        self.list.set_rows(rows)
+        rows = [app.by_path[p] for p in app._shown_up_next()]
+        self.list.set_rows(rows, keep=keep)
 
 
 # ------------------------------------------------------------ the app ---
-class PlayerApp:
-    """The main window."""
+class PlayerApp(TabsMixin):
+    """The main window (custom tabs, 2.3: TabsMixin in player_tabs.py)."""
 
     def __init__(self, root: tk.Tk, initial: Optional[List[str]] = None):
         self.root = root
@@ -636,6 +693,8 @@ class PlayerApp:
         self.up_next_shown = False
         self.lyrics_hidden = False  # Now Playing without its lyrics column (the Lyrics button, 2.1)
         self.np_tab = "lyrics"      # Now Playing's right half: lyrics, upnext or details (for the session)
+        self.lyrics_wide = False    # Now Playing's Lyrics only: the lyrics fill the page (2.3, for the session)
+        self.np_side = "cover"      # Now Playing's left half: the cover or the album's "songs" (2.3)
         self.eq_window: Optional[EqualizerWindow] = None
         self.info_window: Optional[PlaybackInfoWindow] = None
         self.edit_window: Optional[EditInfoWindow] = None  # one Properties window at a time
@@ -659,11 +718,19 @@ class PlayerApp:
         self.listen: Optional[dict] = None          # the song being listened to, for the play history
         self.name_dialog = None                     # an open NameDialog (tests fill it in)
         self.last_menu: Optional[tk.Menu] = None    # the song menu shown last
+        # 2.3: colour labels: the Colour Label menu shown last, its swatches, and the colour
+        # chooser (None: tkinter's; tests set a function with askcolor's arguments)
+        self.last_label_menu: Optional[tk.Menu] = None
+        self._swatches: Dict[str, tk.PhotoImage] = {}
+        self.color_chooser: Optional[Callable] = None
         self.lib = musiclib.Library()                # the main thread's connection (index, play history)
         self.lib_pending = False
         self._quitting = False
         self.argv: List[str] = list(initial or [])  # the command line, for restart()
         self.start_process: Callable = subprocess.Popen  # how restart() starts the app again (tests replace it)
+        self.url_opener: Callable[[str], None] = gui.open_url  # how web pages are opened (tests record them, 2.3)
+        self.clipboard_reader: Optional[Callable[[], str]] = None  # the clipboard's text (tests set a fake)
+        self._init_tabs()  # 2.3: the tabs folder, read before the sidebar is drawn
         self._build()
         self.qc = QualityCheck(root, self, parent=self.pages["quality"], initial=initial, cfg=cfg)
         self.qc.pack(fill="both", expand=True)
@@ -729,6 +796,7 @@ class PlayerApp:
             "search": lambda: SearchPage(self),
             "nowplaying": lambda: NowPlayingPage(self),
             "settings": lambda: SettingsPage(self),
+            "tab": lambda: TabPage(self),
         }
 
     def _build_popups(self) -> None:
@@ -798,6 +866,7 @@ class PlayerApp:
         for seq, fn in zip(NAV_KEYS, (self.go_back, self.go_forward)):
             r.bind(seq, lambda e, fn=fn: None if self._typing(e) else (fn(), "break")[1])
         r.bind("<ButtonPress>", self._nav_button, add="+")
+        r.bind("<Escape>", self._escape, add="+")
 
     def _typing(self, e) -> bool:
         w = e.widget
@@ -840,9 +909,13 @@ class PlayerApp:
                 self.dirty.discard(name)
                 page.refresh()
             page.show(**kw)
+            if name in ("library", "tab", "settings"):  # 2.3: tab files copied into the folder appear
+                self.reload_tabs()
         if name == "playlist":
             pid = self.pages["playlist"].pid
             self.sidebar.select(f"playlist:{pid}" if pid else None)
+        elif name == "tab":
+            self.sidebar.select(f"tab:{self.pages['tab'].name}")
         else:
             self.sidebar.select(name if name in Sidebar.PAGES else None)
         self.bar.update_controls()
@@ -861,6 +934,8 @@ class PlayerApp:
             return {"text": p.text}
         if self.page_name == "group" and isinstance(p, GroupItemPage):
             return {"kind": p.kind, "group": p.name}
+        if self.page_name == "tab" and isinstance(p, TabPage):
+            return {"tab": p.name}
         return {}
 
     def go_back(self) -> None:
@@ -937,11 +1012,75 @@ class PlayerApp:
 
     def apply_lyrics_size(self) -> None:
         """The lyrics fonts at the size of A− / A+ (`PlayerState.lyrics_size`); plain lyrics
-        a little smaller."""
+        a little smaller; with Lyrics only (2.3) LYRICS_WIDE_EXTRA pixels larger."""
         size = playerstate.clean_lyrics_size(self.state.lyrics_size)
-        self.theme.f("lyrics").configure(size=-size)
-        self.theme.f("lyrics_b").configure(size=-size)
-        self.theme.f("plain").configure(size=-playerstate.plain_lyrics_size(size))
+        extra = LYRICS_WIDE_EXTRA if getattr(self, "lyrics_wide", False) else 0
+        self.theme.f("lyrics").configure(size=-(size + extra))
+        self.theme.f("lyrics_b").configure(size=-(size + extra))
+        self.theme.f("plain").configure(size=-(playerstate.plain_lyrics_size(size) + extra))
+
+    def toggle_lyrics_wide(self) -> None:
+        """Now Playing's Lyrics only (2.3): the cover goes and the lyrics fill the page, one
+        step larger; pressed again (or Esc) the cover comes back.  Kept for the session."""
+        self.lyrics_wide = not self.lyrics_wide
+        self.apply_lyrics_size()
+        p = self.pages.get("nowplaying")
+        if isinstance(p, NowPlayingPage):
+            p.size_changed()
+            p.tab_changed()
+
+    def set_np_side(self, side: str) -> None:
+        """Now Playing's left half (2.3): the "cover" or the album's "songs" (a swipe, the
+        dots); kept for the session."""
+        if side in ("cover", "songs") and side != self.np_side:
+            self.np_side = side
+            p = self.pages.get("nowplaying")
+            if isinstance(p, NowPlayingPage):
+                p.draw_art()
+
+    def _escape(self, e) -> Optional[str]:
+        """Esc on Now Playing with Lyrics only on brings the cover back, and on the Genres page
+        it ends choosing genres, as Done does (2.3). Handled for the whole window, because the
+        key goes to the widget that has the focus, which need not be the grid of genres."""
+        if self.qc.active or self._typing(e):
+            return None
+        if self.page_name == "genres" and self.name_dialog is None:
+            g = self.pages.get("genres")
+            if isinstance(g, GroupPage) and g.selecting():
+                g.done_selecting()
+                return "break"
+            return None
+        if self.page_name != "nowplaying" or not self.lyrics_wide:
+            return None
+        p = self.pages.get("nowplaying")
+        if isinstance(p, NowPlayingPage) and p.mode() == "wide":
+            self.toggle_lyrics_wide()
+            return "break"
+        return None
+
+    def page_label(self, name: str, args: dict) -> str:
+        """A page's name as Now Playing's back link shows it (2.3): an album's, playlist's,
+        folder's, artist's (genre's…) own name, else the page's title."""
+        if name == "album" and args.get("album"):
+            return tr_name(args["album"]["title"])
+        if name == "playlist":
+            pl = self.state.playlist(args.get("pid") or "")
+            if pl is not None:
+                return pl["name"]
+        if name == "group" and args.get("group"):
+            return tr_name(args["group"])
+        if name == "folders" and args.get("folder"):
+            return os.path.basename(args["folder"].rstrip(os.sep)) or args["folder"]
+        if name == "tab" and args.get("tab"):  # a tab's own name (2.3)
+            return args["tab"]
+        return tr(PAGE_TITLES.get(name, "Library"))
+
+    def back_label(self) -> str:
+        """The name of the page Back returns to ("" when there is none)."""
+        if not self.history:
+            return ""
+        name, args = self.history[-1]
+        return self.page_label(name, args)
 
     def lyrics_size_step(self, steps: int) -> None:
         """A+ (+1) / A− (-1) on Now Playing: the lyrics larger or smaller, saved at once."""
@@ -997,6 +1136,7 @@ class PlayerApp:
         self.album_by_key = {a["key"]: a for a in self.albums}
         self._album_key = {t.path: a["key"] for a in self.albums for t in a["tracks"]}
         self.covers.library_changed(self.albums)  # covers are kept unless an album's songs changed
+        self.tab_cache_clear()
         self.dirty = set(self.pages) - {"quality"}
         if self.page_name in self.dirty:
             self.dirty.discard(self.page_name)
@@ -1120,6 +1260,11 @@ class PlayerApp:
             self._settings_page_again()
         if old.language != new.language:  # the restart note under Settings → Appearance → Language
             self._settings_page_again()
+        if old.library_layout != new.library_layout:  # 2.3: tiles or a list
+            page = self.pages.get("library")
+            if page is not None:
+                page.area.redraw()
+            self._settings_page_again()
         if old.output_device != new.output_device:
             self.engine.set_device(new.output_device)
         if old.gapless != new.gapless:
@@ -1197,6 +1342,7 @@ class PlayerApp:
             sub.add_separator()
         sub.add_command(label=tr("New Playlist…"), command=lambda: self.new_playlist([path]))
         m.add_cascade(label=tr("Add to playlist"), menu=sub)
+        self.add_label_menu(m, "song", path)  # 2.3
         if extras:
             m.add_separator()
             for text, cmd in extras:
@@ -1211,7 +1357,8 @@ class PlayerApp:
             # 2.2: "Acquire Metadata…" (was "Get info from MusicBrainz…"): the MusicBrainz window
             # for this song (song lists select one song at a time)
             m.add_command(label=tr("Acquire Metadata…"), command=lambda: self.musicbrainz([track]))
-            m.add_command(label=tr("Cover…"), command=lambda: self.open_cover_window(path))
+            # 2.3: the Cover window of the song's album (it was "Cover…")
+            m.add_command(label=tr("Change Cover…"), command=lambda: self.open_cover_window(path))
             m.add_command(label=tr("Show in folder"), command=lambda: gui.reveal_in_file_manager(path))
         if path == self.current:
             m.add_command(label=tr("Playback Info…"), command=self.open_info)
@@ -1220,9 +1367,10 @@ class PlayerApp:
         return m
 
     # ---- song information ------------------------------------------------------
-    def edit_info(self, tracks: List[Track], heading: str = "", subheading: str = "") -> Optional[EditInfoWindow]:
-        """The Properties window (2.0 "Edit Info") for these songs; while one is open it
-        is brought to the front instead (one at a time)."""
+    def edit_info(self, tracks: List[Track], heading: str = "", subheading: str = "",
+                  album: bool = False) -> Optional[EditInfoWindow]:
+        """The Properties window (2.0 "Edit Info") for these songs (`album`: Album
+        Properties); while one is open it is brought to the front instead (one at a time)."""
         w = self.edit_window
         if w is not None:
             try:
@@ -1236,7 +1384,7 @@ class PlayerApp:
         tracks = [t for t in tracks if not getattr(t, "missing", False)]
         if not tracks:
             return None
-        self.edit_window = EditInfoWindow(self, tracks, heading, subheading)
+        self.edit_window = EditInfoWindow(self, tracks, heading, subheading, album=album)
         return self.edit_window
 
     def musicbrainz(self, tracks: List[Track], album: bool = False, heading: str = "",
@@ -1308,11 +1456,12 @@ class PlayerApp:
     def edit_album_info(self, album: dict) -> Optional[EditInfoWindow]:
         n = len(album["tracks"])
         return self.edit_info(album["tracks"], tr_name(album["title"]),
-                              " · ".join(x for x in (tr_name(album["artist"]), plural(n, "song")) if x))
+                              " · ".join(x for x in (tr_name(album["artist"]), plural(n, "song")) if x), album=True)
 
     def open_cover_window(self, path: str) -> Optional[CoverWindow]:
-        """The Cover window of this song's cover (a click on Now Playing's cover, Cover…
-        in the song menus): one at a time; while it is busy it is brought to the front."""
+        """The Cover window of this song's cover (a click on Now Playing's cover, Change
+        Cover… in the song and album menus): one at a time; while it is busy it is brought
+        to the front."""
         w = getattr(self, "cover_window", None)
         if w is not None:
             try:
@@ -1333,9 +1482,33 @@ class PlayerApp:
 
     def tags_saved(self, paths: List[str]) -> None:
         """Edit Info saved new information into these files (the library index already
-        holds it): read the library again, so every page and the LCD show it."""
+        holds it): read the library again, so every page and the LCD show it.  An open
+        Properties window reads the files again too (2.3: after Acquire Metadata…)."""
         if paths:
             self.refresh_library()
+            w = self.edit_window
+            if w is not None:
+                w.files_changed(paths)
+
+    # ---- the browser and the clipboard (2.3) -------------------------------------------
+    def open_url(self, url: str) -> str:
+        """Open a web page in the system's browser (Search Cover Online, the Properties
+        window's Search buttons); "" when it was opened, else what went wrong, for the
+        window to show."""
+        try:
+            self.url_opener(url)
+        except Exception as exc:  # noqa: BLE001 - no browser: the window says so instead of failing
+            return tr("The browser could not be opened: {error}", error=exc)
+        return ""
+
+    def clipboard_text(self) -> str:
+        """The text on the clipboard, or "" when it holds none."""
+        if self.clipboard_reader is not None:
+            return self.clipboard_reader() or ""
+        try:
+            return str(self.root.clipboard_get())
+        except tk.TclError:
+            return ""
 
     def more_menu(self) -> None:
         if not self.current:
@@ -1542,6 +1715,14 @@ class PlayerApp:
         new.theme = name
         self.apply_settings(new)
 
+    def set_library_layout(self, layout: str) -> None:
+        """The Library page's tiles and list buttons (2.3): Settings → Appearance → Library page."""
+        if layout not in settings_mod.LIBRARY_LAYOUTS or layout == self.cfg.library_layout:
+            return
+        new = settings_mod.Settings.from_dict(self.cfg.to_dict())
+        new.library_layout = layout
+        self.apply_settings(new)
+
     def new_theme(self, name: Optional[str] = None) -> Optional[str]:
         """A copy of the theme drawn now, named by themes.copy_name(); it is selected."""
         custom = themes.load_custom()
@@ -1588,8 +1769,16 @@ class PlayerApp:
             self.theme.apply(self.cfg.theme, self.cfg.font_family)
         self._settings_page_again()
 
-    def set_theme_color(self, name: str, key: str, value: str) -> None:
-        self._edit_theme(name, lambda t: t["colors"].__setitem__(key, value.lower()))
+    def set_theme_color(self, name: str, key: str, value: Optional[str]) -> None:
+        """Change one colour of the user's theme `name`; for the extra colours of 2.3
+        (themes.EXTRA_COLOR_KEYS) None makes it derived from the eight again (Reset)."""
+        def change(t: dict) -> None:
+            if value is None:
+                if key in themes.EXTRA_COLOR_KEYS:
+                    t["colors"].pop(key, None)
+            else:
+                t["colors"][key] = value.lower()
+        self._edit_theme(name, change)
 
     def set_theme_dark(self, name: str, dark: bool) -> None:
         self._edit_theme(name, lambda t: t.__setitem__("dark", bool(dark)))
@@ -1676,6 +1865,7 @@ class PlayerApp:
         c = copy.copy(q)
         c.order = list(q.order)
         c.queued = list(q.queued)  # next() takes the first queued song: not from the real queue
+        c.inserted, c.removed = set(q.inserted), set(q.removed)  # next() marks the song it takes
         c.rng = SplitMix64(0)
         c.rng.state = q.rng.state
         return c.next(auto=True)
@@ -1762,12 +1952,63 @@ class PlayerApp:
                                                                                    "duration", 0.0))
 
     def jump_to(self, index: int) -> None:
-        """Up Next: play that song now (the queue continues after it)."""
-        q = self.queue
-        if q is None:
+        """Up Next: play the song in row `index` now (the queue continues after it)."""
+        q, i = self.queue, self._queue_index(index)
+        if q is None or i is None:
             return
-        if q.jump(index) is not None:
+        if q.jump(i) is not None:
             self._play_path(q.current)  # type: ignore[arg-type]
+
+    # ---- editing Up Next (2.3) -------------------------------------------------
+    def _shown_up_next(self) -> List[str]:
+        """The paths Up Next shows (songs no longer in the index are left out there), in
+        the Up Next panel and in Now Playing's Up Next view alike."""
+        q = self.queue
+        return [p for p in (q.up_next(50) if q is not None else []) if p in self.by_path]
+
+    def _queue_index(self, index: int) -> Optional[int]:
+        """Up Next's row `index` as a place in the queue's own Up Next."""
+        q = self.queue
+        if q is None or index < 0:
+            return None
+        places = [i for i, p in enumerate(q.up_next(50)) if p in self.by_path]
+        return places[index] if index < len(places) else None
+
+    def up_next_menu(self, index: int) -> tk.Menu:
+        """The right-click menu of Up Next's row `index`."""
+        m = tk.Menu(self.root, tearoff=False)
+        m.add_command(label=tr("Remove from Up Next"), command=lambda: self.remove_from_up_next(index))
+        self._theme_menu(m)
+        self.last_menu = m
+        return m
+
+    def move_in_up_next(self, src: int, dst: int) -> None:
+        """Up Next: the song in row `src` was dragged to row `dst`."""
+        q, a, b = self.queue, self._queue_index(src), self._queue_index(dst)
+        if q is None or a is None or b is None or not q.move_upcoming(a, b):
+            return
+        self._up_next_edited()
+
+    def remove_from_up_next(self, index: int) -> None:
+        """Up Next: take the song in row `index` out of the queue."""
+        q, i = self.queue, self._queue_index(index)
+        if q is None or i is None or q.remove_upcoming(i) is None:
+            return
+        self.up_next.list.selected = None
+        np = self.pages.get("nowplaying")
+        if np is not None:
+            np.queue_list.selected = None
+        self._up_next_edited()
+
+    def _up_next_edited(self) -> None:
+        """After a move or a removal: the song that follows gaplessly is set again, and
+        both views of Up Next show the queue where they were scrolled to."""
+        self._update_next()
+        if self.up_next_shown:
+            self.up_next.refresh(keep=True)
+        np = self.pages.get("nowplaying")
+        if np is not None and hasattr(np, "refresh_queue"):
+            np.refresh_queue(keep=True)
 
     def queue_songs(self, paths: List[str], first: bool) -> None:
         """Play Next (`first`) / Add to Queue (2.1): the songs come after the current one
@@ -1910,6 +2151,7 @@ class PlayerApp:
 
     def _likes_changed(self) -> None:
         self.save_state()
+        self.tab_cache_clear()  # tabs may have rules on likes (2.3)
         for p in self.pages.values():
             if isinstance(p, Page):
                 p.likes_changed()
@@ -1919,6 +2161,112 @@ class PlayerApp:
     def toggle_like_current(self) -> None:
         if self.current:
             self.toggle_like(self.current)
+
+    # ---- colour labels (2.3) -----------------------------------------------------
+    # the label kinds of the grouping pages' cards
+    GROUP_LABEL_KINDS = {"artists": "artist", "album_artists": "album_artist", "genres": "genre",
+                         "years": "year", "composers": "composer"}
+
+    def label_of(self, kind: str, key) -> Optional[str]:
+        """The colour label ("#rrggbb") of a song (path), album (key), artist, album artist,
+        genre, year or composer (name), playlist (id) or tab (name); None when it has none."""
+        return self.state.label_of(kind, key)
+
+    def set_label(self, kind: str, key, color: Optional[str]) -> None:
+        """Give it a colour label (None takes it away): saved at once, every list redrawn."""
+        self.state.set_label(kind, key, color)
+        self.save_state()
+        self.labels_changed()
+
+    def labels_changed(self) -> None:
+        """Redraw what shows labels: the song tables, the cards, the sidebar and Up Next."""
+        for p in self.pages.values():
+            if not isinstance(p, Page):
+                continue
+            for name in ("table", "queue_list", "grid_w"):  # song tables, Now Playing's Up Next, cards
+                w = getattr(p, name, None)
+                try:
+                    if isinstance(w, SongList):
+                        w.redraw()
+                    elif w is not None and hasattr(w, "relayout"):
+                        w.relayout()
+                except tk.TclError:
+                    pass
+        self.sidebar.redraw()
+        self.up_next.list.redraw()
+
+    def ask_color(self, initial: str, title: str) -> Optional[str]:
+        """The system's colour chooser ("#rrggbb", None when cancelled).  Tests set
+        `color_chooser` to a function with colorchooser.askcolor's arguments."""
+        chooser = self.color_chooser
+        if chooser is None:
+            from tkinter import colorchooser
+
+            chooser = colorchooser.askcolor
+        got = chooser(color=initial or None, parent=self.root, title=title)
+        color = playerstate.clean_label_color(got[1] if got else "")
+        return color or None
+
+    def custom_label(self, kind: str, key) -> None:
+        """Colour Label → Custom…: any colour, from the system's colour chooser."""
+        color = self.ask_color(self.label_of(kind, key) or "#8e8e93", tr("Colour Label"))
+        if color:
+            self.set_label(kind, key, color)
+
+    def _label_swatch(self, color: str) -> tk.PhotoImage:
+        """A small round swatch for the Colour Label menu (kept for the app's life)."""
+        img = self._swatches.get(color)
+        if img is None:
+            img = tk.PhotoImage(master=self.root, width=12, height=12)
+            img.put(color, to=(0, 0, 12, 12))
+            for y in range(12):  # round: the corners stay transparent
+                for x in range(12):
+                    if (x - 5.5) ** 2 + (y - 5.5) ** 2 > 30:
+                        img.transparency_set(x, y, True)
+            self._swatches[color] = img
+        return img
+
+    def add_label_menu(self, menu: tk.Menu, kind: str, key) -> tk.Menu:
+        """Add "Colour Label ▸" to a menu (2.3): Red, Orange, Yellow, Green, Blue, Purple,
+        Grey, Custom… (the system's colour chooser) and None, the label in use marked.
+        `kind` is one of playerstate.LABEL_KINDS ("song", "album", "artist", "album_artist",
+        "genre", "year", "composer", "playlist", "tab") and `key` what it is kept under (a
+        path, an album key, a name, a playlist id, a tab name)."""
+        sub = tk.Menu(menu, tearoff=False)
+        current = self.label_of(kind, key) or ""
+        fixed = {c for _, c in playerstate.LABEL_COLORS}
+        var = tk.StringVar(master=sub, value=current if current in fixed or not current else "custom")
+        sub.vars = [var]  # type: ignore[attr-defined]  # the variable lives as long as the menu
+        for name, color in playerstate.LABEL_COLORS:
+            sub.add_radiobutton(label=tr(name), image=self._label_swatch(color), compound="left", variable=var,
+                                value=color, command=lambda c=color: self.set_label(kind, key, c))
+        sub.add_separator()
+        sub.add_radiobutton(label=tr("Custom…"), variable=var, value="custom",
+                            command=lambda: self.custom_label(kind, key))
+        sub.add_radiobutton(label=tr("None"), variable=var, value="", command=lambda: self.set_label(kind, key, None))
+        self._theme_menu(sub)
+        menu.add_cascade(label=tr("Colour Label"), menu=sub)
+        self.last_label_menu = sub
+        return sub
+
+    def playlist_menu(self, pid: str) -> tk.Menu:
+        """The menu of a playlist (2.3: right click in the sidebar and on the Playlists
+        page): Play, Shuffle, Rename…, Delete… and Colour Label."""
+        m = tk.Menu(self.root, tearoff=False)
+        name = next((p["name"] for p in self.state.playlists if p["id"] == pid), "")
+
+        def songs() -> List[Track]:
+            return [t for t in self.playlist_tracks(pid) if not getattr(t, "missing", False)]
+        m.add_command(label=tr("Play"), command=lambda: songs() and self.play_list(songs(), 0, name))
+        m.add_command(label=tr("Shuffle"), command=lambda: songs() and self.play_list(songs(), 0, name, shuffle=True))
+        m.add_separator()
+        m.add_command(label=tr("Rename…"), command=lambda: self.rename_playlist(pid))
+        m.add_command(label=tr("Delete…"), command=lambda: self.delete_playlist(pid))
+        m.add_separator()
+        self.add_label_menu(m, "playlist", pid)
+        self._theme_menu(m)
+        self.last_menu = m
+        return m
 
     def save_state(self) -> None:
         st = self.state
@@ -1993,8 +2341,7 @@ class PlayerApp:
                                                                          player_mod.resampler_name()))
                    if rate else dash),
                   (tr("Volume"), tr_text(player_mod.fmt_gain(gain, self.state.muted))),
-                  (tr("Equalizer"), tr(bitperfect.EQ_BYPASSED) if bit_perfect
-                   else tr_text(player_mod.eq_summary(self.state.eq))),
+                  (tr("Equalizer"), tr_text(player_mod.eq_summary(self.state.eq))),
                   (tr("Gapless"), tr("On") if self.cfg.gapless else tr("Off"))]
         quality = [(tr("Verdict"), tr("Not checked yet"))]
         store = self.qc.store
